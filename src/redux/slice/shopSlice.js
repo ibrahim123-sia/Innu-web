@@ -151,9 +151,9 @@ export const getAdminShops = createAsyncThunk(
 
 export const getBrandShops = createAsyncThunk(
   'shop/getBrandShops',
-  async (_, { rejectWithValue }) => {
+  async (brandId, { rejectWithValue }) => {
     try {
-      const response = await API.get('/shops/brand-shops');
+      const response = await API.get(`/shops/brand/${brandId}/shops`);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);

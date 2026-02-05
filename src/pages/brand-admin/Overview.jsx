@@ -1,62 +1,85 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { 
-  selectAllBrands,
-  getAllBrands
-} from '../../redux/slice/brandSlice';
 import {
-  selectAllShops,
-  getAllShops
+  getBrandShops
 } from '../../redux/slice/shopSlice';
 import {
-  selectAllOrders,
   getAllOrders
 } from '../../redux/slice/orderSlice';
 import {
   getTotalAIVideoRequests,
-  getAIVideoRequestsByBrand
+  getAIVideoRequestsByBrand,
+  getBrandAIErrorStats
 } from '../../redux/slice/videoEditSlice';
 import { Link } from 'react-router-dom';
 
 const Overview = () => {
   const dispatch = useDispatch();
-  const brands = useSelector(selectAllBrands);
-  const allShops = useSelector(selectAllShops);
-  const allOrders = useSelector(selectAllOrders);
+  const user = useSelector(state => state.user.currentUser);
+  const brandId = user?.brand_id;
+  
+  // Get shops directly from Redux state
+  const shops = useSelector(state => state.shop.shops || []);
+  
+  // Get all orders and filter by brand
+  const allOrders = useSelector(state => state.order.orders || []);
   
   const [loading, setLoading] = useState(true);
   const [dailyOrders, setDailyOrders] = useState(0);
   const [totalAIVideoRequests, setTotalAIVideoRequests] = useState(0);
   const [aiRequestsByBrand, setAiRequestsByBrand] = useState([]);
-  const [topBrand, setTopBrand] = useState(null);
+  const [brandAIStats, setBrandAIStats] = useState(null);
+  const [topShop, setTopShop] = useState(null);
 
+  // Fetch data only once
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (brandId) {
+      fetchData();
+    }
+  }, [brandId]);
 
+  // Calculate stats when data changes
   useEffect(() => {
-    calculateStats();
-  }, [allOrders, allShops, aiRequestsByBrand]);
+    if (!loading) {
+      calculateStats();
+    }
+  }, [shops, allOrders, aiRequestsByBrand, loading]);
 
   const fetchData = async () => {
+    if (!brandId) return;
+    
     setLoading(true);
     try {
       const results = await Promise.all([
-        dispatch(getAllBrands()),
-        dispatch(getAllShops({ include_inactive: true })),
+        dispatch(getBrandShops(brandId)), // Pass brandId here
         dispatch(getAllOrders()),
         dispatch(getTotalAIVideoRequests()),
-        dispatch(getAIVideoRequestsByBrand())
+        dispatch(getAIVideoRequestsByBrand()),
+        dispatch(getBrandAIErrorStats())
       ]);
 
       // Set AI video requests data
-      if (results[3].payload?.data?.total_ai_video_requests) {
-        setTotalAIVideoRequests(results[3].payload.data.total_ai_video_requests);
+      if (results[2]?.payload?.data?.total_ai_video_requests) {
+        setTotalAIVideoRequests(results[2].payload.data.total_ai_video_requests);
       }
       
       // Set AI requests by brand data
-      if (results[4].payload?.data) {
-        setAiRequestsByBrand(results[4].payload.data);
+      if (results[3]?.payload?.data) {
+        const allAiRequests = results[3].payload.data;
+        // Filter for current brand
+        const brandAiRequests = allAiRequests.filter(item => 
+          item.brand_id && brandId && String(item.brand_id) === String(brandId)
+        );
+        setAiRequestsByBrand(brandAiRequests);
+      }
+      
+      // Set brand AI stats
+      if (results[4]?.payload?.data) {
+        const allBrandStats = results[4].payload.data;
+        const currentBrandStats = allBrandStats.find(stat => 
+          stat.brandId && brandId && String(stat.brandId) === String(brandId)
+        );
+        setBrandAIStats(currentBrandStats);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -71,36 +94,59 @@ const Overview = () => {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     
-    const todayOrders = allOrders?.filter(order => {
+    // Filter orders by brand and date
+    const brandOrders = allOrders.filter(order => 
+      order.brand_id && brandId && String(order.brand_id) === String(brandId)
+    );
+    
+    const todayOrders = brandOrders.filter(order => {
+      if (!order?.created_at) return false;
       const orderDate = new Date(order.created_at);
       return orderDate >= yesterday;
     }).length || 0;
     
     setDailyOrders(todayOrders);
 
-    // Find top brand with most AI video requests
-    if (aiRequestsByBrand.length > 0) {
-      // Sort brands by AI video requests (descending)
-      const sortedBrands = [...aiRequestsByBrand].sort((a, b) => 
-        (b.total_ai_video_requests || 0) - (a.total_ai_video_requests || 0)
+    // Find top shop with most AI video requests
+    if (aiRequestsByBrand.length > 0 && shops.length > 0) {
+      // Combine shop info with AI request data
+      const shopsWithAIRequests = shops.map(shop => {
+        const shopAIRequests = aiRequestsByBrand.find(item => 
+          item.shop_id && shop.id && String(item.shop_id) === String(shop.id)
+        );
+        return {
+          ...shop,
+          aiVideoRequests: shopAIRequests?.total_ai_video_requests || 0
+        };
+      });
+
+      // Sort shops by AI video requests (descending)
+      const sortedShops = [...shopsWithAIRequests].sort((a, b) => 
+        (b.aiVideoRequests || 0) - (a.aiVideoRequests || 0)
       );
 
-      if (sortedBrands.length > 0) {
-        const topBrandData = sortedBrands[0];
-        const brandInfo = brands?.find(b => b.id === topBrandData.brand_id);
-        
-        if (brandInfo) {
-          setTopBrand({
-            ...brandInfo,
-            aiVideoRequests: topBrandData.total_ai_video_requests || 0
-          });
-        }
+      if (sortedShops.length > 0) {
+        setTopShop(sortedShops[0]);
       }
+    } else if (shops.length > 0) {
+      // Set first shop as default if no AI data
+      setTopShop({
+        ...shops[0],
+        aiVideoRequests: 0
+      });
     }
   };
 
   const getTotalVideoRequests = () => {
     return totalAIVideoRequests || 0;
+  };
+
+  const getTotalShops = () => {
+    return shops?.length || 0;
+  };
+
+  const getActiveShops = () => {
+    return shops?.filter(shop => shop.is_active).length || 0;
   };
 
   if (loading) {
@@ -114,8 +160,10 @@ const Overview = () => {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Dashboard Overview</h1>
-        <p className="text-gray-600">Welcome to your super admin dashboard</p>
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Brand Dashboard</h1>
+        <p className="text-gray-600">
+          Welcome to {user?.brand_name || 'your brand'} dashboard
+        </p>
       </div>
 
       {/* Stats Grid */}
@@ -123,8 +171,11 @@ const Overview = () => {
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#002868]">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Total Brands</h3>
-              <p className="text-3xl font-bold text-[#002868] mt-2">{brands?.length || 0}</p>
+              <h3 className="text-sm text-gray-500">Total Shops</h3>
+              <p className="text-3xl font-bold text-[#002868] mt-2">{getTotalShops()}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {getActiveShops()} active shops
+              </p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-[#002868]" fill="currentColor" viewBox="0 0 20 20">
@@ -140,7 +191,7 @@ const Overview = () => {
               <h3 className="text-sm text-gray-500">AI Video Requests</h3>
               <p className="text-3xl font-bold text-[#BF0A30] mt-2">{getTotalVideoRequests()}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {aiRequestsByBrand.length > 0 ? `${aiRequestsByBrand.length} brands with requests` : 'No AI requests yet'}
+                {aiRequestsByBrand.length > 0 ? `${aiRequestsByBrand.length} shops with requests` : 'No AI requests yet'}
               </p>
             </div>
             <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
@@ -156,6 +207,7 @@ const Overview = () => {
             <div>
               <h3 className="text-sm text-gray-500">Daily Orders</h3>
               <p className="text-3xl font-bold text-blue-600 mt-2">{dailyOrders}</p>
+              <p className="text-xs text-gray-400 mt-1">Last 24 hours</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -170,7 +222,10 @@ const Overview = () => {
             <div>
               <h3 className="text-sm text-gray-500">Active Shops</h3>
               <p className="text-3xl font-bold text-green-600 mt-2">
-                {allShops?.filter(shop => shop.is_active).length || 0}
+                {getActiveShops()}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {((getActiveShops() / (shops?.length || 1)) * 100).toFixed(1)}% of total
               </p>
             </div>
             <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center">
@@ -182,42 +237,31 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Top Brand & Quick Actions Section */}
+      {/* Top Shop & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800">Top Performing Brand</h2>
-            {topBrand && (
+            <h2 className="text-xl font-bold text-gray-800">Top Performing Shop</h2>
+            {topShop && (
               <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
                 #1 in AI Requests
               </span>
             )}
           </div>
           
-          {topBrand ? (
+          {topShop ? (
             <div className="border rounded-lg p-4">
               <div className="flex items-center space-x-4 mb-3">
-                <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100">
-                  {topBrand.logo_url ? (
-                    <img 
-                      src={topBrand.logo_url} 
-                      alt={topBrand.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-blue-50">
-                      <svg className="w-8 h-8 text-blue-300" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
+                <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm3 6a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                  </svg>
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">{topBrand.name}</h3>
-                  <p className="text-sm text-gray-500">Brand ID: {topBrand.id?.slice(0, 8)}...</p>
+                  <h3 className="font-bold text-lg">{topShop.name}</h3>
+                  <p className="text-sm text-gray-500">
+                    {topShop.city}{topShop.state ? `, ${topShop.state}` : ''}
+                  </p>
                 </div>
               </div>
               
@@ -228,7 +272,7 @@ const Overview = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-blue-600">{topBrand.aiVideoRequests}</div>
+                      <div className="text-xl font-bold text-blue-600">{topShop.aiVideoRequests}</div>
                       <div className="text-xs text-blue-500">AI Video Requests</div>
                     </div>
                   </div>
@@ -241,8 +285,8 @@ const Overview = () => {
                     </svg>
                     <div>
                       <div className="text-xl font-bold text-green-600">
-                        {topBrand.aiVideoRequests > 0 ? 
-                          `${((topBrand.aiVideoRequests / totalAIVideoRequests) * 100).toFixed(1)}%` : 
+                        {topShop.aiVideoRequests > 0 ? 
+                          `${((topShop.aiVideoRequests / totalAIVideoRequests) * 100).toFixed(1)}%` : 
                           '0%'
                         }
                       </div>
@@ -256,16 +300,16 @@ const Overview = () => {
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium">Status:</span>
                   <span className={`px-2 py-1 rounded text-xs ${
-                    topBrand.is_active 
+                    topShop.is_active 
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {topBrand.is_active ? 'Active' : 'Inactive'}
+                    {topShop.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">Created:</span>{' '}
-                  {new Date(topBrand.created_at).toLocaleDateString()}
+                  <span className="font-medium">Tekmetric ID:</span>{' '}
+                  {topShop.tekmetric_shop_id || 'Not set'}
                 </div>
               </div>
             </div>
@@ -275,12 +319,12 @@ const Overview = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-gray-500">No AI video request data available</p>
-              <p className="text-sm text-gray-400 mt-1">Brands will appear here when they start making AI video requests</p>
+              <p className="text-sm text-gray-400 mt-1">Shops will appear here when they start making AI video requests</p>
             </div>
           ) : (
             <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868] mx-auto mb-3"></div>
-              <p className="text-gray-500">Analyzing brand performance...</p>
+              <p className="text-gray-500">Analyzing shop performance...</p>
             </div>
           )}
         </div>
@@ -289,39 +333,102 @@ const Overview = () => {
           <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
           <div className="space-y-4">
             <Link
-              to="/super-admin/brands"
+              to="/brand-admin/shops"
               className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
             >
               <div className="w-10 h-10 bg-[#002868] rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                 </svg>
               </div>
               <div>
-                <h3 className="font-medium">Manage Brands</h3>
-                <p className="text-sm text-gray-500">View and manage all brands</p>
+                <h3 className="font-medium">Manage Shops</h3>
+                <p className="text-sm text-gray-500">View and manage all shops</p>
               </div>
             </Link>
             
             <Link
-              to="/super-admin/analytics"
+              to="/brand-admin/districts"
               className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
             >
               <div className="w-10 h-10 bg-[#BF0A30] rounded-lg flex items-center justify-center mr-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-medium">Manage Districts</h3>
+                <p className="text-sm text-gray-500">Organize shops by districts</p>
+              </div>
+            </Link>
+
+            <Link
+              to="/brand-admin/analytics"
+              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div>
-                <h3 className="font-medium">View AI Analytics</h3>
-                <p className="text-sm text-gray-500">Check AI video performance analytics</p>
+                <h3 className="font-medium">View Analytics</h3>
+                <p className="text-sm text-gray-500">Check performance analytics</p>
               </div>
             </Link>
-
-            
           </div>
         </div>
       </div>
+
+      {/* AI Performance Summary */}
+      {brandAIStats && (
+        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">AI Performance Summary</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="text-sm text-blue-600 font-medium">AI Success Rate</h3>
+              <p className="text-2xl font-bold text-blue-700 mt-1">
+                {brandAIStats.aiSuccessRate || '0.00'}%
+              </p>
+              <p className="text-xs text-blue-600">
+                {brandAIStats.aiCorrect || 0} correct selections
+              </p>
+            </div>
+            
+            <div className="bg-red-50 p-4 rounded-lg">
+              <h3 className="text-sm text-red-600 font-medium">AI Error Rate</h3>
+              <p className="text-2xl font-bold text-red-700 mt-1">
+                {brandAIStats.aiErrorRate || '0.00'}%
+              </p>
+              <p className="text-xs text-red-600">
+                {brandAIStats.aiErrors || 0} manual corrections
+              </p>
+            </div>
+            
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h3 className="text-sm text-green-600 font-medium">Total Segments</h3>
+              <p className="text-2xl font-bold text-green-700 mt-1">
+                {brandAIStats.totalSegments || 0}
+              </p>
+              <p className="text-xs text-green-600">
+                Processed video segments
+              </p>
+            </div>
+            
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <h3 className="text-sm text-purple-600 font-medium">Accuracy Score</h3>
+              <p className="text-2xl font-bold text-purple-700 mt-1">
+                {brandAIStats.totalSegments > 0 
+                  ? (((brandAIStats.aiCorrect || 0) / brandAIStats.totalSegments) * 100).toFixed(1)
+                  : '0.0'}%
+              </p>
+              <p className="text-xs text-purple-600">
+                Overall AI accuracy
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
