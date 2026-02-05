@@ -1,17 +1,15 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import LogoutButton from '../../components/common/LogoutButton';
+import LogoutButton from '../common/LogoutButton';
 
-const BrandAdminLayout = ({ children }) => {
+const DistrictManagerLayout = ({ children }) => {
   const user = useSelector(state => state.user.currentUser);
   
   const navItems = [
-    { name: 'Overview', path: '/brand-admin' },
-    { name: 'Shops', path: '/brand-admin/shops' },
-    { name: 'Districts', path: '/brand-admin/districts' },
-    { name: 'Orders', path: '/brand-admin/orders' }, // ✅ ADDED: Orders link
-    { name: 'Analytics', path: '/brand-admin/analytics' },
+    { name: 'Overview', path: '/district-manager' },
+    { name: 'Shops', path: '/district-manager/shops' },
+    { name: 'Analytics', path: '/district-manager/analytics' },
   ];
 
   return (
@@ -20,14 +18,12 @@ const BrandAdminLayout = ({ children }) => {
       <header className="bg-[#002868] text-white p-4 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <h1 className="text-2xl font-bold">Brand Admin Dashboard</h1>
-            <p className="text-sm text-blue-100">
-              {user?.brand_name ? `Managing: ${user.brand_name}` : 'Brand Management'}
-            </p>
+            <h1 className="text-2xl font-bold">District Manager Dashboard</h1>
+            <p className="text-sm text-blue-100">Manage shops in your district</p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-[#BF0A30] px-3 py-1 rounded-full text-sm">
-              Brand Admin
+              District Manager
             </div>
             <span className="hidden md:inline text-white">{user?.email}</span>
             <LogoutButton />
@@ -43,7 +39,7 @@ const BrandAdminLayout = ({ children }) => {
               <NavLink
                 key={item.path}
                 to={item.path}
-                end={item.path === '/brand-admin'}
+                end={item.path === '/district-manager'}
                 className={({ isActive }) =>
                   `px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
@@ -67,4 +63,4 @@ const BrandAdminLayout = ({ children }) => {
   );
 };
 
-export default BrandAdminLayout;
+export default DistrictManagerLayout;

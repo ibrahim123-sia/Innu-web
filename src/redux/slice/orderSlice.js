@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api', // Update with your backend URL
+  baseURL: 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -56,6 +56,54 @@ export const getOrdersByShop = createAsyncThunk(
   }
 );
 
+// ✅ NEW: Get Orders by Brand
+export const getOrdersByBrand = createAsyncThunk(
+  'order/getOrdersByBrand',
+  async ({ brandId, filters = {} }, { rejectWithValue }) => {
+    try {
+      // Build query string from filters
+      const queryParams = new URLSearchParams();
+      Object.keys(filters).forEach(key => {
+        if (filters[key]) {
+          queryParams.append(key, filters[key]);
+        }
+      });
+      
+      const queryString = queryParams.toString();
+      const url = `/orders/brand/${brandId}${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await API.get(url);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// ✅ NEW: Get Orders by District
+export const getOrdersByDistrict = createAsyncThunk(
+  'order/getOrdersByDistrict',
+  async ({ districtId, filters = {} }, { rejectWithValue }) => {
+    try {
+      // Build query string from filters
+      const queryParams = new URLSearchParams();
+      Object.keys(filters).forEach(key => {
+        if (filters[key]) {
+          queryParams.append(key, filters[key]);
+        }
+      });
+      
+      const queryString = queryParams.toString();
+      const url = `/orders/district/${districtId}${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await API.get(url);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 export const updateOrder = createAsyncThunk(
   'order/updateOrder',
   async ({ id, ...updateData }, { rejectWithValue }) => {
@@ -68,13 +116,12 @@ export const updateOrder = createAsyncThunk(
   }
 );
 
-// Note: Create and Delete order endpoints are not provided in the route file
-// If they exist in your backend, you can add them similarly
-
 const initialState = {
   orders: [],
   currentOrder: null,
   ordersByShop: [],
+  ordersByBrand: [], // ✅ NEW: Brand-specific orders
+  ordersByDistrict: [], // ✅ NEW: District-specific orders
   filteredOrders: [],
   loading: false,
   error: null,
@@ -114,6 +161,12 @@ const orderSlice = createSlice({
     clearOrdersByShop: (state) => {
       state.ordersByShop = [];
     },
+    clearOrdersByBrand: (state) => { // ✅ NEW
+      state.ordersByBrand = [];
+    },
+    clearOrdersByDistrict: (state) => { // ✅ NEW
+      state.ordersByDistrict = [];
+    },
     clearFilteredOrders: (state) => {
       state.filteredOrders = [];
     },
@@ -132,11 +185,11 @@ const orderSlice = createSlice({
         ro_number: '',
       };
     },
-    // Local filter for client-side filtering
     filterOrders: (state, action) => {
       const { 
         shop_id, 
         brand_id, 
+        district_id,
         status, 
         customer_name, 
         date_from, 
@@ -148,6 +201,7 @@ const orderSlice = createSlice({
         
         if (shop_id && order.shop_id !== shop_id) matches = false;
         if (brand_id && order.brand_id !== brand_id) matches = false;
+        if (district_id && order.district_id !== district_id) matches = false;
         if (status && order.status !== status) matches = false;
         if (customer_name && !order.customer_name.toLowerCase().includes(customer_name.toLowerCase())) {
           matches = false;
@@ -218,7 +272,6 @@ const orderSlice = createSlice({
         state.loading = false;
         state.orders = action.payload.data;
         state.filteredOrders = [];
-        // Reset pagination if you have server-side pagination
         if (action.payload.count) {
           state.pagination.total = action.payload.count;
         }
@@ -242,6 +295,38 @@ const orderSlice = createSlice({
         state.error = action.payload?.error || 'Failed to fetch shop orders';
       })
       
+      // ✅ NEW: Get Orders By Brand
+      .addCase(getOrdersByBrand.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getOrdersByBrand.fulfilled, (state, action) => {
+        state.loading = false;
+        state.ordersByBrand = action.payload.data;
+        // Also update main orders for backward compatibility
+        state.orders = action.payload.data;
+      })
+      .addCase(getOrdersByBrand.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.error || 'Failed to fetch brand orders';
+      })
+      
+      // ✅ NEW: Get Orders By District
+      .addCase(getOrdersByDistrict.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getOrdersByDistrict.fulfilled, (state, action) => {
+        state.loading = false;
+        state.ordersByDistrict = action.payload.data;
+        // Also update main orders for backward compatibility
+        state.orders = action.payload.data;
+      })
+      .addCase(getOrdersByDistrict.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.error || 'Failed to fetch district orders';
+      })
+      
       // Update Order
       .addCase(updateOrder.pending, (state) => {
         state.loading = true;
@@ -263,6 +348,18 @@ const orderSlice = createSlice({
         const shopIndex = state.ordersByShop.findIndex(order => order.id === updatedOrder.id);
         if (shopIndex !== -1) {
           state.ordersByShop[shopIndex] = updatedOrder;
+        }
+        
+        // ✅ Update in ordersByBrand array
+        const brandIndex = state.ordersByBrand.findIndex(order => order.id === updatedOrder.id);
+        if (brandIndex !== -1) {
+          state.ordersByBrand[brandIndex] = updatedOrder;
+        }
+        
+        // ✅ Update in ordersByDistrict array
+        const districtIndex = state.ordersByDistrict.findIndex(order => order.id === updatedOrder.id);
+        if (districtIndex !== -1) {
+          state.ordersByDistrict[districtIndex] = updatedOrder;
         }
         
         // Update current order if it's the one being updated
@@ -289,6 +386,8 @@ export const {
   resetOrderState,
   clearCurrentOrder,
   clearOrdersByShop,
+  clearOrdersByBrand,
+  clearOrdersByDistrict,
   clearFilteredOrders,
   setFilters,
   clearFilters,
@@ -301,6 +400,8 @@ export const {
 export const selectAllOrders = (state) => state.order.orders;
 export const selectCurrentOrder = (state) => state.order.currentOrder;
 export const selectOrdersByShop = (state) => state.order.ordersByShop;
+export const selectOrdersByBrand = (state) => state.order.ordersByBrand; // ✅ NEW
+export const selectOrdersByDistrict = (state) => state.order.ordersByDistrict; // ✅ NEW
 export const selectFilteredOrders = (state) => state.order.filteredOrders;
 export const selectOrderLoading = (state) => state.order.loading;
 export const selectOrderError = (state) => state.order.error;
@@ -313,10 +414,10 @@ export const selectOrderPagination = (state) => state.order.pagination;
 export const selectOrdersByStatus = (status) => (state) =>
   state.order.orders.filter(order => order.status === status);
 
-export const selectOrdersByDistrict = (districtId) => (state) =>
+export const selectOrdersByDistrictId = (districtId) => (state) =>
   state.order.orders.filter(order => order.district_id === districtId);
 
-export const selectOrdersByBrand = (brandId) => (state) =>
+export const selectOrdersByBrandId = (brandId) => (state) =>
   state.order.orders.filter(order => order.brand_id === brandId);
 
 export const selectOrderById = (orderId) => (state) =>
@@ -339,7 +440,104 @@ export const selectOrderStats = (state) => {
     cancelled: orders.filter(o => o.status === 'cancelled').length,
   };
   
-  // Calculate percentages
+  if (stats.total > 0) {
+    stats.pending_percentage = ((stats.pending / stats.total) * 100).toFixed(1);
+    stats.in_progress_percentage = ((stats.in_progress / stats.total) * 100).toFixed(1);
+    stats.completed_percentage = ((stats.completed / stats.total) * 100).toFixed(1);
+    stats.cancelled_percentage = ((stats.cancelled / stats.total) * 100).toFixed(1);
+  }
+  
+  return stats;
+};
+
+export const selectBrandOrderStats = (brandId) => (state) => {
+  const brandOrders = state.order.orders.filter(order => order.brand_id === brandId);
+  const stats = {
+    total: brandOrders.length,
+    pending: brandOrders.filter(o => o.status === 'pending').length,
+    in_progress: brandOrders.filter(o => o.status === 'in_progress').length,
+    completed: brandOrders.filter(o => o.status === 'completed').length,
+    cancelled: brandOrders.filter(o => o.status === 'cancelled').length,
+    byDistrict: {},
+    byShop: {},
+  };
+  
+  // Group by district
+  brandOrders.forEach(order => {
+    if (order.district_id) {
+      if (!stats.byDistrict[order.district_id]) {
+        stats.byDistrict[order.district_id] = {
+          total: 0,
+          pending: 0,
+          in_progress: 0,
+          completed: 0,
+          cancelled: 0,
+          district_name: order.district_name,
+        };
+      }
+      stats.byDistrict[order.district_id].total++;
+      stats.byDistrict[order.district_id][order.status]++;
+    }
+  });
+  
+  // Group by shop
+  brandOrders.forEach(order => {
+    if (order.shop_id) {
+      if (!stats.byShop[order.shop_id]) {
+        stats.byShop[order.shop_id] = {
+          total: 0,
+          pending: 0,
+          in_progress: 0,
+          completed: 0,
+          cancelled: 0,
+          shop_name: order.shop_name,
+        };
+      }
+      stats.byShop[order.shop_id].total++;
+      stats.byShop[order.shop_id][order.status]++;
+    }
+  });
+  
+  if (stats.total > 0) {
+    stats.pending_percentage = ((stats.pending / stats.total) * 100).toFixed(1);
+    stats.in_progress_percentage = ((stats.in_progress / stats.total) * 100).toFixed(1);
+    stats.completed_percentage = ((stats.completed / stats.total) * 100).toFixed(1);
+    stats.cancelled_percentage = ((stats.cancelled / stats.total) * 100).toFixed(1);
+  }
+  
+  return stats;
+};
+
+// ✅ NEW: District Order Stats
+export const selectDistrictOrderStats = (districtId) => (state) => {
+  const districtOrders = state.order.orders.filter(order => order.district_id === districtId);
+  const stats = {
+    total: districtOrders.length,
+    pending: districtOrders.filter(o => o.status === 'pending').length,
+    in_progress: districtOrders.filter(o => o.status === 'in_progress').length,
+    completed: districtOrders.filter(o => o.status === 'completed').length,
+    cancelled: districtOrders.filter(o => o.status === 'cancelled').length,
+    byShop: {},
+  };
+  
+  // Group by shop
+  districtOrders.forEach(order => {
+    if (order.shop_id) {
+      if (!stats.byShop[order.shop_id]) {
+        stats.byShop[order.shop_id] = {
+          total: 0,
+          pending: 0,
+          in_progress: 0,
+          completed: 0,
+          cancelled: 0,
+          shop_name: order.shop_name,
+        };
+      }
+      stats.byShop[order.shop_id].total++;
+      stats.byShop[order.shop_id][order.status]++;
+    }
+  });
+  
   if (stats.total > 0) {
     stats.pending_percentage = ((stats.pending / stats.total) * 100).toFixed(1);
     stats.in_progress_percentage = ((stats.in_progress / stats.total) * 100).toFixed(1);

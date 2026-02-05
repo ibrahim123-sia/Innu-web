@@ -59,8 +59,8 @@ const Shops = () => {
 
   useEffect(() => {
     if (user?.brand_id) {
-      dispatch(getBrandShops());
-      dispatch(getDistrictsByBrand(user.brand_id));
+          dispatch(getBrandShops(user.brand_id));
+    dispatch(getDistrictsByBrand(user.brand_id));
       dispatch(getAllUsers());
     }
   }, [dispatch, user?.brand_id]);

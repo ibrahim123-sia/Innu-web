@@ -5,7 +5,7 @@ import {
   getBrandShops
 } from '../../redux/slice/shopSlice';
 import {
-  selectAllDistricts,
+  selectDistrictsByBrandFromState, // Updated selector
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
 import {
@@ -17,7 +17,9 @@ const Analytics = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
   const shops = useSelector(state => selectShopsByBrandId(user?.brand_id)(state));
-  const districts = useSelector(selectAllDistricts);
+  
+  // Updated: Use districtsByBrand instead of all districts
+  const districtsByBrand = useSelector(selectDistrictsByBrandFromState);
   
   const [loading, setLoading] = useState(true);
   const [aiRequestsByShop, setAiRequestsByShop] = useState([]);
@@ -26,6 +28,11 @@ const Analytics = () => {
   const [expandedDistrict, setExpandedDistrict] = useState(null);
 
   useEffect(() => {
+    console.log('Analytics Debug:');
+    console.log('User brand_id:', user?.brand_id);
+    console.log('Shops count:', shops?.length);
+    console.log('DistrictsByBrand count:', districtsByBrand?.length);
+    
     if (user?.brand_id) {
       fetchData();
     }
@@ -34,18 +41,22 @@ const Analytics = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Pass brand_id to all API calls that need it
       const results = await Promise.all([
-        dispatch(getBrandShops()),
-        dispatch(getDistrictsByBrand(user.brand_id)),
+        dispatch(getBrandShops(user.brand_id)), // Pass brand_id
+        dispatch(getDistrictsByBrand(user.brand_id)), // Pass brand_id
         dispatch(getAIVideoRequestsByBrand()),
         dispatch(getBrandAIErrorStats())
       ]);
+
+      console.log('API Results:', results);
 
       // Filter AI requests for this brand's shops
       if (results[2].payload?.data) {
         const brandAIRequests = results[2].payload.data.filter(
           item => shops?.some(shop => shop.id === item.shop_id)
         );
+        console.log('Brand AI Requests:', brandAIRequests);
         setAiRequestsByShop(brandAIRequests);
       }
       
@@ -54,6 +65,7 @@ const Analytics = () => {
         const brandStats = results[3].payload.data.find(
           stat => stat.brandId === user.brand_id
         );
+        console.log('Brand AI Stats:', brandStats);
         setBrandAIStats(brandStats);
       }
     } catch (error) {
@@ -69,7 +81,7 @@ const Analytics = () => {
   };
 
   const getDistrictName = (districtId) => {
-    const district = districts.find(d => d.id === districtId);
+    const district = districtsByBrand.find(d => d.id === districtId);
     return district?.name || 'No District';
   };
 
@@ -100,7 +112,7 @@ const Analytics = () => {
   const getAllDistrictStats = () => {
     const districtStats = {};
     
-    districts.forEach(district => {
+    districtsByBrand.forEach(district => {
       districtStats[district.id] = getDistrictStats(district.id);
     });
 
@@ -109,12 +121,13 @@ const Analytics = () => {
 
   const getFilteredDistricts = () => {
     if (selectedDistrict === 'all') {
-      return districts;
+      return districtsByBrand;
     }
-    return districts.filter(district => district.id === selectedDistrict);
+    return districtsByBrand.filter(district => district.id === selectedDistrict);
   };
 
   const districtStats = getAllDistrictStats();
+  const displayDistricts = districtsByBrand || [];
 
   if (loading) {
     return (
@@ -144,7 +157,7 @@ const Analytics = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
             >
               <option value="all">All Districts</option>
-              {districts?.map(district => (
+              {displayDistricts.map(district => (
                 <option key={district.id} value={district.id}>
                   {district.name}
                 </option>
@@ -178,7 +191,7 @@ const Analytics = () => {
         
         <div className="bg-green-50 rounded-lg p-6 border border-green-100">
           <h3 className="text-sm font-medium text-green-600 mb-2">Total Districts</h3>
-          <p className="text-2xl font-bold text-green-700">{districts?.length || 0}</p>
+          <p className="text-2xl font-bold text-green-700">{displayDistricts.length}</p>
           <p className="text-sm text-green-600 mt-1">Organizational units</p>
         </div>
         
@@ -193,7 +206,7 @@ const Analytics = () => {
         <div className="bg-purple-50 rounded-lg p-6 border border-purple-100">
           <h3 className="text-sm font-medium text-purple-600 mb-2">Active Districts</h3>
           <p className="text-2xl font-bold text-purple-700">
-            {districts?.filter(d => d.is_active).length || 0}
+            {displayDistricts.filter(d => d.is_active).length}
           </p>
           <p className="text-sm text-purple-600 mt-1">Currently active</p>
         </div>
@@ -488,7 +501,7 @@ const Analytics = () => {
       <div className="mt-8 text-sm text-gray-500">
         <p>Data last updated: {new Date().toLocaleString()}</p>
         <p>Total shops analyzed: {shops?.length || 0}</p>
-        <p>Total districts: {districts?.length || 0}</p>
+        <p>Total districts: {displayDistricts.length}</p>
       </div>
     </div>
   );

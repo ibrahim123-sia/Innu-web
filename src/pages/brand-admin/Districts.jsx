@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  selectAllDistricts,
+  selectDistrictsByBrandFromState, // Changed from selectAllDistricts
   selectDistrictLoading,
   selectDistrictError,
   getDistrictsByBrand,
@@ -22,7 +22,9 @@ const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.p
 const Districts = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
-  const districts = useSelector(selectAllDistricts);
+  
+  // FIXED: Use districtsByBrand instead of all districts
+  const districtsByBrand = useSelector(selectDistrictsByBrandFromState);
   const users = useSelector(selectAllUsers);
   const loading = useSelector(selectDistrictLoading);
   const error = useSelector(selectDistrictError);
@@ -44,10 +46,20 @@ const Districts = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [districtManagers, setDistrictManagers] = useState({});
 
+  // Debug: Check what's happening
   useEffect(() => {
+    console.log('Districts Component Debug:');
+    console.log('User:', user);
+    console.log('User brand_id:', user?.brand_id);
+    console.log('Districts from API (districtsByBrand):', districtsByBrand);
+    console.log('Districts length:', districtsByBrand?.length);
+    
     if (user?.brand_id) {
+      console.log(`Fetching districts for brand: ${user.brand_id}`);
       dispatch(getDistrictsByBrand(user.brand_id));
       dispatch(getAllUsers());
+    } else {
+      console.error('User has no brand_id!');
     }
   }, [dispatch, user?.brand_id]);
 
@@ -218,6 +230,9 @@ const Districts = () => {
     }
   };
 
+  // Use districtsByBrand for display
+  const displayDistricts = districtsByBrand || [];
+
   return (
     <div>
       <div className="mb-8">
@@ -228,9 +243,9 @@ const Districts = () => {
       {/* Create District Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-bold text-gray-800">All Districts</h2>
+          <h2 className="text-xl font-bold text-gray-800">Your Brand's Districts</h2>
           <span className="bg-[#002868] text-white px-3 py-1 rounded-full text-sm">
-            {districts?.length || 0} Districts
+            {displayDistricts.length} Districts
           </span>
         </div>
         <button
@@ -411,7 +426,7 @@ const Districts = () => {
           <div className="py-12 text-center">
             <p className="text-red-600">{error}</p>
           </div>
-        ) : districts && districts.length > 0 ? (
+        ) : displayDistricts.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -437,7 +452,7 @@ const Districts = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {districts.map((district) => {
+                {displayDistricts.map((district) => {
                   const manager = getManagerForDistrict(district.id);
                   
                   return (

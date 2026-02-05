@@ -35,7 +35,7 @@ const Login = () => {
             break;
           case 'brand_admin':
             console.log('Redirecting to /brand-admin/dashboard');
-            navigate('/brand-admin/dashboard');
+            navigate('/brand-admin');
             break;
           case 'district_manager':
             console.log('Redirecting to /district-manager/dashboard');

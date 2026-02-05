@@ -4,7 +4,7 @@ import {
   getBrandShops
 } from '../../redux/slice/shopSlice';
 import {
-  getAllOrders
+  getOrdersByBrand
 } from '../../redux/slice/orderSlice';
 import {
   getTotalAIVideoRequests,
@@ -21,8 +21,10 @@ const Overview = () => {
   // Get shops directly from Redux state
   const shops = useSelector(state => state.shop.shops || []);
   
-  // Get all orders and filter by brand
-  const allOrders = useSelector(state => state.order.orders || []);
+  // Get orders specifically for this brand using the new method
+  const brandOrders = useSelector(state => 
+    state.order.ordersByBrand || []
+  );
   
   const [loading, setLoading] = useState(true);
   const [dailyOrders, setDailyOrders] = useState(0);
@@ -43,44 +45,20 @@ const Overview = () => {
     if (!loading) {
       calculateStats();
     }
-  }, [shops, allOrders, aiRequestsByBrand, loading]);
+  }, [shops, brandOrders, aiRequestsByBrand, loading]);
 
   const fetchData = async () => {
     if (!brandId) return;
     
     setLoading(true);
     try {
-      const results = await Promise.all([
-        dispatch(getBrandShops(brandId)), // Pass brandId here
-        dispatch(getAllOrders()),
+      await Promise.all([
+        dispatch(getBrandShops(brandId)),
+        dispatch(getOrdersByBrand({ brandId })),
         dispatch(getTotalAIVideoRequests()),
         dispatch(getAIVideoRequestsByBrand()),
         dispatch(getBrandAIErrorStats())
       ]);
-
-      // Set AI video requests data
-      if (results[2]?.payload?.data?.total_ai_video_requests) {
-        setTotalAIVideoRequests(results[2].payload.data.total_ai_video_requests);
-      }
-      
-      // Set AI requests by brand data
-      if (results[3]?.payload?.data) {
-        const allAiRequests = results[3].payload.data;
-        // Filter for current brand
-        const brandAiRequests = allAiRequests.filter(item => 
-          item.brand_id && brandId && String(item.brand_id) === String(brandId)
-        );
-        setAiRequestsByBrand(brandAiRequests);
-      }
-      
-      // Set brand AI stats
-      if (results[4]?.payload?.data) {
-        const allBrandStats = results[4].payload.data;
-        const currentBrandStats = allBrandStats.find(stat => 
-          stat.brandId && brandId && String(stat.brandId) === String(brandId)
-        );
-        setBrandAIStats(currentBrandStats);
-      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -94,11 +72,7 @@ const Overview = () => {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     
-    // Filter orders by brand and date
-    const brandOrders = allOrders.filter(order => 
-      order.brand_id && brandId && String(order.brand_id) === String(brandId)
-    );
-    
+    // Now brandOrders already contains only orders for this brand
     const todayOrders = brandOrders.filter(order => {
       if (!order?.created_at) return false;
       const orderDate = new Date(order.created_at);
@@ -114,6 +88,7 @@ const Overview = () => {
         const shopAIRequests = aiRequestsByBrand.find(item => 
           item.shop_id && shop.id && String(item.shop_id) === String(shop.id)
         );
+        
         return {
           ...shop,
           aiVideoRequests: shopAIRequests?.total_ai_video_requests || 0
@@ -166,7 +141,7 @@ const Overview = () => {
         </p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - REMOVED TOTAL ORDERS CARD */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#002868]">
           <div className="flex items-center justify-between">
@@ -230,7 +205,8 @@ const Overview = () => {
             </div>
             <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
               </svg>
             </div>
           </div>
@@ -286,7 +262,7 @@ const Overview = () => {
                     <div>
                       <div className="text-xl font-bold text-green-600">
                         {topShop.aiVideoRequests > 0 ? 
-                          `${((topShop.aiVideoRequests / totalAIVideoRequests) * 100).toFixed(1)}%` : 
+                          `${((topShop.aiVideoRequests / (totalAIVideoRequests || 1)) * 100).toFixed(1)}%` : 
                           '0%'
                         }
                       </div>
@@ -416,14 +392,12 @@ const Overview = () => {
             </div>
             
             <div className="bg-purple-50 p-4 rounded-lg">
-              <h3 className="text-sm text-purple-600 font-medium">Accuracy Score</h3>
+              <h3 className="text-sm text-purple-600 font-medium">Daily Orders</h3>
               <p className="text-2xl font-bold text-purple-700 mt-1">
-                {brandAIStats.totalSegments > 0 
-                  ? (((brandAIStats.aiCorrect || 0) / brandAIStats.totalSegments) * 100).toFixed(1)
-                  : '0.0'}%
+                {dailyOrders}
               </p>
               <p className="text-xs text-purple-600">
-                Overall AI accuracy
+                Orders in last 24 hours
               </p>
             </div>
           </div>

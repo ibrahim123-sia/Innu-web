@@ -354,6 +354,7 @@ export const {
 // Selectors
 export const selectAllDistricts = (state) => state.district.districts;
 export const selectCurrentDistrict = (state) => state.district.currentDistrict;
+export const selectDistrictsByBrandFromState = (state) => state.district.districtsByBrand;
 export const selectDistrictsByBrand = (brandId) => (state) => {
   if (!state.district || !state.district.districts) return [];
   return state.district.districts.filter(district => district.brand_id === brandId);
@@ -364,6 +365,7 @@ export const selectDistrictError = (state) => state.district.error;
 export const selectDistrictSuccess = (state) => state.district.success;
 export const selectDistrictMessage = (state) => state.district.message;
 export const selectDistrictFilters = (state) => state.district.filters;
+
 
 // Helper selectors
 export const selectActiveDistricts = (state) => 
