@@ -24,49 +24,49 @@ import BrandAdminAnalytics from './pages/brand-admin/Analytics';
 import DistrictManagerDashboard from './pages/district-manager/Dashboard';
 import ShopManagerDashboard from './pages/shop-manager/Dashboard';
 
-// Protected Route Wrapper Component
-const ProtectedRoute = ({ children, requiredRole }) => {
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const user = useSelector(selectCurrentUser);
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
-  
-  // Check role if required
-  if (requiredRole && user?.role !== requiredRole) {
-    return <Navigate to="/login" />;
-  }
-  
-  return children;
-};
-
-// Component to handle default routing based on authentication
-const DefaultRoute = () => {
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const user = useSelector(selectCurrentUser);
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
-  
-  // Redirect based on role
-  switch(user?.role) {
-    case 'super_admin':
-      return <Navigate to="/super-admin" />;
-    case 'brand_admin':
-      return <Navigate to="/brand-admin" />;
-    case 'district_manager':
-      return <Navigate to="/district-manager/dashboard" />;
-    case 'shop_manager':
-      return <Navigate to="/shop-manager/dashboard" />;
-    default:
-      return <Navigate to="/login" />;
-  }
-};
-
 // Main App Component
 function App() {
+  // Protected Route Wrapper Component - defined INSIDE App component
+  const ProtectedRoute = ({ children, requiredRole }) => {
+    const isAuthenticated = useSelector(selectIsAuthenticated);
+    const user = useSelector(selectCurrentUser);
+    
+    if (!isAuthenticated) {
+      return <Navigate to="/login" />;
+    }
+    
+    // Check role if required
+    if (requiredRole && user?.role !== requiredRole) {
+      return <Navigate to="/login" />;
+    }
+    
+    return children;
+  };
+
+  // Component to handle default routing based on authentication
+  const DefaultRoute = () => {
+    const isAuthenticated = useSelector(selectIsAuthenticated);
+    const user = useSelector(selectCurrentUser);
+    
+    if (!isAuthenticated) {
+      return <Navigate to="/login" />;
+    }
+    
+    // Redirect based on role
+    switch(user?.role) {
+      case 'super_admin':
+        return <Navigate to="/super-admin" />;
+      case 'brand_admin':
+        return <Navigate to="/brand-admin" />;
+      case 'district_manager':
+        return <Navigate to="/district-manager/dashboard" />;
+      case 'shop_manager':
+        return <Navigate to="/shop-manager/dashboard" />;
+      default:
+        return <Navigate to="/login" />;
+    }
+  };
+
   return (
     <Provider store={store}>
       <BrowserRouter>
