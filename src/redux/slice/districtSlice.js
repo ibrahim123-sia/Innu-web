@@ -354,7 +354,10 @@ export const {
 // Selectors
 export const selectAllDistricts = (state) => state.district.districts;
 export const selectCurrentDistrict = (state) => state.district.currentDistrict;
-export const selectDistrictsByBrand = (state) => state.district.districtsByBrand;
+export const selectDistrictsByBrand = (brandId) => (state) => {
+  if (!state.district || !state.district.districts) return [];
+  return state.district.districts.filter(district => district.brand_id === brandId);
+};
 export const selectSearchResults = (state) => state.district.searchResults;
 export const selectDistrictLoading = (state) => state.district.loading;
 export const selectDistrictError = (state) => state.district.error;

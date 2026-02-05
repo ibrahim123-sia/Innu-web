@@ -279,7 +279,7 @@ const shopSlice = createSlice({
     },
     // Local filter for client-side filtering
     filterShops: (state, action) => {
-      const { brand_id, district_id, is_active, name, city, state } = action.payload;
+      const { brand_id, district_id, is_active, name, city} = action.payload;
       
       state.searchResults = state.shops.filter(shop => {
         let matches = true;

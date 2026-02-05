@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api', // Update with your backend URL
+  baseURL: 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -19,7 +19,30 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// Async Thunks
+// Helper function for file uploads
+const createFormDataRequest = (url, data) => {
+  const formData = new FormData();
+  
+  // Append all data to FormData
+  Object.keys(data).forEach(key => {
+    if (data[key] !== undefined && data[key] !== null) {
+      // Handle file separately
+      if (key === 'profile_pic' && data[key] instanceof File) {
+        formData.append(key, data[key]);
+      } else {
+        formData.append(key, data[key]);
+      }
+    }
+  });
+  
+  return API.post(url, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+// Async Thunks - Updated for file uploads
 export const login = createAsyncThunk(
   'user/login',
   async (credentials, { rejectWithValue }) => {
@@ -39,11 +62,22 @@ export const login = createAsyncThunk(
   }
 );
 
+// Updated createUser to handle file uploads
 export const createUser = createAsyncThunk(
   'user/createUser',
   async (userData, { rejectWithValue }) => {
     try {
-      const response = await API.post('/users/createUser', userData);
+      // Check if it's FormData (for file upload) or regular data
+      let response;
+      if (userData instanceof FormData) {
+        response = await API.post('/users/createUser', userData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        response = await API.post('/users/createUser', userData);
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -63,11 +97,23 @@ export const getUserById = createAsyncThunk(
   }
 );
 
+// Updated updateUser to handle file uploads
 export const updateUser = createAsyncThunk(
   'user/updateUser',
-  async ({ id, ...updateData }, { rejectWithValue }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await API.put(`/users/updateUser/${id}`, updateData);
+      // Check if it's FormData (for file upload) or regular data
+      let response;
+      if (data instanceof FormData) {
+        data.append('id', id);
+        response = await API.put(`/users/updateUser/${id}`, data, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        response = await API.put(`/users/updateUser/${id}`, data);
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -75,6 +121,7 @@ export const updateUser = createAsyncThunk(
   }
 );
 
+// All other thunks remain the same...
 export const deleteUser = createAsyncThunk(
   'user/deleteUser',
   async (userId, { rejectWithValue }) => {
@@ -183,6 +230,9 @@ export const getDistrictUsers = createAsyncThunk(
     }
   }
 );
+
+// The rest of the file remains the same...
+// ... [Keep all the reducer logic, selectors, etc. exactly as they are]
 
 // Initialize state from localStorage if available
 const getInitialState = () => {

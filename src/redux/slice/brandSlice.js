@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api', // Update with your backend URL
+  baseURL: 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -19,12 +19,22 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// Async Thunks
+// Async Thunks - Updated for file uploads
 export const createBrand = createAsyncThunk(
   'brand/createBrand',
   async (brandData, { rejectWithValue }) => {
     try {
-      const response = await API.post('/brands/createbrands', brandData);
+      // Check if it's FormData (for file upload) or regular data
+      let response;
+      if (brandData instanceof FormData) {
+        response = await API.post('/brands/createbrands', brandData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        response = await API.post('/brands/createbrands', brandData);
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -56,11 +66,23 @@ export const getBrandById = createAsyncThunk(
   }
 );
 
+// Updated updateBrand to handle file uploads
 export const updateBrand = createAsyncThunk(
   'brand/updateBrand',
-  async ({ id, ...updateData }, { rejectWithValue }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await API.put(`/brands/updatebrands/${id}`, updateData);
+      // Check if it's FormData (for file upload) or regular data
+      let response;
+      if (data instanceof FormData) {
+        data.append('id', id);
+        response = await API.put(`/brands/updatebrands/${id}`, data, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        response = await API.put(`/brands/updatebrands/${id}`, data);
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -68,6 +90,7 @@ export const updateBrand = createAsyncThunk(
   }
 );
 
+// All other thunks remain the same...
 export const deleteBrand = createAsyncThunk(
   'brand/deleteBrand',
   async (brandId, { rejectWithValue }) => {
@@ -115,6 +138,9 @@ export const searchBrands = createAsyncThunk(
     }
   }
 );
+
+// The rest of the file remains the same...
+// ... [Keep all the reducer logic, selectors, etc. exactly as they are]
 
 const initialState = {
   brands: [],
@@ -307,6 +333,8 @@ export const {
 } = brandSlice.actions;
 
 // Selectors
+export const selectBrandById = (brandId) => (state) => 
+  state.brand.brands.find(brand => brand.id === brandId);
 export const selectAllBrands = (state) => state.brand.brands;
 export const selectCurrentBrand = (state) => state.brand.currentBrand;
 export const selectActiveBrands = (state) => state.brand.activeBrands;
