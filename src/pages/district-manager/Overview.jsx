@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectAllShops, getDistrictShops } from '../../redux/slice/shopSlice';
 import { selectAllOrders, getOrdersByDistrict } from '../../redux/slice/orderSlice';
-// Remove the incorrect import and use videoSlice selectors instead
 import { 
   selectDashboardSummary,
-  selectStatusDistribution,
   getVideoStats,
-  getStatusBreakdown 
+  
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
 
@@ -18,10 +16,7 @@ const Overview = () => {
   
   const allShops = useSelector(selectAllShops);
   const allOrders = useSelector(selectAllOrders);
-  
-  // Get video analytics from videoSlice
   const videoDashboardSummary = useSelector(selectDashboardSummary);
-  const videoStatusDistribution = useSelector(selectStatusDistribution);
   
   const [loading, setLoading] = useState(true);
   const [totalShops, setTotalShops] = useState(0);
@@ -44,11 +39,10 @@ const Overview = () => {
     setLoading(true);
     try {
       const results = await Promise.all([
-        dispatch(getDistrictShops()),
-        dispatch(getOrdersByDistrict(districtId)),
-        // Fetch video analytics
+        dispatch(getDistrictShops()), // No parameter needed
+        dispatch(getOrdersByDistrict({ districtId })), // Pass districtId as object
         dispatch(getVideoStats()),
-        dispatch(getStatusBreakdown())
+        
       ]);
 
       // Set total videos from dashboard summary
@@ -105,11 +99,16 @@ const Overview = () => {
     }
   };
 
-  // Calculate AI video completion rate
+  // Calculate video completion rate
   const calculateCompletionRate = () => {
     if (videoDashboardSummary.total === 0) return 0;
     return Math.round((videoDashboardSummary.completed / videoDashboardSummary.total) * 100);
   };
+
+  // Calculate active shops in district
+  const activeShopsCount = allShops?.filter(shop => 
+    shop.district_id === districtId && shop.is_active
+  ).length || 0;
 
   if (loading) {
     return (
@@ -134,7 +133,7 @@ const Overview = () => {
               <h3 className="text-sm text-gray-500">Total Shops</h3>
               <p className="text-3xl font-bold text-[#002868] mt-2">{totalShops}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {totalShops > 0 ? 'Shops in your district' : 'No shops assigned'}
+                {activeShopsCount} active, {totalShops - activeShopsCount} inactive
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
@@ -151,7 +150,7 @@ const Overview = () => {
               <h3 className="text-sm text-gray-500">Total Videos</h3>
               <p className="text-3xl font-bold text-[#BF0A30] mt-2">{totalVideos}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {totalVideos > 0 ? `${videoDashboardSummary.completed || 0} completed` : 'No videos yet'}
+                {videoDashboardSummary.completed || 0} completed ({calculateCompletionRate()}%)
               </p>
             </div>
             <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
@@ -182,12 +181,12 @@ const Overview = () => {
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Video Completion</h3>
+              <h3 className="text-sm text-gray-500">Active Shops</h3>
               <p className="text-3xl font-bold text-green-600 mt-2">
-                {calculateCompletionRate()}%
+                {activeShopsCount}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {videoDashboardSummary.completed || 0} of {totalVideos} videos
+                {totalShops > 0 ? Math.round((activeShopsCount / totalShops) * 100) : 0}% of shops active
               </p>
             </div>
             <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center">
@@ -378,6 +377,21 @@ const Overview = () => {
               <div>
                 <h3 className="font-medium">View Videos</h3>
                 <p className="text-sm text-gray-500">Manage and monitor AI-generated videos</p>
+              </div>
+            </Link>
+
+            <Link
+              to="/district-manager/analytics"
+              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-medium">View Analytics</h3>
+                <p className="text-sm text-gray-500">Check detailed analytics and reports</p>
               </div>
             </Link>
           </div>

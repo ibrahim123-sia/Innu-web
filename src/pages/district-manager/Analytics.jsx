@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
   selectAllShops,
-  // getShopsByDistrict is not exported from shopSlice, use selectAllShops and filter instead
 } from '../../redux/slice/shopSlice';
 // Import district-related functions
 import { 
@@ -16,8 +15,9 @@ import {
   selectStatusDistribution,
   selectDerivedVideoStats,
   getAllVideos,
-  getVideoStats,
-  getStatusBreakdown
+  // Remove non-existent imports
+  // getVideoStats,
+  // getStatusBreakdown
 } from '../../redux/slice/videoSlice';
 
 const Analytics = () => {
@@ -49,16 +49,32 @@ const Analytics = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        // Get district details
-        dispatch(getDistrictById(districtId)),
-        // Get all videos
-        dispatch(getAllVideos()),
-        // Get video stats
-        dispatch(getVideoStats()),
-        // Get status breakdown
-        dispatch(getStatusBreakdown())
-      ]);
+      const promises = [];
+      
+      // Get district details
+      if (districtId) {
+        promises.push(dispatch(getDistrictById(districtId)));
+      }
+      
+      // Get all videos (we'll filter them locally)
+      promises.push(dispatch(getAllVideos()));
+      
+      // REMOVE non-existent analytics API calls
+      // promises.push(
+      //   dispatch(getVideoStats()).catch(error => {
+      //     console.log('Using derived video stats');
+      //     return { type: 'video/getVideoStats/rejected' };
+      //   })
+      // );
+      
+      // promises.push(
+      //   dispatch(getStatusBreakdown()).catch(error => {
+      //     console.log('Using derived status distribution');
+      //     return { type: 'video/getStatusBreakdown/rejected' };
+      //   })
+      // );
+      
+      await Promise.all(promises);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -142,7 +158,7 @@ const Analytics = () => {
     ? getAllShopsWithVideoStats()
     : getAllShopsWithVideoStats().filter(shop => shop.id === selectedShop);
 
-  // Calculate totals for display
+  // Calculate totals for display - Using derived selectors
   const totalVideosInDistrict = allVideos.filter(video => {
     const shop = shops.find(s => s.id === video.shop_id);
     return shop && shop.district_id === districtId;

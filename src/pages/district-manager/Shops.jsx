@@ -77,7 +77,7 @@ const Shops = () => {
 
   useEffect(() => {
     if (districtId) {
-      dispatch(getShopsByDistrict(districtId));
+      dispatch(getDistrictShops(districtId));
       dispatch(getAllUsers());
     }
   }, [dispatch, districtId]);
