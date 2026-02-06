@@ -20,11 +20,20 @@ import BrandAdminOverview from './pages/brand-admin/Overview';
 import BrandAdminShops from './pages/brand-admin/Shops';
 import BrandAdminDistricts from './pages/brand-admin/Districts';
 import BrandAdminAnalytics from './pages/brand-admin/Analytics';
-import BrandAdminOrders from './pages/brand-admin/Orders'; // ✅ NEW: Import Orders page
+import BrandAdminOrders from './pages/brand-admin/Orders';
 
-// Import other role dashboards
-import DistrictManagerDashboard from './pages/district-manager/Dashboard';
-import ShopManagerDashboard from './pages/shop-manager/Dashboard';
+// Import District Manager pages and layout
+import DistrictManagerLayout from './components/district-manager/DistrictManagerLayout';
+import DistrictManagerOverview from './pages/district-manager/Overview';
+import DistrictManagerShops from './pages/district-manager/Shops';
+import DistrictManagerAnalytics from './pages/district-manager/Analytics';
+
+// Import Shop Manager components
+import ShopManagerLayout from './components/shop-manager/ShopManagerLayout';
+import ShopManagerOverview from './pages/shop-manager/Overview';
+import ShopManagerOrders from './pages/shop-manager/Orders';
+import ShopManagerAnalytics from './pages/shop-manager/Analytics';
+import ShopManagerUsers from './pages/shop-manager/Users';
 
 // Protected Route Wrapper - EXACT SAME LOGIC
 const ProtectedRoute = ({ children }) => {
@@ -46,10 +55,10 @@ function AppContent() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Routes - EXACT SAME LOGIC */}
+        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         
-        {/* Super Admin Routes - EXACT SAME LOGIC */}
+        {/* Super Admin Routes */}
         <Route path="/super-admin" element={
           <ProtectedRoute>
             <RoleRoute role="super_admin">
@@ -80,7 +89,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* Brand Admin Routes - SAME LOGIC, DIFFERENT PATHS */}
+        {/* Brand Admin Routes */}
         <Route path="/brand-admin" element={
           <ProtectedRoute>
             <RoleRoute role="brand_admin">
@@ -121,7 +130,6 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* ✅ NEW: Brand Admin Orders Route */}
         <Route path="/brand-admin/orders" element={
           <ProtectedRoute>
             <RoleRoute role="brand_admin">
@@ -132,29 +140,112 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* Other Dashboard Routes - SAME LOGIC */}
-        <Route path="/district-manager/dashboard" element={
+        {/* District Manager Routes */}
+        <Route path="/district-manager" element={
           <ProtectedRoute>
             <RoleRoute role="district_manager">
-              <DistrictManagerDashboard />
+              <DistrictManagerLayout>
+                <DistrictManagerOverview />
+              </DistrictManagerLayout>
             </RoleRoute>
           </ProtectedRoute>
         } />
         
-        <Route path="/shop-manager/dashboard" element={
+        <Route path="/district-manager/shops" element={
+          <ProtectedRoute>
+            <RoleRoute role="district_manager">
+              <DistrictManagerLayout>
+                <DistrictManagerShops />
+              </DistrictManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/district-manager/analytics" element={
+          <ProtectedRoute>
+            <RoleRoute role="district_manager">
+              <DistrictManagerLayout>
+                <DistrictManagerAnalytics />
+              </DistrictManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        {/* Shop Manager Routes */}
+        <Route path="/shop-manager" element={
           <ProtectedRoute>
             <RoleRoute role="shop_manager">
-              <ShopManagerDashboard />
+              <ShopManagerLayout>
+                <ShopManagerOverview />
+              </ShopManagerLayout>
             </RoleRoute>
           </ProtectedRoute>
         } />
         
-        {/* Default Routes - EXACT SAME LOGIC */}
+        <Route path="/shop-manager/orders" element={
+          <ProtectedRoute>
+            <RoleRoute role="shop_manager">
+              <ShopManagerLayout>
+                <ShopManagerOrders />
+              </ShopManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/shop-manager/analytics" element={
+          <ProtectedRoute>
+            <RoleRoute role="shop_manager">
+              <ShopManagerLayout>
+                <ShopManagerAnalytics />
+              </ShopManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/shop-manager/users" element={
+          <ProtectedRoute>
+            <RoleRoute role="shop_manager">
+              <ShopManagerLayout>
+                <ShopManagerUsers />
+              </ShopManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        {/* Default Routes */}
         <Route path="/" element={<Navigate to="/login" />} />
+        
+        {/* Redirect based on role after login */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <RoleRedirect />
+          </ProtectedRoute>
+        } />
+        
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
   );
+}
+
+// Component to redirect users based on their role after login
+function RoleRedirect() {
+  const user = useSelector(selectCurrentUser);
+  
+  if (!user) return <Navigate to="/login" />;
+  
+  switch (user.role) {
+    case 'super_admin':
+      return <Navigate to="/super-admin" />;
+    case 'brand_admin':
+      return <Navigate to="/brand-admin" />;
+    case 'district_manager':
+      return <Navigate to="/district-manager" />;
+    case 'shop_manager':
+      return <Navigate to="/shop-manager" />;
+    default:
+      return <Navigate to="/login" />;
+  }
 }
 
 function App() {

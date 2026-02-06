@@ -39,11 +39,11 @@ const Login = () => {
             break;
           case 'district_manager':
             console.log('Redirecting to /district-manager/dashboard');
-            navigate('/district-manager/dashboard');
+            navigate('/district-manager');
             break;
           case 'shop_manager':
             console.log('Redirecting to /shop-manager/dashboard');
-            navigate('/shop-manager/dashboard');
+            navigate('/shop-manager');
             break;
           default:
             console.log('Unknown role, redirecting to login');

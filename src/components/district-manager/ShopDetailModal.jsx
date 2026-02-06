@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { selectAllShops } from '../../redux/slice/shopSlice';
 import { selectAllOrders } from '../../redux/slice/orderSlice';
 import { selectAllUsers } from '../../redux/slice/userSlice';
-import { selectAllVideos } from '../../redux/slice/videoEditSlice';
+import { selectVideos } from '../../redux/slice/videoSlice'; // Changed this import
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 const DEFAULT_SHOP_IMAGE = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
@@ -12,7 +12,7 @@ const ShopDetailModal = ({ shopId, onClose }) => {
   const shops = useSelector(selectAllShops);
   const orders = useSelector(selectAllOrders);
   const users = useSelector(selectAllUsers);
-  const videos = useSelector(selectAllVideos);
+  const videos = useSelector(selectVideos); // Changed this selector
   
   const [loading, setLoading] = useState(true);
 
@@ -39,17 +39,21 @@ const ShopDetailModal = ({ shopId, onClose }) => {
     const totalUsers = shopUsers.length;
     const activeUsers = shopUsers.filter(u => u.is_active).length;
     
-    // Calculate AI video stats
-    const aiVideos = shopVideos.filter(v => v.ai_selected_clips && v.ai_selected_clips.length > 0).length;
-    const manualVideos = shopVideos.filter(v => v.manually_selected_clips && v.manually_selected_clips.length > 0).length;
+    // Calculate video stats based on status
+    const uploadedVideos = shopVideos.filter(v => v.status === 'uploaded').length;
+    const processingVideos = shopVideos.filter(v => v.status === 'processing').length;
+    const completedVideos = shopVideos.filter(v => v.status === 'completed').length;
+    const failedVideos = shopVideos.filter(v => v.status === 'failed').length;
     
     return {
       totalOrders,
       totalVideos,
       totalUsers,
       activeUsers,
-      aiVideos,
-      manualVideos
+      uploadedVideos,
+      processingVideos,
+      completedVideos,
+      failedVideos
     };
   };
 
@@ -144,10 +148,10 @@ const ShopDetailModal = ({ shopId, onClose }) => {
             </div>
             
             <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="text-sm text-green-600 font-medium">AI Video Requests</h3>
+              <h3 className="text-sm text-green-600 font-medium">Total Videos</h3>
               <p className="text-2xl font-bold text-green-700 mt-1">{stats.totalVideos}</p>
               <p className="text-xs text-green-600">
-                {stats.aiVideos} AI, {stats.manualVideos} Manual
+                {stats.completedVideos} completed
               </p>
             </div>
             
@@ -167,6 +171,59 @@ const ShopDetailModal = ({ shopId, onClose }) => {
               <p className="text-xs text-yellow-600">{shop.address || 'No address'}</p>
             </div>
           </div>
+
+          {/* Video Status Breakdown */}
+          {stats.totalVideos > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              <div className="bg-blue-100 p-3 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-700 font-medium">Uploaded</p>
+                    <p className="text-lg font-bold text-blue-800">{stats.uploadedVideos}</p>
+                  </div>
+                  <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              
+              <div className="bg-yellow-100 p-3 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-yellow-700 font-medium">Processing</p>
+                    <p className="text-lg font-bold text-yellow-800">{stats.processingVideos}</p>
+                  </div>
+                  <svg className="w-8 h-8 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              
+              <div className="bg-green-100 p-3 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-green-700 font-medium">Completed</p>
+                    <p className="text-lg font-bold text-green-800">{stats.completedVideos}</p>
+                  </div>
+                  <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              
+              <div className="bg-red-100 p-3 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-red-700 font-medium">Failed</p>
+                    <p className="text-lg font-bold text-red-800">{stats.failedVideos}</p>
+                  </div>
+                  <svg className="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Shop & Manager Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -342,11 +399,19 @@ const ShopDetailModal = ({ shopId, onClose }) => {
           {/* Recent Videos */}
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-800">Recent AI Video Requests ({stats.totalVideos})</h3>
+              <h3 className="text-lg font-bold text-gray-800">Recent Videos ({stats.totalVideos})</h3>
               {shopVideos.length > 0 && (
-                <span className="text-sm text-gray-500">
-                  {stats.aiVideos} AI selections, {stats.manualVideos} manual
-                </span>
+                <div className="flex space-x-2">
+                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                    {stats.uploadedVideos} Uploaded
+                  </span>
+                  <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                    {stats.processingVideos} Processing
+                  </span>
+                  <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                    {stats.completedVideos} Completed
+                  </span>
+                </div>
               )}
             </div>
             {shopVideos.length > 0 ? (
@@ -356,34 +421,51 @@ const ShopDetailModal = ({ shopId, onClose }) => {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Video ID</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Selection Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {shopVideos.slice(0, 5).map((video) => {
-                      const isAISelection = video.ai_selected_clips && video.ai_selected_clips.length > 0;
+                      const getStatusColor = (status) => {
+                        switch(status) {
+                          case 'uploaded': return 'bg-blue-100 text-blue-800';
+                          case 'processing': return 'bg-yellow-100 text-yellow-800';
+                          case 'completed': return 'bg-green-100 text-green-800';
+                          case 'failed': return 'bg-red-100 text-red-800';
+                          default: return 'bg-gray-100 text-gray-800';
+                        }
+                      };
+
+                      const getStatusText = (status) => {
+                        switch(status) {
+                          case 'uploaded': return 'Uploaded';
+                          case 'processing': return 'Processing';
+                          case 'completed': return 'Completed';
+                          case 'failed': return 'Failed';
+                          default: return status || 'Unknown';
+                        }
+                      };
+
                       return (
                         <tr key={video.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            {video.id.slice(0, 8)}...
+                            {video.id?.slice(0, 8) || 'N/A'}...
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500">
                             {video.order_id ? `#${video.order_id.slice(0, 8)}...` : 'N/A'}
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              isAISelection ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                            }`}>
-                              {isAISelection ? 'AI Selection' : 'Manual Selection'}
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(video.status)}`}>
+                              {getStatusText(video.status)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500">
                             {video.duration ? `${Math.round(video.duration)}s` : 'N/A'}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500">
-                            {new Date(video.created_at).toLocaleDateString()}
+                            {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'N/A'}
                           </td>
                         </tr>
                       );
@@ -401,8 +483,8 @@ const ShopDetailModal = ({ shopId, onClose }) => {
                 <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
-                <p className="text-gray-500 italic">No video requests found for this shop</p>
-                <p className="text-sm text-gray-400 mt-1">Videos will appear here when AI requests are made</p>
+                <p className="text-gray-500 italic">No videos found for this shop</p>
+                <p className="text-sm text-gray-400 mt-1">Videos will appear here when created</p>
               </div>
             )}
           </div>

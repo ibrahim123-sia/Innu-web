@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { selectAllShops, getShopsByDistrict } from '../../redux/slice/shopSlice';
+import { selectAllShops, getDistrictShops } from '../../redux/slice/shopSlice';
 import { selectAllOrders, getOrdersByDistrict } from '../../redux/slice/orderSlice';
-import { getTotalAIVideoRequestsByDistrict } from '../../redux/slice/videoEditSlice';
+// Remove the incorrect import and use videoSlice selectors instead
+import { 
+  selectDashboardSummary,
+  selectStatusDistribution,
+  getVideoStats,
+  getStatusBreakdown 
+} from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
 
 const Overview = () => {
@@ -13,10 +19,14 @@ const Overview = () => {
   const allShops = useSelector(selectAllShops);
   const allOrders = useSelector(selectAllOrders);
   
+  // Get video analytics from videoSlice
+  const videoDashboardSummary = useSelector(selectDashboardSummary);
+  const videoStatusDistribution = useSelector(selectStatusDistribution);
+  
   const [loading, setLoading] = useState(true);
   const [totalShops, setTotalShops] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
-  const [totalAIVideoRequests, setTotalAIVideoRequests] = useState(0);
+  const [totalVideos, setTotalVideos] = useState(0);
   const [dailyOrders, setDailyOrders] = useState(0);
   const [topShop, setTopShop] = useState(null);
 
@@ -28,21 +38,21 @@ const Overview = () => {
 
   useEffect(() => {
     calculateStats();
-  }, [allOrders, allShops]);
+  }, [allOrders, allShops, videoDashboardSummary]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const results = await Promise.all([
-        dispatch(getShopsByDistrict(districtId)),
+        dispatch(getDistrictShops()),
         dispatch(getOrdersByDistrict(districtId)),
-        dispatch(getTotalAIVideoRequestsByDistrict(districtId))
+        // Fetch video analytics
+        dispatch(getVideoStats()),
+        dispatch(getStatusBreakdown())
       ]);
 
-      // Set AI video requests data
-      if (results[2].payload?.data?.total_ai_video_requests) {
-        setTotalAIVideoRequests(results[2].payload.data.total_ai_video_requests);
-      }
+      // Set total videos from dashboard summary
+      setTotalVideos(videoDashboardSummary.total || 0);
       
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -95,6 +105,12 @@ const Overview = () => {
     }
   };
 
+  // Calculate AI video completion rate
+  const calculateCompletionRate = () => {
+    if (videoDashboardSummary.total === 0) return 0;
+    return Math.round((videoDashboardSummary.completed / videoDashboardSummary.total) * 100);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -132,10 +148,10 @@ const Overview = () => {
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#BF0A30]">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">AI Video Requests</h3>
-              <p className="text-3xl font-bold text-[#BF0A30] mt-2">{totalAIVideoRequests}</p>
+              <h3 className="text-sm text-gray-500">Total Videos</h3>
+              <p className="text-3xl font-bold text-[#BF0A30] mt-2">{totalVideos}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {totalShops > 0 ? 'Total AI video requests' : 'No requests yet'}
+                {totalVideos > 0 ? `${videoDashboardSummary.completed || 0} completed` : 'No videos yet'}
               </p>
             </div>
             <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
@@ -166,9 +182,12 @@ const Overview = () => {
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Active Shops</h3>
+              <h3 className="text-sm text-gray-500">Video Completion</h3>
               <p className="text-3xl font-bold text-green-600 mt-2">
-                {allShops?.filter(shop => shop.district_id === districtId && shop.is_active).length || 0}
+                {calculateCompletionRate()}%
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {videoDashboardSummary.completed || 0} of {totalVideos} videos
               </p>
             </div>
             <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center">
@@ -179,6 +198,70 @@ const Overview = () => {
           </div>
         </div>
       </div>
+
+      {/* Video Status Overview */}
+      {totalVideos > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Video Status Overview</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-blue-600 font-medium">Uploaded</p>
+                  <p className="text-2xl font-bold text-blue-700">{videoDashboardSummary.uploaded || 0}</p>
+                </div>
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-yellow-600 font-medium">Processing</p>
+                  <p className="text-2xl font-bold text-yellow-700">{videoDashboardSummary.processing || 0}</p>
+                </div>
+                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-green-600 font-medium">Completed</p>
+                  <p className="text-2xl font-bold text-green-700">{videoDashboardSummary.completed || 0}</p>
+                </div>
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-red-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-red-600 font-medium">Failed</p>
+                  <p className="text-2xl font-bold text-red-700">{videoDashboardSummary.failed || 0}</p>
+                </div>
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top Shop & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -284,17 +367,17 @@ const Overview = () => {
             </Link>
             
             <Link
-              to="/district-manager/analytics"
+              to="/district-manager/videos"
               className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
             >
               <div className="w-10 h-10 bg-[#BF0A30] rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </div>
               <div>
-                <h3 className="font-medium">View Analytics</h3>
-                <p className="text-sm text-gray-500">Check AI video performance analytics</p>
+                <h3 className="font-medium">View Videos</h3>
+                <p className="text-sm text-gray-500">Manage and monitor AI-generated videos</p>
               </div>
             </Link>
           </div>

@@ -1,5 +1,5 @@
 // src/redux/slice/videoSlice.js
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import axios from 'axios';
 
 // Create axios instance with base URL
@@ -550,45 +550,50 @@ export const selectVideosByBrand = (brandId) => (state) =>
 export const selectVideosByOrder = (orderId) => (state) =>
   state.video.videos.filter(video => video.order_id === orderId);
 
-export const selectFilteredVideos = (state) => {
-  const { videos, filters } = state.video;
-  
-  if (!videos.length) return [];
-  
-  return videos.filter(video => {
-    if (filters.status && video.status !== filters.status) return false;
-    if (filters.shop_id && video.shop_id !== filters.shop_id) return false;
-    if (filters.brand_id && video.brand_id !== filters.brand_id) return false;
-    if (filters.district_id && video.district_id !== filters.district_id) return false;
-    if (filters.order_id && video.order_id !== filters.order_id) return false;
+// Memoized selectors using createSelector
+export const selectFilteredVideos = createSelector(
+  [
+    (state) => state.video.videos,
+    (state) => state.video.filters
+  ],
+  (videos, filters) => {
+    if (!videos.length) return [];
     
-    if (filters.date_from) {
-      const videoDate = new Date(video.created_at);
-      const filterFrom = new Date(filters.date_from);
-      if (videoDate < filterFrom) return false;
-    }
-    
-    if (filters.date_to) {
-      const videoDate = new Date(video.created_at);
-      const filterTo = new Date(filters.date_to);
-      filterTo.setHours(23, 59, 59, 999); // End of day
-      if (videoDate > filterTo) return false;
-    }
-    
-    if (filters.keywords && video.detected_keywords) {
-      const keywords = filters.keywords.toLowerCase().split(',').map(k => k.trim());
-      const videoKeywords = Array.isArray(video.detected_keywords) 
-        ? video.detected_keywords.map(k => k.toLowerCase())
-        : JSON.parse(video.detected_keywords || '[]').map(k => k.toLowerCase());
+    return videos.filter(video => {
+      if (filters.status && video.status !== filters.status) return false;
+      if (filters.shop_id && video.shop_id !== filters.shop_id) return false;
+      if (filters.brand_id && video.brand_id !== filters.brand_id) return false;
+      if (filters.district_id && video.district_id !== filters.district_id) return false;
+      if (filters.order_id && video.order_id !== filters.order_id) return false;
       
-      return keywords.some(keyword => 
-        videoKeywords.some(vk => vk.includes(keyword))
-      );
-    }
-    
-    return true;
-  });
-};
+      if (filters.date_from) {
+        const videoDate = new Date(video.created_at);
+        const filterFrom = new Date(filters.date_from);
+        if (videoDate < filterFrom) return false;
+      }
+      
+      if (filters.date_to) {
+        const videoDate = new Date(video.created_at);
+        const filterTo = new Date(filters.date_to);
+        filterTo.setHours(23, 59, 59, 999); // End of day
+        if (videoDate > filterTo) return false;
+      }
+      
+      if (filters.keywords && video.detected_keywords) {
+        const keywords = filters.keywords.toLowerCase().split(',').map(k => k.trim());
+        const videoKeywords = Array.isArray(video.detected_keywords) 
+          ? video.detected_keywords.map(k => k.toLowerCase())
+          : JSON.parse(video.detected_keywords || '[]').map(k => k.toLowerCase());
+        
+        return keywords.some(keyword => 
+          videoKeywords.some(vk => vk.includes(keyword))
+        );
+      }
+      
+      return true;
+    });
+  }
+);
 
 // Operation status selectors
 export const selectIsUploading = (state) => state.video.operations.uploading;
@@ -599,144 +604,148 @@ export const selectIsDeleting = (state) => state.video.operations.deleting;
 export const selectIsSearching = (state) => state.video.operations.searching;
 export const selectIsGettingStats = (state) => state.video.operations.gettingStats;
 
-// Derived analytics selectors
-export const selectDerivedVideoStats = (state) => {
-  const videos = state.video.videos;
-  
-  if (!videos.length) {
-    return {
-      total: 0,
+// Derived analytics selectors - Memoized versions
+export const selectDerivedVideoStats = createSelector(
+  [(state) => state.video.videos],
+  (videos) => {
+    if (!videos.length) {
+      return {
+        total: 0,
+        byStatus: {},
+        byBrand: {},
+        byShop: {},
+        byDate: {},
+        recentUploads: 0,
+      };
+    }
+    
+    const stats = {
+      total: videos.length,
       byStatus: {},
       byBrand: {},
       byShop: {},
       byDate: {},
       recentUploads: 0,
     };
+    
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    videos.forEach(video => {
+      // By status
+      const status = video.status || 'unknown';
+      if (!stats.byStatus[status]) {
+        stats.byStatus[status] = 0;
+      }
+      stats.byStatus[status]++;
+      
+      // By brand
+      if (video.brand_id) {
+        if (!stats.byBrand[video.brand_id]) {
+          stats.byBrand[video.brand_id] = 0;
+        }
+        stats.byBrand[video.brand_id]++;
+      }
+      
+      // By shop
+      if (video.shop_id) {
+        if (!stats.byShop[video.shop_id]) {
+          stats.byShop[video.shop_id] = 0;
+        }
+        stats.byShop[video.shop_id]++;
+      }
+      
+      // Recent uploads (last 7 days)
+      const videoDate = new Date(video.created_at);
+      if (videoDate >= sevenDaysAgo) {
+        stats.recentUploads++;
+      }
+      
+      // By date (group by day)
+      const dateKey = videoDate.toISOString().split('T')[0];
+      if (!stats.byDate[dateKey]) {
+        stats.byDate[dateKey] = 0;
+      }
+      stats.byDate[dateKey]++;
+    });
+    
+    // Calculate percentages
+    stats.byStatusPercentage = {};
+    Object.keys(stats.byStatus).forEach(status => {
+      stats.byStatusPercentage[status] = Math.round((stats.byStatus[status] / stats.total) * 100);
+    });
+    
+    stats.recentUploadsPercentage = stats.total > 0 
+      ? Math.round((stats.recentUploads / stats.total) * 100) 
+      : 0;
+    
+    return stats;
   }
-  
-  const stats = {
-    total: videos.length,
-    byStatus: {},
-    byBrand: {},
-    byShop: {},
-    byDate: {},
-    recentUploads: 0,
-  };
-  
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  
-  videos.forEach(video => {
-    // By status
-    const status = video.status || 'unknown';
-    if (!stats.byStatus[status]) {
-      stats.byStatus[status] = 0;
-    }
-    stats.byStatus[status]++;
-    
-    // By brand
-    if (video.brand_id) {
-      if (!stats.byBrand[video.brand_id]) {
-        stats.byBrand[video.brand_id] = 0;
-      }
-      stats.byBrand[video.brand_id]++;
-    }
-    
-    // By shop
-    if (video.shop_id) {
-      if (!stats.byShop[video.shop_id]) {
-        stats.byShop[video.shop_id] = 0;
-      }
-      stats.byShop[video.shop_id]++;
-    }
-    
-    // Recent uploads (last 7 days)
-    const videoDate = new Date(video.created_at);
-    if (videoDate >= sevenDaysAgo) {
-      stats.recentUploads++;
-    }
-    
-    // By date (group by day)
-    const dateKey = videoDate.toISOString().split('T')[0];
-    if (!stats.byDate[dateKey]) {
-      stats.byDate[dateKey] = 0;
-    }
-    stats.byDate[dateKey]++;
-  });
-  
-  // Calculate percentages
-  stats.byStatusPercentage = {};
-  Object.keys(stats.byStatus).forEach(status => {
-    stats.byStatusPercentage[status] = Math.round((stats.byStatus[status] / stats.total) * 100);
-  });
-  
-  stats.recentUploadsPercentage = stats.total > 0 
-    ? Math.round((stats.recentUploads / stats.total) * 100) 
-    : 0;
-  
-  return stats;
-};
+);
 
-// Status distribution selector
-export const selectStatusDistribution = (state) => {
-  const videos = state.video.videos;
-  const distribution = {};
-  
-  videos.forEach(video => {
-    const status = video.status || 'unknown';
-    if (!distribution[status]) {
-      distribution[status] = 0;
-    }
-    distribution[status]++;
-  });
-  
-  return Object.entries(distribution).map(([status, count]) => ({
-    status,
-    count,
-    percentage: videos.length > 0 ? Math.round((count / videos.length) * 100) : 0
-  })).sort((a, b) => b.count - a.count);
-};
+// Status distribution selector - Memoized version
+export const selectStatusDistribution = createSelector(
+  [(state) => state.video.videos],
+  (videos) => {
+    const distribution = {};
+    
+    videos.forEach(video => {
+      const status = video.status || 'unknown';
+      if (!distribution[status]) {
+        distribution[status] = 0;
+      }
+      distribution[status]++;
+    });
+    
+    return Object.entries(distribution).map(([status, count]) => ({
+      status,
+      count,
+      percentage: videos.length > 0 ? Math.round((count / videos.length) * 100) : 0
+    })).sort((a, b) => b.count - a.count);
+  }
+);
 
-// Dashboard summary selector
-export const selectDashboardSummary = (state) => {
-  const videos = state.video.videos;
-  
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const lastWeek = new Date(today);
-  lastWeek.setDate(lastWeek.getDate() - 7);
-  
-  const isToday = (date) => {
-    const videoDate = new Date(date);
-    return videoDate.toDateString() === today.toDateString();
-  };
-  
-  const isYesterday = (date) => {
-    const videoDate = new Date(date);
-    return videoDate.toDateString() === yesterday.toDateString();
-  };
-  
-  const isLastWeek = (date) => {
-    const videoDate = new Date(date);
-    return videoDate >= lastWeek && videoDate < today;
-  };
-  
-  const uploadedVideos = videos.filter(v => v.status === 'uploaded');
-  const processingVideos = videos.filter(v => v.status === 'processing');
-  const completedVideos = videos.filter(v => v.status === 'completed');
-  const failedVideos = videos.filter(v => v.status === 'failed');
-  
-  return {
-    total: videos.length,
-    uploaded: uploadedVideos.length,
-    processing: processingVideos.length,
-    completed: completedVideos.length,
-    failed: failedVideos.length,
-    today: videos.filter(v => isToday(v.created_at)).length,
-    yesterday: videos.filter(v => isYesterday(v.created_at)).length,
-    lastWeek: videos.filter(v => isLastWeek(v.created_at)).length,
-  };
-};
+// Dashboard summary selector - Memoized version
+export const selectDashboardSummary = createSelector(
+  [(state) => state.video.videos],
+  (videos) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    
+    const isToday = (date) => {
+      const videoDate = new Date(date);
+      return videoDate.toDateString() === today.toDateString();
+    };
+    
+    const isYesterday = (date) => {
+      const videoDate = new Date(date);
+      return videoDate.toDateString() === yesterday.toDateString();
+    };
+    
+    const isLastWeek = (date) => {
+      const videoDate = new Date(date);
+      return videoDate >= lastWeek && videoDate < today;
+    };
+    
+    const uploadedVideos = videos.filter(v => v.status === 'uploaded');
+    const processingVideos = videos.filter(v => v.status === 'processing');
+    const completedVideos = videos.filter(v => v.status === 'completed');
+    const failedVideos = videos.filter(v => v.status === 'failed');
+    
+    return {
+      total: videos.length,
+      uploaded: uploadedVideos.length,
+      processing: processingVideos.length,
+      completed: completedVideos.length,
+      failed: failedVideos.length,
+      today: videos.filter(v => isToday(v.created_at)).length,
+      yesterday: videos.filter(v => isYesterday(v.created_at)).length,
+      lastWeek: videos.filter(v => isLastWeek(v.created_at)).length,
+    };
+  }
+);
 
 export default videoSlice.reducer;
