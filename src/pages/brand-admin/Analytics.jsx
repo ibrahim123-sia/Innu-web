@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
-  selectShopsByBrandId,
-  getBrandShops
+  getShopsByBrand, // Changed from getBrandShops to getShopsByBrand
+  selectShopsByBrand // Changed from selectShopsByBrandId to selectShopsByBrand
 } from '../../redux/slice/shopSlice';
 import {
-  selectDistrictsByBrandFromState,
+  selectDistrictsByBrand, // Changed from selectDistrictsByBrandFromState to selectDistrictsByBrand
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
 import {
@@ -18,42 +18,61 @@ import {
 const Analytics = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
+  const brandId = user?.brand_id;
   
   // Correct selectors
-  const shops = useSelector(state => selectShopsByBrandId(user?.brand_id)(state));
-  const districtsByBrand = useSelector(selectDistrictsByBrandFromState);
+  const shops = useSelector(selectShopsByBrand) || [];
+  const districtsByBrand = useSelector(selectDistrictsByBrand) || [];
   const aiVideoRequestsByBrand = useSelector(selectAIVideoRequestsByBrandStats);
   const brandAIErrorStats = useSelector(selectBrandStats);
   
   const [loading, setLoading] = useState(true);
   const [brandAIStats, setBrandAIStats] = useState(null);
   const [expandedDistrict, setExpandedDistrict] = useState(null);
+  const [shopAIRequestsMap, setShopAIRequestsMap] = useState({});
 
   useEffect(() => {
     console.log('Analytics Debug:');
-    console.log('User brand_id:', user?.brand_id);
+    console.log('User brand_id:', brandId);
     console.log('Shops count:', shops?.length);
     console.log('DistrictsByBrand count:', districtsByBrand?.length);
     
-    if (user?.brand_id) {
+    if (brandId) {
       fetchData();
     }
-  }, [user?.brand_id]);
+  }, [brandId]);
+
+  useEffect(() => {
+    // Process AI video requests by shop
+    if (aiVideoRequestsByBrand && Array.isArray(aiVideoRequestsByBrand)) {
+      const requestsMap = {};
+      aiVideoRequestsByBrand.forEach(item => {
+        // Check if this is shop-level data or brand-level data
+        if (item.shopId || item.shop_id) {
+          const shopId = item.shopId || item.shop_id;
+          requestsMap[shopId] = item.totalAIVideoRequests || 0;
+        }
+      });
+      setShopAIRequestsMap(requestsMap);
+    }
+  }, [aiVideoRequestsByBrand]);
 
   useEffect(() => {
     // Calculate brand-specific AI stats when data is available
-    if (user?.brand_id && brandAIErrorStats && aiVideoRequestsByBrand) {
+    if (brandId && brandAIErrorStats && aiVideoRequestsByBrand) {
       calculateBrandStats();
     }
-  }, [brandAIErrorStats, aiVideoRequestsByBrand, user?.brand_id]);
+  }, [brandAIErrorStats, aiVideoRequestsByBrand, brandId]);
 
   const fetchData = async () => {
+    if (!brandId) return;
+    
     setLoading(true);
     try {
       // Pass brand_id to all API calls that need it
       await Promise.all([
-        dispatch(getBrandShops(user.brand_id)),
-        dispatch(getDistrictsByBrand(user.brand_id)),
+        dispatch(getShopsByBrand(brandId)), // Changed from getBrandShops
+        dispatch(getDistrictsByBrand(brandId)),
         dispatch(getAIVideoRequestsByBrand()),
         dispatch(getBrandAIErrorStats())
       ]);
@@ -66,22 +85,17 @@ const Analytics = () => {
 
   const calculateBrandStats = () => {
     // Get brand-specific AI stats from the transformed selector
-    const brandStats = brandAIErrorStats?.find(b => b.brandId === user.brand_id);
+    const brandStats = brandAIErrorStats?.find(b => b.brandId === brandId);
     setBrandAIStats(brandStats || null);
   };
 
   const getAIRequestsForShop = (shopId) => {
-    if (!aiVideoRequestsByBrand) return 0;
-    
-    // Find shop in the AI requests data
-    const shopData = aiVideoRequestsByBrand.find(item => 
-      item.shopId === shopId || item.shop_id === shopId
-    );
-    return shopData?.totalAIVideoRequests || 0;
+    return shopAIRequestsMap[shopId] || 0;
   };
 
   const getShopsByDistrict = (districtId) => {
-    return shops?.filter(shop => shop.district_id === districtId) || [];
+    if (!shops || !Array.isArray(shops)) return [];
+    return shops.filter(shop => shop.district_id === districtId);
   };
 
   const getDistrictStats = (districtId) => {
@@ -111,10 +125,17 @@ const Analytics = () => {
 
   const districtStats = getAllDistrictStats();
 
+  const getTotalAIRequests = () => {
+    if (!aiVideoRequestsByBrand || !brandId) return 0;
+    
+    const brandData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
+    return brandData?.totalAIVideoRequests || 0;
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         <p className="mt-4 text-gray-600">Loading analytics data...</p>
       </div>
     );
@@ -124,10 +145,10 @@ const Analytics = () => {
     <div className="p-6">
       {/* Overall Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-primary-blue-50 rounded-lg p-6 border border-primary-blue-100">
-          <h3 className="text-sm font-medium text-primary-blue-600 mb-2">Total Shops</h3>
-          <p className="text-2xl font-bold text-primary-blue-700">{shops?.length || 0}</p>
-          <p className="text-sm text-primary-blue-600 mt-1">
+        <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
+          <h3 className="text-sm font-medium text-blue-600 mb-2">Total Shops</h3>
+          <p className="text-2xl font-bold text-blue-700">{shops?.length || 0}</p>
+          <p className="text-sm text-blue-600 mt-1">
             {shops?.filter(s => s.is_active).length || 0} active
           </p>
         </div>
@@ -138,12 +159,10 @@ const Analytics = () => {
           <p className="text-sm text-green-600 mt-1">Organizational units</p>
         </div>
         
-        <div className="bg-primary-red-50 rounded-lg p-6 border border-primary-red-100">
-          <h3 className="text-sm font-medium text-primary-red-600 mb-2">Total AI Video Requests</h3>
-          <p className="text-2xl font-bold text-primary-red-700">
-            {aiVideoRequestsByBrand?.reduce((sum, item) => sum + (item.totalAIVideoRequests || 0), 0) || 0}
-          </p>
-          <p className="text-sm text-primary-red-600 mt-1">Across all shops</p>
+        <div className="bg-red-50 rounded-lg p-6 border border-red-100">
+          <h3 className="text-sm font-medium text-red-600 mb-2">Total AI Video Requests</h3>
+          <p className="text-2xl font-bold text-red-700">{getTotalAIRequests()}</p>
+          <p className="text-sm text-red-600 mt-1">Across all shops</p>
         </div>
         
         <div className="bg-purple-50 rounded-lg p-6 border border-purple-100">
@@ -164,11 +183,11 @@ const Analytics = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-primary-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-primary-blue-600">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">
                 {brandAIStats.aiSuccessRate || '0.00'}%
               </div>
-              <div className="text-sm text-primary-blue-500">AI Success Rate</div>
+              <div className="text-sm text-blue-500">AI Success Rate</div>
             </div>
             
             <div className="text-center p-4 bg-green-50 rounded-lg">
@@ -178,11 +197,11 @@ const Analytics = () => {
               <div className="text-sm text-green-500">AI Correct Selections</div>
             </div>
             
-            <div className="text-center p-4 bg-primary-red-50 rounded-lg">
-              <div className="text-2xl font-bold text-primary-red-600">
+            <div className="text-center p-4 bg-red-50 rounded-lg">
+              <div className="text-2xl font-bold text-red-600">
                 {brandAIStats.aiErrors || 0}
               </div>
-              <div className="text-sm text-primary-red-500">AI Errors (Manual Corrections)</div>
+              <div className="text-sm text-red-500">AI Errors (Manual Corrections)</div>
             </div>
             
             <div className="text-center p-4 bg-purple-50 rounded-lg">
@@ -215,7 +234,7 @@ const Analytics = () => {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className="bg-primary-red-500 h-2 rounded-full"
+                  className="bg-red-500 h-2 rounded-full"
                   style={{ width: `${Math.min(parseFloat(brandAIStats.aiErrorRate) || 0, 100)}%` }}
                 ></div>
               </div>
@@ -251,8 +270,8 @@ const Analytics = () => {
                   <div className="p-6 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center border bg-primary-blue-50">
-                          <svg className="w-6 h-6 text-primary-blue" fill="currentColor" viewBox="0 0 20 20">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center border bg-blue-50">
+                          <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                           </svg>
                         </div>
@@ -272,14 +291,14 @@ const Analytics = () => {
                         </div>
                         
                         <div className="text-right">
-                          <div className="text-lg font-semibold text-primary-blue-600">{stats.totalAIRequests}</div>
-                          <div className="text-sm text-primary-blue-500">AI Requests</div>
+                          <div className="text-lg font-semibold text-blue-600">{stats.totalAIRequests}</div>
+                          <div className="text-sm text-blue-500">AI Requests</div>
                         </div>
                         
                         {/* Expand/Collapse Button */}
                         <button
                           onClick={() => setExpandedDistrict(isExpanded ? null : district.id)}
-                          className="px-4 py-2 bg-primary-blue text-white hover:bg-primary-blue-dark rounded-lg text-sm flex items-center transition-colors"
+                          className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm flex items-center transition-colors"
                         >
                           <svg 
                             className={`w-4 h-4 mr-2 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
@@ -322,12 +341,17 @@ const Analytics = () => {
                                         <p className="text-sm text-gray-500">
                                           {shop.city}{shop.state ? `, ${shop.state}` : ''}
                                         </p>
+                                        {shop.tekmetric_shop_id && (
+                                          <p className="text-xs text-blue-600 mt-1">
+                                            Tekmetric ID: {shop.tekmetric_shop_id}
+                                          </p>
+                                        )}
                                       </div>
                                     </div>
                                     
                                     <div className="flex items-center space-x-4">
                                       <div className="text-right">
-                                        <div className="text-lg font-bold text-primary-blue-600">{aiRequests}</div>
+                                        <div className="text-lg font-bold text-blue-600">{aiRequests}</div>
                                         <div className="text-xs text-gray-500">AI Requests</div>
                                       </div>
                                       <div>
@@ -369,7 +393,7 @@ const Analytics = () => {
             <p className="text-gray-500 mb-4">Create districts to organize your shops</p>
             <button
               onClick={fetchData}
-              className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
               Refresh Data
             </button>
@@ -382,6 +406,7 @@ const Analytics = () => {
         <p>Data last updated: {new Date().toLocaleString()}</p>
         <p>Total shops analyzed: {shops?.length || 0}</p>
         <p>Total districts: {districtsByBrand?.length || 0}</p>
+        <p>Total AI requests: {getTotalAIRequests()}</p>
       </div>
     </div>
   );

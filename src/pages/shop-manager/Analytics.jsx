@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  getMyShop,
-  selectMyShop
+  getShopById, // Changed from getMyShop
+  selectCurrentShop // Changed from selectMyShop
 } from '../../redux/slice/shopSlice';
 import {
   getOrdersByShop,
@@ -14,9 +14,7 @@ import {
 } from '../../redux/slice/userSlice';
 import {
   getAllVideos,
-  selectVideos
-} from '../../redux/slice/videoSlice';
-import {
+  selectVideos,
   getVideosByOrderId
 } from '../../redux/slice/videoSlice';
 
@@ -24,19 +22,33 @@ const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.p
 
 const Analytics = () => {
   const dispatch = useDispatch();
-  const myShop = useSelector(selectMyShop);
-  const orders = useSelector(selectOrdersByShop);
-  const shopUsers = useSelector(selectAllUsers);
-  const videos = useSelector(selectVideos);
+  const currentUser = useSelector(state => state.user.currentUser);
+  const shopId = currentUser?.shop_id;
+  
+  const myShop = useSelector(selectCurrentShop);
+  const orders = useSelector(selectOrdersByShop) || [];
+  const shopUsers = useSelector(selectAllUsers) || [];
+  const videos = useSelector(selectVideos) || [];
   
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userVideos, setUserVideos] = useState([]);
   const [videoStats, setVideoStats] = useState(null);
+  const [filteredShopUsers, setFilteredShopUsers] = useState([]);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (shopId) {
+      fetchData();
+    }
+  }, [shopId]);
+
+  useEffect(() => {
+    // Filter users to only show those belonging to this shop
+    if (shopUsers && shopId) {
+      const filtered = shopUsers.filter(user => user.shop_id === shopId);
+      setFilteredShopUsers(filtered);
+    }
+  }, [shopUsers, shopId]);
 
   useEffect(() => {
     if (videos && myShop) {
@@ -45,18 +57,16 @@ const Analytics = () => {
   }, [videos, myShop]);
 
   const fetchData = async () => {
+    if (!shopId) return;
+    
     setLoading(true);
     try {
-      const shopResult = await dispatch(getMyShop()).unwrap();
-      
-      if (shopResult.data) {
-        const shopId = shopResult.data.id;
-        await Promise.all([
-          dispatch(getOrdersByShop(shopId)),
-          dispatch(getUsersByShopId(shopId)),
-          dispatch(getAllVideos())
-        ]);
-      }
+      await Promise.all([
+        dispatch(getShopById(shopId)), // Changed from getMyShop
+        dispatch(getOrdersByShop(shopId)),
+        dispatch(getUsersByShopId(shopId)),
+        dispatch(getAllVideos())
+      ]);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -84,7 +94,7 @@ const Analytics = () => {
     shopVideos.forEach(video => {
       if (video.user_id) {
         if (!stats.byTechnician[video.user_id]) {
-          const technician = shopUsers?.find(u => u.id === video.user_id);
+          const technician = filteredShopUsers?.find(u => u.id === video.user_id);
           stats.byTechnician[video.user_id] = {
             name: technician ? `${technician.first_name} ${technician.last_name}` : 'Unknown',
             count: 0,
@@ -104,10 +114,10 @@ const Analytics = () => {
     
     const stats = {
       total: orders.length,
-      completed: orders.filter(o => o.status === 'completed').length,
-      inProgress: orders.filter(o => o.status === 'in_progress' || o.status === 'work-in-progress').length,
-      pending: orders.filter(o => o.status === 'pending' || o.status === 'estimate').length,
-      cancelled: orders.filter(o => o.status === 'cancelled' || o.status === 'canceled').length,
+      completed: orders.filter(o => ['completed', 'posted', 'done'].includes(o.status?.toLowerCase())).length,
+      inProgress: orders.filter(o => ['in_progress', 'work-in-progress', 'processing'].includes(o.status?.toLowerCase())).length,
+      pending: orders.filter(o => ['pending', 'estimate'].includes(o.status?.toLowerCase())).length,
+      cancelled: orders.filter(o => ['cancelled', 'canceled'].includes(o.status?.toLowerCase())).length,
     };
     
     stats.completedPercentage = stats.total > 0 
@@ -119,10 +129,10 @@ const Analytics = () => {
 
   // Get user video counts
   const getUserVideoStats = () => {
-    if (!shopUsers || !videos || !myShop) return [];
+    if (!filteredShopUsers || !videos || !myShop) return [];
     
     const shopVideos = videos.filter(video => video.shop_id === myShop.id);
-    const technicians = shopUsers.filter(user => user.role === 'technician');
+    const technicians = filteredShopUsers.filter(user => user.role === 'technician');
     
     return technicians.map(technician => {
       const userVideos = shopVideos.filter(video => video.user_id === technician.id);
@@ -154,7 +164,7 @@ const Analytics = () => {
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         <p className="mt-4 text-gray-600">Loading analytics data...</p>
       </div>
     );
@@ -170,10 +180,10 @@ const Analytics = () => {
 
       {/* Overall Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-primary-blue-50 rounded-lg p-6 border border-primary-blue-100">
-          <h3 className="text-sm font-medium text-primary-blue-600 mb-2">Total Orders</h3>
-          <p className="text-2xl font-bold text-primary-blue-700">{orderStats?.total || 0}</p>
-          <p className="text-sm text-primary-blue-600 mt-1">
+        <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
+          <h3 className="text-sm font-medium text-blue-600 mb-2">Total Orders</h3>
+          <p className="text-2xl font-bold text-blue-700">{orderStats?.total || 0}</p>
+          <p className="text-sm text-blue-600 mt-1">
             {orderStats?.completedPercentage || '0'}% completed
           </p>
         </div>
@@ -187,7 +197,7 @@ const Analytics = () => {
         <div className="bg-purple-50 rounded-lg p-6 border border-purple-100">
           <h3 className="text-sm font-medium text-purple-600 mb-2">Total Technicians</h3>
           <p className="text-2xl font-bold text-purple-700">
-            {shopUsers?.filter(u => u.role === 'technician').length || 0}
+            {filteredShopUsers?.filter(u => u.role === 'technician').length || 0}
           </p>
           <p className="text-sm text-purple-600 mt-1">Active technicians</p>
         </div>
@@ -195,7 +205,7 @@ const Analytics = () => {
         <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-100">
           <h3 className="text-sm font-medium text-yellow-600 mb-2">Total Employees</h3>
           <p className="text-2xl font-bold text-yellow-700">
-            {shopUsers?.filter(u => u.is_active).length || 0}
+            {filteredShopUsers?.filter(u => u.is_active).length || 0}
           </p>
           <p className="text-sm text-yellow-600 mt-1">Active employees</p>
         </div>
@@ -210,9 +220,9 @@ const Analytics = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-primary-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-primary-blue-600">{videoStats.byStatus.uploaded}</div>
-              <div className="text-sm text-primary-blue-500">Uploaded</div>
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">{videoStats.byStatus.uploaded}</div>
+              <div className="text-sm text-blue-500">Uploaded</div>
             </div>
             
             <div className="text-center p-4 bg-yellow-50 rounded-lg">
@@ -225,9 +235,9 @@ const Analytics = () => {
               <div className="text-sm text-green-500">Completed</div>
             </div>
             
-            <div className="text-center p-4 bg-primary-red-50 rounded-lg">
-              <div className="text-2xl font-bold text-primary-red-600">{videoStats.byStatus.failed}</div>
-              <div className="text-sm text-primary-red-500">Failed</div>
+            <div className="text-center p-4 bg-red-50 rounded-lg">
+              <div className="text-2xl font-bold text-red-600">{videoStats.byStatus.failed}</div>
+              <div className="text-sm text-red-500">Failed</div>
             </div>
           </div>
         </div>
@@ -270,7 +280,7 @@ const Analytics = () => {
                   
                   return (
                     <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-10 h-10 rounded-full overflow-hidden mr-3 border bg-gray-100">
                             <img 
@@ -288,14 +298,14 @@ const Analytics = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
-                            <svg className="w-4 h-4 text-primary-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
                             <div>
-                              <div className="text-lg font-bold text-primary-blue-600">{user.totalVideos}</div>
+                              <div className="text-lg font-bold text-blue-600">{user.totalVideos}</div>
                               <div className="text-xs text-gray-500">Total Videos</div>
                             </div>
                           </div>
@@ -304,9 +314,9 @@ const Analytics = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="space-y-2">
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="w-32 bg-gray-200 rounded-full h-2">
                             <div 
                               className="bg-green-500 h-2 rounded-full"
                               style={{ width: `${completionRate}%` }}
@@ -317,7 +327,7 @@ const Analytics = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           user.is_active 
                             ? 'bg-green-100 text-green-800' 
@@ -326,10 +336,10 @@ const Analytics = () => {
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => handleViewUserVideos(user)}
-                          className="px-3 py-1 bg-primary-blue text-white hover:bg-primary-blue-dark rounded text-sm"
+                          className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm"
                         >
                           View Videos
                         </button>
@@ -371,9 +381,9 @@ const Analytics = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-primary-blue-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-primary-blue-600">{orderStats.completed}</div>
-                <div className="text-sm text-primary-blue-500">Completed Orders</div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{orderStats.completed}</div>
+                <div className="text-sm text-blue-500">Completed Orders</div>
               </div>
               
               <div className="bg-yellow-50 p-4 rounded-lg">
@@ -386,9 +396,9 @@ const Analytics = () => {
                 <div className="text-sm text-gray-500">Pending</div>
               </div>
               
-              <div className="bg-primary-red-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-primary-red-600">{orderStats.cancelled}</div>
-                <div className="text-sm text-primary-red-500">Cancelled</div>
+              <div className="bg-red-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-red-600">{orderStats.cancelled}</div>
+                <div className="text-sm text-red-500">Cancelled</div>
               </div>
             </div>
           </div>
@@ -451,10 +461,10 @@ const Analytics = () => {
                       {userVideos.map((video) => (
                         <tr key={video.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            {video.id.slice(0, 8)}...
+                            {video.id?.slice(0, 8) || 'N/A'}...
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500">
-                            #{video.order_id?.slice(0, 8)}...
+                            #{video.order_id?.slice(0, 8) || 'N/A'}...
                           </td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -467,10 +477,10 @@ const Analytics = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500">
-                            {new Date(video.created_at).toLocaleDateString()}
+                            {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'N/A'}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500">
-                            {video.duration ? `${video.duration}s` : 'N/A'}
+                            {video.duration ? `${Math.round(video.duration)}s` : 'N/A'}
                           </td>
                         </tr>
                       ))}
@@ -506,7 +516,7 @@ const Analytics = () => {
       <div className="mt-8 flex justify-end">
         <button
           onClick={fetchData}
-          className="px-4 py-2 bg-primary-blue hover:bg-primary-blue-dark text-white rounded-lg transition-colors flex items-center"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

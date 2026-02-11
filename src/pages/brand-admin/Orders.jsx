@@ -4,29 +4,29 @@ import {
   getOrdersByBrand,
   selectOrderLoading,
   selectOrderError,
-  selectBrandOrderStats,
-  selectOrdersByBrand,
+  selectOrdersByBrand, // Removed selectBrandOrderStats - it doesn't exist
 } from '../../redux/slice/orderSlice';
 import {
-  selectDistrictsByBrandFromState,
+  selectDistrictsByBrand,
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
 import {
-  selectShopsByBrandId,
-  getBrandShops
+  getShopsByBrand,
+  selectShopsByBrand
 } from '../../redux/slice/shopSlice';
 
 const Orders = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
+  const brandId = user?.brand_id;
   
   // Correct selectors
   const orders = useSelector(selectOrdersByBrand) || [];
   const loading = useSelector(selectOrderLoading);
   const error = useSelector(selectOrderError);
-  const brandStats = useSelector(state => selectBrandOrderStats(state, user?.brand_id));
-  const districts = useSelector(selectDistrictsByBrandFromState);
-  const shops = useSelector(state => selectShopsByBrandId(user?.brand_id)(state));
+  // Removed brandStats - selector doesn't exist
+  const districts = useSelector(selectDistrictsByBrand) || [];
+  const shops = useSelector(selectShopsByBrand) || [];
   
   const [selectedDistrict, setSelectedDistrict] = useState('all');
   const [expandedDistrict, setExpandedDistrict] = useState(null);
@@ -36,10 +36,10 @@ const Orders = () => {
   const [allOrders, setAllOrders] = useState([]);
 
   useEffect(() => {
-    if (user?.brand_id) {
+    if (brandId) {
       fetchData();
     }
-  }, [user?.brand_id]);
+  }, [brandId]);
 
   useEffect(() => {
     let filtered = orders;
@@ -53,7 +53,8 @@ const Orders = () => {
     if (searchTerm.trim() !== '') {
       filtered = filtered.filter(order => 
         (order.ro_number && order.ro_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (order.customer_name && order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()))
+        (order.customer_name && order.customer_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (order.ro_number_original && order.ro_number_original.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
     
@@ -68,11 +69,13 @@ const Orders = () => {
   }, [orders]);
 
   const fetchData = async () => {
+    if (!brandId) return;
+    
     try {
       await Promise.all([
-        dispatch(getOrdersByBrand({ brandId: user.brand_id, filters: {} })),
-        dispatch(getDistrictsByBrand(user.brand_id)),
-        dispatch(getBrandShops(user.brand_id))
+        dispatch(getOrdersByBrand({ brandId })),
+        dispatch(getDistrictsByBrand(brandId)),
+        dispatch(getShopsByBrand(brandId))
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -284,7 +287,7 @@ const Orders = () => {
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         <p className="mt-4 text-gray-600">Loading orders data...</p>
       </div>
     );
@@ -293,11 +296,11 @@ const Orders = () => {
   if (error) {
     return (
       <div className="flex flex-col justify-center items-center h-96">
-        <div className="text-primary-red-600 text-lg font-medium mb-2">Error Loading Data</div>
+        <div className="text-red-600 text-lg font-medium mb-2">Error Loading Data</div>
         <p className="text-gray-600 mb-4">{error}</p>
         <button
           onClick={fetchData}
-          className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
         >
           Retry
         </button>
@@ -311,17 +314,31 @@ const Orders = () => {
       <div className="mb-6 flex flex-wrap gap-4 items-center justify-between">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">Orders</h2>
-          <span className="bg-primary-blue text-white px-3 py-1 rounded-full text-sm">
+          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
             {getTotalOrders()} Total
           </span>
         </div>
         
         <div className="flex items-center space-x-3">
+          {/* District Filter */}
+          <select
+            value={selectedDistrict}
+            onChange={(e) => setSelectedDistrict(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Districts</option>
+            {districts.map(district => (
+              <option key={district.id} value={district.id}>
+                {district.name}
+              </option>
+            ))}
+          </select>
+          
           {/* Date Filter */}
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Time</option>
             <option value="today">Today</option>
@@ -337,7 +354,7 @@ const Orders = () => {
               placeholder="Search orders..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue w-64"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
             />
             <svg
               className="w-5 h-5 text-gray-400 absolute left-3 top-2.5"
@@ -358,19 +375,19 @@ const Orders = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-primary-blue-50 rounded-lg p-6 border border-primary-blue-100">
+        <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-medium text-primary-blue-600 mb-2">Daily Orders</h3>
-              <p className="text-2xl font-bold text-primary-blue-700">{getDailyOrders()}</p>
+              <h3 className="text-sm font-medium text-blue-600 mb-2">Daily Orders</h3>
+              <p className="text-2xl font-bold text-blue-700">{getDailyOrders()}</p>
             </div>
-            <div className="w-12 h-12 rounded-full bg-primary-blue-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-primary-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
           </div>
-          <p className="text-sm text-primary-blue-600 mt-3">Orders created in last 24 hours</p>
+          <p className="text-sm text-blue-600 mt-3">Orders created in last 24 hours</p>
         </div>
 
         <div className="bg-green-50 rounded-lg p-6 border border-green-100">
@@ -411,8 +428,8 @@ const Orders = () => {
         <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-100">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-medium text-yellow-600 mb-2">Pending</h3>
-              <p className="text-2xl font-bold text-yellow-700">{getPendingOrders()}</p>
+              <h3 className="text-sm font-medium text-yellow-600 mb-2">In Progress</h3>
+              <p className="text-2xl font-bold text-yellow-700">{getInProgressOrders()}</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
               <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -422,8 +439,8 @@ const Orders = () => {
           </div>
           <p className="text-sm text-yellow-600 mt-3">
             {getTotalOrders() > 0 
-              ? `${((getPendingOrders() / getTotalOrders()) * 100).toFixed(1)}% pending rate`
-              : '0% pending rate'
+              ? `${((getInProgressOrders() / getTotalOrders()) * 100).toFixed(1)}% in progress`
+              : '0% in progress'
             }
           </p>
         </div>
@@ -462,6 +479,13 @@ const Orders = () => {
                 return status === 'estimate' || status === 'pending';
               }).length;
               
+              const districtInProgress = districtOrders.filter(order => {
+                if (!order.status) return false;
+                const status = order.status.toLowerCase();
+                return status === 'work-in-progress' || status === 'in_progress' || 
+                       status === 'processing' || status === 'in progress';
+              }).length;
+              
               const districtTotal = districtOrders.length;
               
               return (
@@ -469,8 +493,8 @@ const Orders = () => {
                   {/* District Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center border bg-primary-blue-50">
-                        <svg className="w-6 h-6 text-primary-blue" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center border bg-blue-50">
+                        <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                         </svg>
                       </div>
@@ -492,13 +516,18 @@ const Orders = () => {
                       </div>
                       
                       <div className="text-right">
+                        <div className="text-lg font-semibold text-blue-600">{districtInProgress}</div>
+                        <div className="text-sm text-blue-500">In Progress</div>
+                      </div>
+                      
+                      <div className="text-right">
                         <div className="text-lg font-semibold text-yellow-600">{districtPending}</div>
                         <div className="text-sm text-yellow-500">Pending</div>
                       </div>
                       
                       <button
                         onClick={() => setExpandedDistrict(isExpanded ? null : district.id)}
-                        className="px-4 py-2 bg-primary-blue text-white hover:bg-primary-blue-dark rounded-lg text-sm flex items-center transition-colors"
+                        className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm flex items-center transition-colors"
                       >
                         <svg 
                           className={`w-4 h-4 mr-2 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
@@ -536,6 +565,13 @@ const Orders = () => {
                               return status === 'estimate' || status === 'pending';
                             }).length;
                             
+                            const shopInProgress = shopOrders.filter(order => {
+                              if (!order.status) return false;
+                              const status = order.status.toLowerCase();
+                              return status === 'work-in-progress' || status === 'in_progress' || 
+                                     status === 'processing' || status === 'in progress';
+                            }).length;
+                            
                             const shopTotal = shopOrders.length;
                             
                             return (
@@ -544,7 +580,7 @@ const Orders = () => {
                                   <div className="flex items-center space-x-3">
                                     <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center border bg-white">
                                       <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
                                       </svg>
                                     </div>
                                     <div>
@@ -552,6 +588,11 @@ const Orders = () => {
                                       <p className="text-sm text-gray-500">
                                         {shop.city}{shop.state ? `, ${shop.state}` : ''}
                                       </p>
+                                      {shop.tekmetric_shop_id && (
+                                        <p className="text-xs text-blue-600 mt-1">
+                                          Tekmetric ID: {shop.tekmetric_shop_id}
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
                                   
@@ -563,6 +604,10 @@ const Orders = () => {
                                     <div className="text-center">
                                       <div className="text-md font-semibold text-green-600">{shopCompleted}</div>
                                       <div className="text-xs text-green-500">Completed</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-md font-semibold text-blue-600">{shopInProgress}</div>
+                                      <div className="text-xs text-blue-500">In Progress</div>
                                     </div>
                                     <div className="text-center">
                                       <div className="text-md font-semibold text-yellow-600">{shopPending}</div>
@@ -645,7 +690,7 @@ const Orders = () => {
             <p className="text-gray-500 mb-4">No district data available for the selected filters</p>
             <button
               onClick={fetchData}
-              className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
               Refresh Data
             </button>

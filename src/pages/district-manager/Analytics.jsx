@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
   selectAllShops,
-  getDistrictShops
+  getShopsByDistrict // Changed from getDistrictShops to getShopsByDistrict
 } from '../../redux/slice/shopSlice';
 import { 
   selectVideos,
@@ -12,7 +12,7 @@ import {
 } from '../../redux/slice/videoSlice';
 import {
   getOrdersByDistrict,
-  selectAllOrders
+  selectOrdersByDistrict // Changed from selectAllOrders to selectOrdersByDistrict
 } from '../../redux/slice/orderSlice';
 
 const Analytics = () => {
@@ -23,7 +23,7 @@ const Analytics = () => {
   // Get data from Redux with correct selectors
   const allShops = useSelector(selectAllShops);
   const allVideos = useSelector(selectVideos);
-  const allOrders = useSelector(selectAllOrders);
+  const districtOrders = useSelector(selectOrdersByDistrict) || []; // Changed from selectAllOrders
   const videoDashboardSummary = useSelector(selectDashboardSummary);
   
   // Local state
@@ -63,12 +63,12 @@ const Analytics = () => {
 
   // Filter orders by district
   useEffect(() => {
-    if (allOrders && filteredShops.length > 0) {
+    if (districtOrders && filteredShops.length > 0) {
       const shopIds = filteredShops.map(shop => shop.id);
-      const districtOrders = allOrders.filter(order => shopIds.includes(order.shop_id));
-      setFilteredOrders(districtOrders);
+      const districtOrdersFiltered = districtOrders.filter(order => shopIds.includes(order.shop_id));
+      setFilteredOrders(districtOrdersFiltered);
     }
-  }, [allOrders, filteredShops]);
+  }, [districtOrders, filteredShops]);
 
   // Calculate shop video data
   useEffect(() => {
@@ -83,7 +83,7 @@ const Analytics = () => {
     setLoading(true);
     try {
       await Promise.all([
-        dispatch(getDistrictShops(districtId)), // Pass districtId
+        dispatch(getShopsByDistrict(districtId)), // Changed from getDistrictShops
         dispatch(getAllVideos()),
         dispatch(getOrdersByDistrict({ districtId })),
         dispatch(getVideoStats())
@@ -236,7 +236,7 @@ const Analytics = () => {
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         <p className="mt-4 text-gray-600">Loading analytics data...</p>
       </div>
     );
@@ -258,7 +258,7 @@ const Analytics = () => {
             <select
               value={selectedShop}
               onChange={(e) => setSelectedShop(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Shops ({filteredShops.length})</option>
               {filteredShops?.map(shop => (
@@ -272,7 +272,7 @@ const Analytics = () => {
           <div className="flex items-end">
             <button
               onClick={fetchData}
-              className="w-full bg-primary-blue hover:bg-primary-blue-dark text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -285,10 +285,10 @@ const Analytics = () => {
 
       {/* Overall Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-primary-blue-50 rounded-lg p-6 border border-primary-blue-100">
-          <h3 className="text-sm font-medium text-primary-blue-600 mb-2">Total Video Requests</h3>
-          <p className="text-2xl font-bold text-primary-blue-700">{districtTotals.totalVideosInDistrict}</p>
-          <p className="text-sm text-primary-blue-600 mt-1">Videos processed in district</p>
+        <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
+          <h3 className="text-sm font-medium text-blue-600 mb-2">Total Video Requests</h3>
+          <p className="text-2xl font-bold text-blue-700">{districtTotals.totalVideosInDistrict}</p>
+          <p className="text-sm text-blue-600 mt-1">Videos processed in district</p>
         </div>
         
         <div className="bg-green-50 rounded-lg p-6 border border-green-100">
@@ -303,10 +303,10 @@ const Analytics = () => {
           <p className="text-sm text-yellow-600 mt-1">Videos currently processing</p>
         </div>
         
-        <div className="bg-primary-red-50 rounded-lg p-6 border border-primary-red-100">
-          <h3 className="text-sm font-medium text-primary-red-600 mb-2">Failed Videos</h3>
-          <p className="text-2xl font-bold text-primary-red-700">{districtTotals.totalFailedVideos}</p>
-          <p className="text-sm text-primary-red-600 mt-1">Videos that failed to process</p>
+        <div className="bg-red-50 rounded-lg p-6 border border-red-100">
+          <h3 className="text-sm font-medium text-red-600 mb-2">Failed Videos</h3>
+          <p className="text-2xl font-bold text-red-700">{districtTotals.totalFailedVideos}</p>
+          <p className="text-sm text-red-600 mt-1">Videos that failed to process</p>
         </div>
       </div>
 
@@ -318,9 +318,9 @@ const Analytics = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-primary-blue-100 rounded-lg">
-            <div className="text-2xl font-bold text-primary-blue-600">{districtTotals.totalUploadedVideos || 0}</div>
-            <div className="text-sm text-primary-blue-500">Uploaded</div>
+          <div className="text-center p-4 bg-blue-100 rounded-lg">
+            <div className="text-2xl font-bold text-blue-600">{districtTotals.totalUploadedVideos || 0}</div>
+            <div className="text-sm text-blue-500">Uploaded</div>
           </div>
           
           <div className="text-center p-4 bg-yellow-100 rounded-lg">
@@ -333,9 +333,9 @@ const Analytics = () => {
             <div className="text-sm text-green-500">Completed</div>
           </div>
           
-          <div className="text-center p-4 bg-primary-red-100 rounded-lg">
-            <div className="text-2xl font-bold text-primary-red-600">{districtTotals.totalFailedVideos || 0}</div>
-            <div className="text-sm text-primary-red-500">Failed</div>
+          <div className="text-center p-4 bg-red-100 rounded-lg">
+            <div className="text-2xl font-bold text-red-600">{districtTotals.totalFailedVideos || 0}</div>
+            <div className="text-sm text-red-500">Failed</div>
           </div>
         </div>
       </div>
@@ -375,10 +375,10 @@ const Analytics = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredShopsWithStats.map((shop) => (
                   <tr key={shop.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
-                          <svg className="w-8 h-8 text-primary-blue-300" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-8 h-8 text-blue-300" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z" clipRule="evenodd" />
                           </svg>
                         </div>
@@ -395,20 +395,20 @@ const Analytics = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
-                          <svg className="w-4 h-4 text-primary-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                           </svg>
                           <div>
-                            <div className="text-lg font-bold text-primary-blue-600">{shop.totalVideoRequests || 0}</div>
+                            <div className="text-lg font-bold text-blue-600">{shop.totalVideoRequests || 0}</div>
                             <div className="text-xs text-gray-500">Total Video Requests</div>
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-600">Completed:</span>
@@ -416,17 +416,17 @@ const Analytics = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-600">Failed:</span>
-                          <span className="text-sm font-medium text-primary-red-600">{shop.failedVideos || 0}</span>
+                          <span className="text-sm font-medium text-red-600">{shop.failedVideos || 0}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-600">Rate:</span>
                           <span className="text-sm font-medium text-green-600">{shop.completionRate || "0.0"}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div className="w-32 bg-gray-200 rounded-full h-1.5">
                           <div 
                             className="bg-green-500 h-1.5 rounded-full"
                             style={{ width: `${shop.completionRate || 0}%` }}
@@ -434,11 +434,11 @@ const Analytics = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-600">Error Rate:</span>
-                          <span className="text-sm font-medium text-primary-red-600">{shop.errorRate || "0.0"}%</span>
+                          <span className="text-sm font-medium text-red-600">{shop.errorRate || "0.0"}%</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         shop.is_active 
                           ? 'bg-green-100 text-green-800' 
@@ -447,11 +447,11 @@ const Analytics = () => {
                         {shop.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleViewShopAnalytics(shop.id)}
-                          className="px-3 py-1 bg-primary-blue text-white hover:bg-primary-blue-dark rounded text-sm flex items-center"
+                          className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center"
                         >
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -475,7 +475,7 @@ const Analytics = () => {
             <p className="text-gray-500 mb-4">No shops available in your district or no video data available</p>
             <button
               onClick={fetchData}
-              className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
               Refresh Data
             </button>
@@ -501,7 +501,7 @@ const Analytics = () => {
             <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-primary-blue-300" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-8 h-8 text-blue-300" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -529,15 +529,15 @@ const Analytics = () => {
             <div className="p-6">
               {/* Video Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div className="bg-primary-blue-50 p-4 rounded-lg border border-primary-blue-100">
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-medium text-primary-blue-600">Total Video Requests</h4>
-                      <p className="text-2xl font-bold text-primary-blue-700 mt-1">{shopAnalyticsData.totalVideoRequests}</p>
-                      <p className="text-xs text-primary-blue-500">Total videos for this shop</p>
+                      <h4 className="text-sm font-medium text-blue-600">Total Video Requests</h4>
+                      <p className="text-2xl font-bold text-blue-700 mt-1">{shopAnalyticsData.totalVideoRequests}</p>
+                      <p className="text-xs text-blue-500">Total videos for this shop</p>
                     </div>
-                    <div className="w-10 h-10 bg-primary-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-6 h-6 text-primary-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
                     </div>
@@ -574,15 +574,15 @@ const Analytics = () => {
                   </div>
                 </div>
 
-                <div className="bg-primary-red-50 p-4 rounded-lg border border-primary-red-100">
+                <div className="bg-red-50 p-4 rounded-lg border border-red-100">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-medium text-primary-red-600">Failed Videos</h4>
-                      <p className="text-2xl font-bold text-primary-red-700 mt-1">{shopAnalyticsData.failedVideos}</p>
-                      <p className="text-xs text-primary-red-500">Videos that failed to process</p>
+                      <h4 className="text-sm font-medium text-red-600">Failed Videos</h4>
+                      <p className="text-2xl font-bold text-red-700 mt-1">{shopAnalyticsData.failedVideos}</p>
+                      <p className="text-xs text-red-500">Videos that failed to process</p>
                     </div>
-                    <div className="w-10 h-10 bg-primary-red-100 rounded-full flex items-center justify-center">
-                      <svg className="w-6 h-6 text-primary-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
@@ -612,12 +612,12 @@ const Analytics = () => {
                       <p className="text-xs text-green-500">Successfully processed videos</p>
                     </div>
                     
-                    <div className="p-4 bg-primary-blue-50 rounded-lg">
+                    <div className="p-4 bg-blue-50 rounded-lg">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-primary-blue-700">Uploaded Videos</span>
-                        <span className="text-lg font-bold text-primary-blue-700">{shopAnalyticsData.uploadedVideos}</span>
+                        <span className="text-sm font-medium text-blue-700">Uploaded Videos</span>
+                        <span className="text-lg font-bold text-blue-700">{shopAnalyticsData.uploadedVideos}</span>
                       </div>
-                      <p className="text-xs text-primary-blue-500">Videos uploaded but not yet processed</p>
+                      <p className="text-xs text-blue-500">Videos uploaded but not yet processed</p>
                     </div>
                   </div>
                   
@@ -661,7 +661,7 @@ const Analytics = () => {
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
-                              className="bg-primary-red-500 h-2 rounded-full"
+                              className="bg-red-500 h-2 rounded-full"
                               style={{ width: `${shopAnalyticsData.totalVideoRequests > 0 
                                 ? ((shopAnalyticsData.failedVideos / shopAnalyticsData.totalVideoRequests) * 100).toFixed(1) 
                                 : 0}%` }}
@@ -680,7 +680,7 @@ const Analytics = () => {
                           <span className="text-gray-600">Processing</span>
                         </div>
                         <div className="flex items-center">
-                          <div className="w-3 h-3 bg-primary-red-500 rounded-full mr-2"></div>
+                          <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
                           <span className="text-gray-600">Failed</span>
                         </div>
                       </div>

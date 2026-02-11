@@ -6,8 +6,8 @@ import {
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import {
-  getMyShop,
-  selectMyShop
+  getShopById, // Changed from getMyShop
+  selectCurrentShop // Changed from selectMyShop
 } from '../../redux/slice/shopSlice';
 import {
   getVideosByOrderId,
@@ -17,10 +17,13 @@ import OrderDetailModal from '../../components/shop-manager/OrderDetailModal';
 
 const Orders = () => {
   const dispatch = useDispatch();
-  const orders = useSelector(selectOrdersByShop);
-  const myShop = useSelector(selectMyShop);
+  const currentUser = useSelector(state => state.user.currentUser);
+  const shopId = currentUser?.shop_id;
+  
+  const orders = useSelector(selectOrdersByShop) || [];
+  const myShop = useSelector(selectCurrentShop);
   const loading = useSelector(selectOrderLoading);
-  const videos = useSelector(selectVideos);
+  const videos = useSelector(selectVideos) || [];
   
   const [showOrderDetail, setShowOrderDetail] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -28,8 +31,16 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  // Fetch shop data when component mounts
   useEffect(() => {
-    if (myShop) {
+    if (shopId) {
+      dispatch(getShopById(shopId));
+    }
+  }, [dispatch, shopId]);
+
+  // Fetch orders when shop is loaded
+  useEffect(() => {
+    if (myShop?.id) {
       dispatch(getOrdersByShop(myShop.id));
     }
   }, [dispatch, myShop]);
@@ -111,10 +122,10 @@ const Orders = () => {
 
   const orderCounts = getOrderCounts();
 
-  if (loading && !orders) {
+  if (loading && !orders.length) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -136,7 +147,7 @@ const Orders = () => {
               placeholder="Search by customer, vehicle, or RO#"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           
@@ -145,7 +156,7 @@ const Orders = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
@@ -159,7 +170,7 @@ const Orders = () => {
             <div className="flex items-end h-full">
               <div className="flex space-x-6">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-primary-blue-600">{orderCounts.total}</div>
+                  <div className="text-2xl font-bold text-blue-600">{orderCounts.total}</div>
                   <div className="text-sm text-gray-500">Total Orders</div>
                 </div>
                 <div className="text-center">
@@ -208,21 +219,21 @@ const Orders = () => {
                   const vehicleInfo = order.vehicle_info || {};
                   return (
                     <tr key={order.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="font-medium text-gray-900">
-                            #{order.tekmetric_ro_id || order.id.slice(0, 8)}
+                            #{order.tekmetric_ro_id || order.id?.slice(0, 8) || 'N/A'}
                           </div>
                           <div className="text-sm text-gray-500">
-                            Total: ${order.total_amount?.toFixed(2) || '0.00'}
+                            Total: ${order.total_amount ? parseFloat(order.total_amount).toFixed(2) : '0.00'}
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-medium text-gray-900">{order.customer_name || 'N/A'}</div>
                         <div className="text-sm text-gray-500">{order.customer_phone || 'No phone'}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="font-medium text-gray-900">
                             {vehicleInfo.year ? `${vehicleInfo.year} ${vehicleInfo.make}` : 'N/A'}
@@ -230,7 +241,7 @@ const Orders = () => {
                           <div className="text-sm text-gray-500">{vehicleInfo.model || ''}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           ['completed', 'posted', 'done'].includes(order.status?.toLowerCase()) 
                             ? 'bg-green-100 text-green-800' 
@@ -240,16 +251,16 @@ const Orders = () => {
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {order.status?.replace('_', ' ') || 'Unknown'}
+                          {order.status?.replace(/_/g, ' ') || 'Unknown'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(order.created_at).toLocaleDateString()}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => handleViewOrder(order)}
-                          className="px-4 py-2 bg-primary-blue text-white hover:bg-primary-blue-dark rounded text-sm"
+                          className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm"
                         >
                           View Details
                         </button>
@@ -276,7 +287,7 @@ const Orders = () => {
       </div>
 
       {/* Order Detail Modal */}
-      {showOrderDetail && (
+      {showOrderDetail && selectedOrder && (
         <OrderDetailModal
           order={selectedOrder}
           videos={orderVideos}

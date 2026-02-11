@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { selectAllShops } from '../../redux/slice/shopSlice';
-import { selectAllOrders } from '../../redux/slice/orderSlice';
+import { 
+  getOrdersByBrand,
+  selectOrdersByBrand 
+} from '../../redux/slice/orderSlice';
 import { selectAllUsers } from '../../redux/slice/userSlice';
 import { selectAllDistricts } from '../../redux/slice/districtSlice';
 
@@ -10,22 +13,44 @@ const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.pn
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png'; // User icon
 
 const BrandDetailModal = ({ brandId, onClose }) => {
+  const dispatch = useDispatch();
   const brands = useSelector(state => state.brand.brands);
   const shops = useSelector(selectAllShops);
-  const orders = useSelector(selectAllOrders);
+  const ordersByBrand = useSelector(selectOrdersByBrand);
   const users = useSelector(selectAllUsers);
   const districts = useSelector(selectAllDistricts);
 
   const [loading, setLoading] = useState(true);
+  const [brandOrders, setBrandOrders] = useState([]);
 
   const brand = brands?.find(b => b.id === brandId);
   const brandShops = shops?.filter(shop => shop.brand_id === brandId) || [];
-  const brandOrders = orders?.filter(order => order.brand_id === brandId) || [];
   const brandUsers = users?.filter(user => user.brand_id === brandId) || [];
   const brandDistricts = districts?.filter(district => district.brand_id === brandId) || [];
   
   // Find the brand admin
   const brandAdmin = brandUsers.find(user => user.role === 'brand_admin') || {};
+
+  useEffect(() => {
+    fetchBrandOrders();
+  }, [brandId]);
+
+  useEffect(() => {
+    if (brand) {
+      setLoading(false);
+    }
+  }, [brand]);
+
+  const fetchBrandOrders = async () => {
+    try {
+      const result = await dispatch(getOrdersByBrand(brandId));
+      if (result.payload?.data) {
+        setBrandOrders(result.payload.data);
+      }
+    } catch (error) {
+      console.error('Error fetching brand orders:', error);
+    }
+  };
 
   // Helper function to get brand logo with fallback
   const getBrandLogo = () => {
@@ -43,12 +68,6 @@ const BrandDetailModal = ({ brandId, onClose }) => {
     return DEFAULT_PROFILE_PIC;
   };
 
-  useEffect(() => {
-    if (brand) {
-      setLoading(false);
-    }
-  }, [brand]);
-
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -64,7 +83,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 text-center">
-          <div className="text-primary-red mb-4">
+          <div className="text-red-500 mb-4">
             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -73,7 +92,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
           <p className="text-gray-500 mb-4">The brand you're looking for doesn't exist or has been removed.</p>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-primary-blue-dark transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Close
           </button>
@@ -111,14 +130,18 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                   {brand.is_active ? 'Active' : 'Inactive'}
                 </span>
                 <span className="text-xs text-gray-500">
-                  Created: {new Date(brand.created_at).toLocaleDateString()}
+                  Created: {new Date(brand.created_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
                 </span>
               </div>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
+            className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -130,10 +153,10 @@ const BrandDetailModal = ({ brandId, onClose }) => {
         <div className="p-6">
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-primary-blue-50 p-4 rounded-lg">
-              <h3 className="text-sm text-primary-blue-600 font-medium">Shops</h3>
-              <p className="text-2xl font-bold text-primary-blue-700 mt-1">{brandShops.length}</p>
-              <p className="text-xs text-primary-blue-600">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="text-sm text-blue-600 font-medium">Shops</h3>
+              <p className="text-2xl font-bold text-blue-700 mt-1">{brandShops.length}</p>
+              <p className="text-xs text-blue-600">
                 {brandShops.filter(s => s.is_active).length} Active
               </p>
             </div>
@@ -187,7 +210,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                       href={brand.logo_url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-primary-blue hover:underline mt-2 inline-block text-sm"
+                      className="text-blue-600 hover:underline mt-2 inline-block text-sm"
                     >
                       View Logo
                     </a>
@@ -269,24 +292,30 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shop Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tekmetric ID</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tekmetric ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-200">
                     {brandShops.slice(0, 5).map((shop) => (
                       <tr key={shop.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium text-gray-900">{shop.name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {shop.city}{shop.state ? `, ${shop.state}` : ''}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{shop.name}</div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-500 font-mono">
-                          {shop.tekmetric_shop_id || 'N/A'}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {shop.city}{shop.state ? `, ${shop.state}` : ''}
+                          </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500 font-mono">
+                            {shop.tekmetric_shop_id || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {shop.is_active ? 'Active' : 'Inactive'}
@@ -319,7 +348,11 @@ const BrandDetailModal = ({ brandId, onClose }) => {
               <h3 className="text-lg font-bold text-gray-800">Recent Orders</h3>
               {brandOrders.length > 0 && (
                 <span className="text-sm text-gray-500">
-                  Last updated: {new Date().toLocaleDateString()}
+                  Last updated: {new Date().toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
                 </span>
               )}
             </div>
@@ -328,25 +361,28 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-200">
                     {brandOrders.slice(0, 5).map((order) => {
-                      const vehicleInfo = order.vehicle_info || {};
                       return (
                         <tr key={order.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            #{order.tekmetric_ro_id || order.id.slice(0, 8)}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              #{order.tekmetric_ro_id || order.id?.slice(0, 8) || 'N/A'}
+                            </div>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {order.customer_name || 'N/A'}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">
+                              {order.customer_name || 'N/A'}
+                            </div>
                           </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                               order.status === 'completed' ? 'bg-green-100 text-green-800' :
                               order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                               order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
@@ -355,8 +391,14 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                               {order.status || 'in_progress'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {new Date(order.created_at).toLocaleDateString()}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">
+                              {order.created_at ? new Date(order.created_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              }) : 'N/A'}
+                            </div>
                           </td>
                         </tr>
                       );

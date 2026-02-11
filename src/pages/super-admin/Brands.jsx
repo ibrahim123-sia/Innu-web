@@ -6,8 +6,7 @@ import {
   selectBrandError,
   getAllBrands,
   createBrand,
-  toggleBrandStatus,
-  updateBrand
+  updateBrand  // Changed from toggleBrandStatus to updateBrand
 } from '../../redux/slice/brandSlice';
 import { 
   createUser,
@@ -408,12 +407,43 @@ const Brands = () => {
     setAdminProfilePicFile(null);
   };
 
-  const handleToggleStatus = async (brandId) => {
+  // NEW: Handle toggle status using updateBrand
+  const handleToggleStatus = async (brand) => {
     try {
-      await dispatch(toggleBrandStatus(brandId)).unwrap();
+      const brandFormData = new FormData();
+      brandFormData.append('name', brand.name);
+      brandFormData.append('is_active', !brand.is_active); // Toggle the status
+      
+      // Preserve existing logo if no new one is uploaded
+      if (brand.logo_url) {
+        brandFormData.append('logo_url', brand.logo_url);
+      }
+
+      await dispatch(updateBrand({
+        id: brand.id,
+        data: brandFormData
+      })).unwrap();
+
+      // Show success message
+      Swal.fire({
+        icon: 'success',
+        title: 'Status Updated',
+        text: `${brand.name} has been ${!brand.is_active ? 'activated' : 'deactivated'} successfully!`,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
+      });
+
       dispatch(getAllBrands());
     } catch (err) {
       console.error('Failed to toggle brand status:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to update brand status. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -428,13 +458,13 @@ const Brands = () => {
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">All Brands</h2>
-          <span className="bg-primary-blue text-white px-3 py-1 rounded-full text-sm">
+          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
             {brands?.length || 0} Brands
           </span>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-primary-red hover:bg-primary-red-dark text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -446,7 +476,7 @@ const Brands = () => {
       {/* Create Brand Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-primary-blue mb-4">Create New Brand</h2>
+          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New Brand</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -481,7 +511,7 @@ const Brands = () => {
                             setLogoFile(null);
                             setLogoPreview(null);
                           }}
-                          className="text-sm text-primary-red hover:text-primary-red-dark"
+                          className="text-sm text-red-600 hover:text-red-700"
                         >
                           Remove
                         </button>
@@ -497,7 +527,7 @@ const Brands = () => {
                       </div>
                     )}
                     <label className="block mt-4">
-                      <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                         Choose Logo
                       </span>
                       <input
@@ -528,7 +558,7 @@ const Brands = () => {
                             setAdminProfilePicFile(null);
                             setAdminProfilePicPreview(null);
                           }}
-                          className="text-sm text-primary-red hover:text-primary-red-dark"
+                          className="text-sm text-red-600 hover:text-red-700"
                         >
                           Remove
                         </button>
@@ -544,7 +574,7 @@ const Brands = () => {
                       </div>
                     )}
                     <label className="block mt-4">
-                      <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                         Choose Photo
                       </span>
                       <input
@@ -582,7 +612,7 @@ const Brands = () => {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Enter brand name"
                       required
                     />
@@ -602,7 +632,7 @@ const Brands = () => {
                       name="admin_email"
                       value={formData.admin_email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="admin@example.com"
                       required
                     />
@@ -618,7 +648,7 @@ const Brands = () => {
                         name="admin_first_name"
                         value={formData.admin_first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="First name"
                         required
                       />
@@ -633,7 +663,7 @@ const Brands = () => {
                         name="admin_last_name"
                         value={formData.admin_last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Last name"
                         required
                       />
@@ -649,7 +679,7 @@ const Brands = () => {
                       name="admin_contact"
                       value={formData.admin_contact}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="+1 (XXX) XXX-XXXX"
                       pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                       title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
@@ -665,7 +695,7 @@ const Brands = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-primary-blue hover:bg-primary-blue-dark text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
               >
                 Create Brand & Admin Account
               </button>
@@ -678,7 +708,7 @@ const Brands = () => {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading brands...</p>
           </div>
         ) : error ? (
@@ -782,7 +812,7 @@ const Brands = () => {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewDetails(brand.id)}
-                            className="px-3 py-1 bg-primary-blue text-white hover:bg-primary-blue-dark rounded text-sm"
+                            className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm"
                           >
                             View Details
                           </button>
@@ -793,7 +823,7 @@ const Brands = () => {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleToggleStatus(brand.id)}
+                            onClick={() => handleToggleStatus(brand)} // Pass the entire brand object
                             className={`px-3 py-1 rounded text-sm ${
                               brand.is_active 
                                 ? 'bg-red-100 text-red-700 hover:bg-red-200' 
@@ -821,7 +851,7 @@ const Brands = () => {
             <p className="text-gray-500 mb-4">Create your first brand to get started</p>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
               Create First Brand
             </button>
@@ -842,7 +872,7 @@ const Brands = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-primary-blue mb-4">Edit Brand</h2>
+              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Brand</h2>
               
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -877,7 +907,7 @@ const Brands = () => {
                                 setLogoFile(null);
                                 setLogoPreview(editFormData.logo_url);
                               }}
-                              className="text-sm text-primary-red hover:text-primary-red-dark"
+                              className="text-sm text-red-600 hover:text-red-700"
                             >
                               Remove
                             </button>
@@ -893,7 +923,7 @@ const Brands = () => {
                           </div>
                         )}
                         <label className="block mt-4">
-                          <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                          <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                             Change Logo
                           </span>
                           <input
@@ -924,7 +954,7 @@ const Brands = () => {
                                 setAdminProfilePicFile(null);
                                 setAdminProfilePicPreview(editFormData.admin_profile_pic);
                               }}
-                              className="text-sm text-primary-red hover:text-primary-red-dark"
+                              className="text-sm text-red-600 hover:text-red-700"
                             >
                               Remove
                             </button>
@@ -940,7 +970,7 @@ const Brands = () => {
                           </div>
                         )}
                         <label className="block mt-4">
-                          <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                          <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                             Change Photo
                           </span>
                           <input
@@ -969,7 +999,7 @@ const Brands = () => {
                           name="name"
                           value={editFormData.name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="Enter brand name"
                           required
                         />
@@ -981,7 +1011,7 @@ const Brands = () => {
                           name="is_active"
                           checked={editFormData.is_active}
                           onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.checked }))}
-                          className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <span className="text-sm font-medium text-gray-700">Active</span>
                       </label>
@@ -1002,7 +1032,7 @@ const Brands = () => {
                               name="admin_first_name"
                               value={editFormData.admin_first_name}
                               onChange={handleEditInputChange}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="First name"
                             />
                           </div>
@@ -1016,7 +1046,7 @@ const Brands = () => {
                               name="admin_last_name"
                               value={editFormData.admin_last_name}
                               onChange={handleEditInputChange}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="Last name"
                             />
                           </div>
@@ -1031,7 +1061,7 @@ const Brands = () => {
                             name="admin_contact"
                             value={editFormData.admin_contact}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="+1 (XXX) XXX-XXXX"
                             pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                             title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
@@ -1076,7 +1106,7 @@ const Brands = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-primary-blue hover:bg-primary-blue-dark text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
                   >
                     Update Brand
                   </button>

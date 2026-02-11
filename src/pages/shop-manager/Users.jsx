@@ -11,8 +11,8 @@ import {
   selectUserSuccess
 } from '../../redux/slice/userSlice';
 import {
-  getMyShop,
-  selectMyShop
+  getShopById, // Changed from getMyShop
+  selectCurrentShop // Changed from selectMyShop
 } from '../../redux/slice/shopSlice';
 
 // Import SweetAlert for popup notifications
@@ -22,8 +22,11 @@ const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.p
 
 const Users = () => {
   const dispatch = useDispatch();
-  const myShop = useSelector(selectMyShop);
-  const shopUsers = useSelector(selectAllUsers);
+  const currentUser = useSelector(state => state.user.currentUser);
+  const shopId = currentUser?.shop_id;
+  
+  const myShop = useSelector(selectCurrentShop);
+  const shopUsers = useSelector(selectAllUsers) || [];
   const loading = useSelector(selectUserLoading);
   const error = useSelector(selectUserError);
   const success = useSelector(selectUserSuccess);
@@ -32,6 +35,8 @@ const Users = () => {
   const [showEditModal, setShowEditModal] = useState(null);
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [profilePicPreview, setProfilePicPreview] = useState(null);
+  const [editProfilePicFile, setEditProfilePicFile] = useState(null);
+  const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -49,7 +54,8 @@ const Users = () => {
     is_active: true,
     original_first_name: '',
     original_last_name: '',
-    original_contact_no: ''
+    original_contact_no: '',
+    profile_pic: ''
   });
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -74,11 +80,22 @@ const Users = () => {
     return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
   };
 
+  // Fetch shop data when component mounts
   useEffect(() => {
-    if (myShop) {
+    if (shopId) {
+      dispatch(getShopById(shopId));
+    }
+  }, [dispatch, shopId]);
+
+  // Fetch users when shop is loaded
+  useEffect(() => {
+    if (myShop?.id) {
       dispatch(getUsersByShopId(myShop.id));
     }
   }, [dispatch, myShop]);
+
+  // Filter users to only show those belonging to this shop
+  const filteredShopUsers = shopUsers?.filter(user => user.shop_id === myShop?.id) || [];
 
   useEffect(() => {
     if (success) {
@@ -97,12 +114,17 @@ const Users = () => {
     }
   }, [error]);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
     if (file) {
       const previewUrl = URL.createObjectURL(file);
-      setProfilePicFile(file);
-      setProfilePicPreview(previewUrl);
+      if (isEdit) {
+        setEditProfilePicFile(file);
+        setEditProfilePicPreview(previewUrl);
+      } else {
+        setProfilePicFile(file);
+        setProfilePicPreview(previewUrl);
+      }
     }
   };
 
@@ -202,8 +224,8 @@ const Users = () => {
         userFormData.append('contact_no', formattedPhone);
       }
       
-      if (profilePicFile) {
-        userFormData.append('profile_pic', profilePicFile);
+      if (editProfilePicFile) {
+        userFormData.append('profile_pic', editProfilePicFile);
       }
 
       // Only update if there are changes
@@ -263,10 +285,12 @@ const Users = () => {
       is_active: true,
       original_first_name: '',
       original_last_name: '',
-      original_contact_no: ''
+      original_contact_no: '',
+      profile_pic: ''
     });
-    setProfilePicFile(null);
-    setProfilePicPreview(null);
+    setEditProfilePicFile(null);
+    setEditProfilePicPreview(null);
+    setShowEditModal(null);
   };
 
   const handleInputChange = (e) => {
@@ -319,8 +343,8 @@ const Users = () => {
       original_contact_no: user.contact_no || '',
       profile_pic: user.profile_pic_url || DEFAULT_PROFILE_PIC
     });
-    setProfilePicPreview(user.profile_pic_url || DEFAULT_PROFILE_PIC);
-    setProfilePicFile(null);
+    setEditProfilePicPreview(user.profile_pic_url || DEFAULT_PROFILE_PIC);
+    setEditProfilePicFile(null);
   };
 
   const handleToggleStatus = async (userId, currentStatus) => {
@@ -351,7 +375,7 @@ const Users = () => {
     }
   };
 
-  const filteredUsers = shopUsers?.filter(user => {
+  const filteredUsers = filteredShopUsers?.filter(user => {
     let matches = true;
     
     if (searchTerm) {
@@ -376,19 +400,19 @@ const Users = () => {
       case 'technician': return 'Technician';
       case 'shop_manager': return 'Shop Manager';
       case 'supervisor': return 'Supervisor';
-      default: return role.replace('_', ' ');
+      default: return role?.replace(/_/g, ' ') || 'Unknown';
     }
   };
 
   // Get user counts
   const getUserCounts = () => {
-    if (!shopUsers) return { total: 0, active: 0, technicians: 0, supervisors: 0 };
+    if (!filteredShopUsers) return { total: 0, active: 0, technicians: 0, supervisors: 0 };
     
     return {
-      total: shopUsers.length,
-      active: shopUsers.filter(u => u.is_active).length,
-      technicians: shopUsers.filter(u => u.role === 'technician').length,
-      supervisors: shopUsers.filter(u => u.role === 'supervisor').length,
+      total: filteredShopUsers.length,
+      active: filteredShopUsers.filter(u => u.is_active).length,
+      technicians: filteredShopUsers.filter(u => u.role === 'technician').length,
+      supervisors: filteredShopUsers.filter(u => u.role === 'supervisor').length,
     };
   };
 
@@ -405,7 +429,7 @@ const Users = () => {
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">All Users</h2>
-          <span className="bg-primary-blue text-white px-3 py-1 rounded-full text-sm">
+          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
             {userCounts.total} Users
           </span>
         </div>
@@ -413,7 +437,7 @@ const Users = () => {
         <div className="flex space-x-2">
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-primary-red hover:bg-primary-red-dark text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -426,7 +450,7 @@ const Users = () => {
       {/* Create User Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-primary-blue mb-4">Create New User</h2>
+          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New User</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -469,7 +493,7 @@ const Users = () => {
                             setProfilePicFile(null);
                             setProfilePicPreview(null);
                           }}
-                          className="text-sm text-primary-red hover:text-primary-red-dark"
+                          className="text-sm text-red-600 hover:text-red-700"
                         >
                           Remove
                         </button>
@@ -485,13 +509,13 @@ const Users = () => {
                       </div>
                     )}
                     <label className="block mt-4">
-                      <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                         Choose Photo
                       </span>
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={handleFileChange}
+                        onChange={(e) => handleFileChange(e, false)}
                         className="hidden"
                       />
                     </label>
@@ -514,7 +538,7 @@ const Users = () => {
                         name="first_name"
                         value={formData.first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="First name"
                         required
                       />
@@ -529,7 +553,7 @@ const Users = () => {
                         name="last_name"
                         value={formData.last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Last name"
                         required
                       />
@@ -545,13 +569,11 @@ const Users = () => {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="user@example.com"
                       required
                     />
                   </div>
-
-                  {/* REMOVED: Password Field */}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -562,7 +584,7 @@ const Users = () => {
                       name="contact_no"
                       value={formData.contact_no}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="+1 (XXX) XXX-XXXX"
                       pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                       title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
@@ -580,7 +602,7 @@ const Users = () => {
                       name="role"
                       value={formData.role}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
                       <option value="technician">Technician</option>
@@ -594,7 +616,7 @@ const Users = () => {
                       name="is_active"
                       checked={formData.is_active}
                       onChange={handleInputChange}
-                      className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="text-sm font-medium text-gray-700">Active</span>
                   </label>
@@ -605,7 +627,7 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-primary-blue hover:bg-primary-blue-dark text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
               >
                 Create User
               </button>
@@ -624,7 +646,7 @@ const Users = () => {
               placeholder="Search by name or email"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           
@@ -633,7 +655,7 @@ const Users = () => {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Roles</option>
               <option value="technician">Technician</option>
@@ -665,7 +687,7 @@ const Users = () => {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading users...</p>
           </div>
         ) : filteredUsers && filteredUsers.length > 0 ? (
@@ -698,7 +720,7 @@ const Users = () => {
                   const profilePic = user.profile_pic_url || DEFAULT_PROFILE_PIC;
                   return (
                     <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-10 h-10 rounded-full overflow-hidden mr-3 border bg-gray-100">
                             <img 
@@ -718,17 +740,17 @@ const Users = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">
                           {user.contact_no || 'No contact number'}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                           {getRoleDisplay(user.role)}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           user.is_active 
                             ? 'bg-green-100 text-green-800' 
@@ -737,10 +759,10 @@ const Users = () => {
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(user.created_at).toLocaleDateString()}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEdit(user)}
@@ -782,7 +804,7 @@ const Users = () => {
             {!showCreateForm && (
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
               >
                 Create First User
               </button>
@@ -796,7 +818,7 @@ const Users = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-primary-blue mb-4">Edit User</h2>
+              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit User</h2>
               
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -825,20 +847,20 @@ const Users = () => {
                     </div>
                     
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                      {profilePicPreview ? (
+                      {editProfilePicPreview ? (
                         <div className="space-y-2">
                           <img 
-                            src={profilePicPreview} 
+                            src={editProfilePicPreview} 
                             alt="Profile preview" 
                             className="w-32 h-32 rounded-full mx-auto object-cover"
                           />
                           <button
                             type="button"
                             onClick={() => {
-                              setProfilePicFile(null);
-                              setProfilePicPreview(editFormData.profile_pic);
+                              setEditProfilePicFile(null);
+                              setEditProfilePicPreview(editFormData.profile_pic);
                             }}
-                            className="text-sm text-primary-red hover:text-primary-red-dark"
+                            className="text-sm text-red-600 hover:text-red-700"
                           >
                             Remove
                           </button>
@@ -854,13 +876,13 @@ const Users = () => {
                         </div>
                       )}
                       <label className="block mt-4">
-                        <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                        <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                           Change Photo
                         </span>
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={handleFileChange}
+                          onChange={(e) => handleFileChange(e, true)}
                           className="hidden"
                         />
                       </label>
@@ -881,7 +903,7 @@ const Users = () => {
                           name="first_name"
                           value={editFormData.first_name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="First name"
                         />
                       </div>
@@ -895,7 +917,7 @@ const Users = () => {
                           name="last_name"
                           value={editFormData.last_name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="Last name"
                         />
                       </div>
@@ -910,7 +932,7 @@ const Users = () => {
                         name="contact_no"
                         value={editFormData.contact_no}
                         onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="+1 (XXX) XXX-XXXX"
                         pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                         title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
@@ -919,8 +941,6 @@ const Users = () => {
                         Format: +1 (XXX) XXX-XXXX
                       </p>
                     </div>
-
-                    {/* REMOVED: Password Change Section */}
 
                     {/* Email and Role (Read-only) */}
                     <div>
@@ -946,6 +966,17 @@ const Users = () => {
                         readOnly
                       />
                     </div>
+
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        name="is_active"
+                        checked={editFormData.is_active}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Active</span>
+                    </label>
                   </div>
                 </div>
 
@@ -959,7 +990,7 @@ const Users = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-primary-blue hover:bg-primary-blue-dark text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
                   >
                     Update User
                   </button>

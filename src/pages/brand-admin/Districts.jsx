@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  selectDistrictsByBrandFromState,
+  selectDistrictsByBrand,
   selectDistrictLoading,
   selectDistrictError,
   getDistrictsByBrand,
   createDistrict,
-  toggleDistrictStatus,
-  updateDistrict
+  updateDistrict // Removed toggleDistrictStatus - using updateDistrict instead
 } from '../../redux/slice/districtSlice';
 import {
   createUser,
@@ -16,8 +15,8 @@ import {
   selectAllUsers
 } from '../../redux/slice/userSlice';
 import {
-  selectShopsByBrandId,
-  getBrandShops
+  getShopsByBrand,
+  selectShopsByBrand
 } from '../../redux/slice/shopSlice';
 
 // Import SweetAlert for popup notifications
@@ -30,11 +29,11 @@ const Districts = () => {
   const user = useSelector(state => state.user.currentUser);
   
   // Correct selectors
-  const districtsByBrand = useSelector(selectDistrictsByBrandFromState);
+  const districtsByBrand = useSelector(selectDistrictsByBrand) || [];
   const users = useSelector(selectAllUsers);
   const loading = useSelector(selectDistrictLoading);
   const error = useSelector(selectDistrictError);
-  const shops = useSelector(state => selectShopsByBrandId(user?.brand_id)(state));
+  const shops = useSelector(selectShopsByBrand) || [];
   
   // Modal and form states
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -92,7 +91,7 @@ const Districts = () => {
       console.log(`Fetching data for brand: ${user.brand_id}`);
       dispatch(getDistrictsByBrand(user.brand_id));
       dispatch(getAllUsers());
-      dispatch(getBrandShops(user.brand_id));
+      dispatch(getShopsByBrand(user.brand_id));
     } else {
       console.error('User has no brand_id!');
     }
@@ -344,16 +343,26 @@ const Districts = () => {
     }
   };
 
-  // Toggle district status
-  const handleToggleStatus = async (districtId) => {
+  // NEW: Toggle district status using updateDistrict
+  const handleToggleStatus = async (district) => {
     try {
-      await dispatch(toggleDistrictStatus(districtId)).unwrap();
+      // Create update data with toggled status
+      const updateData = {
+        ...district,
+        is_active: !district.is_active
+      };
+
+      await dispatch(updateDistrict({
+        id: district.id,
+        data: updateData
+      })).unwrap();
+
       dispatch(getDistrictsByBrand(user.brand_id));
       
       Swal.fire({
         icon: 'success',
         title: 'Status Updated',
-        text: 'District status has been updated successfully.',
+        text: `${district.name} has been ${!district.is_active ? 'activated' : 'deactivated'} successfully.`,
         confirmButtonText: 'OK',
         confirmButtonColor: '#4CAF50',
         timer: 2000
@@ -460,13 +469,13 @@ const Districts = () => {
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">Your Brand's Districts</h2>
-          <span className="bg-primary-blue text-white px-3 py-1 rounded-full text-sm">
+          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
             {displayDistricts.length} Districts
           </span>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-primary-red hover:bg-primary-red-dark text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -478,7 +487,7 @@ const Districts = () => {
       {/* Create District Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-primary-blue mb-4">Create New District</h2>
+          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New District</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -522,7 +531,7 @@ const Districts = () => {
                             setManagerProfilePicFile(null);
                             setManagerProfilePicPreview(null);
                           }}
-                          className="text-sm text-primary-red hover:text-primary-red-dark"
+                          className="text-sm text-red-600 hover:text-red-700"
                         >
                           Remove
                         </button>
@@ -538,7 +547,7 @@ const Districts = () => {
                       </div>
                     )}
                     <label className="block mt-4">
-                      <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                         Choose Photo
                       </span>
                       <input
@@ -568,7 +577,7 @@ const Districts = () => {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Enter district name"
                       required
                     />
@@ -583,7 +592,7 @@ const Districts = () => {
                       value={formData.description}
                       onChange={handleInputChange}
                       rows="3"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Optional description about this district"
                     />
                   </div>
@@ -594,7 +603,7 @@ const Districts = () => {
                       name="is_active"
                       checked={formData.is_active}
                       onChange={handleInputChange}
-                      className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="text-sm font-medium text-gray-700">Active</span>
                   </label>
@@ -614,7 +623,7 @@ const Districts = () => {
                         name="manager_first_name"
                         value={formData.manager_first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="First name"
                       />
                     </div>
@@ -628,7 +637,7 @@ const Districts = () => {
                         name="manager_last_name"
                         value={formData.manager_last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Last name"
                       />
                     </div>
@@ -643,7 +652,7 @@ const Districts = () => {
                       name="manager_email"
                       value={formData.manager_email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="manager@example.com"
                     />
                   </div>
@@ -657,7 +666,7 @@ const Districts = () => {
                       name="manager_contact"
                       value={formData.manager_contact}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="+1 (XXX) XXX-XXXX"
                       pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                       title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
@@ -666,8 +675,6 @@ const Districts = () => {
                       Format: +1 (XXX) XXX-XXXX
                     </p>
                   </div>
-                  
-                  {/* REMOVED: Password Field */}
                 </div>
               </div>
             </div>
@@ -675,7 +682,7 @@ const Districts = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-primary-blue hover:bg-primary-blue-dark text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
               >
                 Create District
               </button>
@@ -688,7 +695,7 @@ const Districts = () => {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading districts...</p>
           </div>
         ) : error ? (
@@ -731,9 +738,9 @@ const Districts = () => {
                     <React.Fragment key={district.id}>
                       {/* District Row */}
                       <tr className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-blue-50">
+                            <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-blue-100">
                               <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                               </svg>
@@ -749,7 +756,7 @@ const Districts = () => {
                             {district.description || 'No description'}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           {manager ? (
                             <div className="flex items-center">
                               <div className="w-8 h-8 rounded-full overflow-hidden mr-3 border bg-gray-100">
@@ -776,7 +783,7 @@ const Districts = () => {
                             <div className="text-sm text-gray-500 italic">No manager</div>
                           )}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm">
                             <span className="font-medium text-gray-900">{districtShops.length}</span>
                             <span className="text-gray-500 ml-1">shops</span>
@@ -787,7 +794,7 @@ const Districts = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             district.is_active 
                               ? 'bg-green-100 text-green-800' 
@@ -796,11 +803,11 @@ const Districts = () => {
                             {district.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex space-x-2">
                             <button
                               onClick={() => handleViewShops(district.id)}
-                              className="px-3 py-1 bg-primary-blue text-white hover:bg-primary-blue-dark rounded text-sm flex items-center"
+                              className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center"
                             >
                               <svg 
                                 className={`w-4 h-4 mr-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
@@ -819,7 +826,7 @@ const Districts = () => {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleToggleStatus(district.id)}
+                              onClick={() => handleToggleStatus(district)}
                               className={`px-3 py-1 rounded text-sm ${
                                 district.is_active 
                                   ? 'bg-red-100 text-red-700 hover:bg-red-200' 
@@ -929,7 +936,7 @@ const Districts = () => {
             <p className="text-gray-500 mb-4">Create your first district to organize shops</p>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
               Create First District
             </button>
@@ -942,7 +949,7 @@ const Districts = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-primary-blue mb-4">Edit District</h2>
+              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit District</h2>
               
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -985,7 +992,7 @@ const Districts = () => {
                                 setEditManagerProfilePicFile(null);
                                 setEditManagerProfilePicPreview(editFormData.manager_profile_pic);
                               }}
-                              className="text-sm text-primary-red hover:text-primary-red-dark"
+                              className="text-sm text-red-600 hover:text-red-700"
                             >
                               Remove
                             </button>
@@ -1001,7 +1008,7 @@ const Districts = () => {
                           </div>
                         )}
                         <label className="block mt-4">
-                          <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                          <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                             Change Photo
                           </span>
                           <input
@@ -1031,7 +1038,7 @@ const Districts = () => {
                           name="name"
                           value={editFormData.name || ''}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="Enter district name"
                           required
                         />
@@ -1046,7 +1053,7 @@ const Districts = () => {
                           value={editFormData.description || ''}
                           onChange={handleEditInputChange}
                           rows="3"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="Optional description about this district"
                         />
                       </div>
@@ -1057,7 +1064,7 @@ const Districts = () => {
                           name="is_active"
                           checked={editFormData.is_active || false}
                           onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.checked }))}
-                          className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <span className="text-sm font-medium text-gray-700">Active</span>
                       </label>
@@ -1077,7 +1084,7 @@ const Districts = () => {
                             name="manager_first_name"
                             value={editFormData.manager_first_name || ''}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="First name"
                           />
                         </div>
@@ -1091,7 +1098,7 @@ const Districts = () => {
                             name="manager_last_name"
                             value={editFormData.manager_last_name || ''}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Last name"
                           />
                         </div>
@@ -1120,7 +1127,7 @@ const Districts = () => {
                             name="manager_contact"
                             value={editFormData.manager_contact || ''}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="+1 (XXX) XXX-XXXX"
                             pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                             title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
@@ -1130,8 +1137,6 @@ const Districts = () => {
                           </p>
                         </div>
                       </div>
-                      
-                      {/* REMOVED: Password Change Section */}
                     </div>
                   </div>
                 </div>
@@ -1146,7 +1151,7 @@ const Districts = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-primary-blue hover:bg-primary-blue-dark text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
                   >
                     Update District
                   </button>
