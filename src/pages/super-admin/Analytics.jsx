@@ -9,30 +9,26 @@ import {
   selectTotalAIVideoRequests,
   selectAIVideoRequestsByBrandStats,
   selectAIErrorStats,
-  selectBrandAIErrorStats,
   selectAIErrorRate,
   selectAISuccessRate,
   selectTotalManualSelections,
   selectManualSelectionRate,
-  getTotalAIVideoRequests,
-  getAIVideoRequestsByBrand,
-  getAIErrorStats,
-  getBrandAIErrorStats,
+  selectBrandStats,  // <-- IMPORTANT: Use the transformed selector!
   getVideoAnalyticsStats
 } from '../../redux/slice/videoEditSlice';
 
 // Default images
-const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png'; // Building icon
+const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 
 const Analytics = () => {
   const dispatch = useDispatch();
   
-  // Selectors from Redux
+  // Selectors from Redux - FIXED: Use the transformed selector for brand stats
   const brands = useSelector(selectAllBrands);
   const totalAIVideoRequests = useSelector(selectTotalAIVideoRequests);
   const aiVideoRequestsByBrand = useSelector(selectAIVideoRequestsByBrandStats);
   const aiErrorStats = useSelector(selectAIErrorStats);
-  const brandAIErrorStats = useSelector(selectBrandAIErrorStats);
+  const brandAIErrorStats = useSelector(selectBrandStats);  // <-- Use transformed version!
   const aiErrorRate = useSelector(selectAIErrorRate);
   const aiSuccessRate = useSelector(selectAISuccessRate);
   const totalManualSelections = useSelector(selectTotalManualSelections);
@@ -80,57 +76,125 @@ const Analytics = () => {
     return brand?.name || 'Unknown Brand';
   };
 
-  // Get AI stats for a specific brand
+  // Get AI stats for a specific brand - UPDATED: Use transformed data structure
   const getBrandAIStats = (brandId) => {
+    console.log('Looking for brandId:', brandId);
+    console.log('Available brandAIErrorStats:', brandAIErrorStats);
+    console.log('Available aiVideoRequestsByBrand:', aiVideoRequestsByBrand);
+    console.log('Available brands:', brands);
+    
     // Get video requests for this brand
-    const requestsData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
+    const requestsData = aiVideoRequestsByBrand?.find(b => b.brandId === brandId);
     const videoRequests = requestsData?.totalAIVideoRequests || 0;
+    console.log('Found requests data:', requestsData);
     
     // Get error stats for this brand
-    const errorData = brandAIErrorStats.find(b => b.brandId === brandId);
+    const errorData = brandAIErrorStats?.find(b => b.brandId === brandId);
+    console.log('Found error data:', errorData);
+    
+    // If no error data found, try alternative matches
+    if (!errorData) {
+      console.log('No error data found, trying alternative matches...');
+      
+      // Try matching by brand name (in case IDs don't match)
+      const brand = brands?.find(b => b.id === brandId);
+      if (brand) {
+        const brandName = brand.name;
+        console.log('Looking for brand by name:', brandName);
+        
+        const errorDataByName = brandAIErrorStats?.find(b => 
+          b.brandName === brandName || b.brandId === brandId
+        );
+        console.log('Error data by name:', errorDataByName);
+        
+        if (errorDataByName) {
+          console.log('Found data by name!');
+          return createBrandStats(brandId, videoRequests, errorDataByName);
+        }
+      }
+    }
+    
+    return createBrandStats(brandId, videoRequests, errorData);
+  };
+
+  // Helper function to create brand stats object
+  const createBrandStats = (brandId, videoRequests, errorData) => {
+    const totalSegments = errorData?.totalSegments || 0;
+    const aiErrors = errorData?.aiErrors || 0;
+    const aiCorrect = errorData?.aiCorrect || 0;
+    
+    let calculatedErrorRate = "0.00";
+    let calculatedSuccessRate = "0.00";
+    
+    if (totalSegments > 0) {
+      calculatedErrorRate = ((aiErrors / totalSegments) * 100).toFixed(2);
+      calculatedSuccessRate = ((aiCorrect / totalSegments) * 100).toFixed(2);
+    }
     
     return {
       brandId,
       brandName: getBrandName(brandId),
       brandLogo: getBrandLogo(brandId),
       totalVideoRequests: videoRequests,
-      totalSegments: errorData?.totalSegments || 0,
-      aiErrors: errorData?.aiErrors || 0,
-      aiCorrect: errorData?.aiCorrect || 0,
-      aiErrorRate: errorData?.aiErrorRate || "0.00",
-      aiSuccessRate: errorData?.aiSuccessRate || "0.00"
+      totalSegments: totalSegments,
+      aiErrors: aiErrors,
+      aiCorrect: aiCorrect,
+      aiErrorRate: errorData?.aiErrorRate || calculatedErrorRate,
+      aiSuccessRate: errorData?.aiSuccessRate || calculatedSuccessRate
     };
   };
 
-  // Get all brands with their AI stats
+  // Get all brands with their AI stats - UPDATED
   const getAllBrandsWithAIStats = () => {
-    if (!brands || !aiVideoRequestsByBrand || !brandAIErrorStats) return [];
+    if (!brands || !Array.isArray(brands)) return [];
     
     return brands.map(brand => {
       const brandId = brand.id;
+      const brandName = brand.name;
       
       // Get video requests for this brand
-      const requestsData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
+      const requestsData = aiVideoRequestsByBrand?.find(b => 
+        b.brandId === brandId || b.brandName === brandName
+      );
       const videoRequests = requestsData?.totalAIVideoRequests || 0;
       
       // Get error stats for this brand
-      const errorData = brandAIErrorStats.find(b => b.brandId === brandId);
+      const errorData = brandAIErrorStats?.find(b => 
+        b.brandId === brandId || b.brandName === brandName
+      );
+      
+      const totalSegments = errorData?.totalSegments || 0;
+      const aiErrors = errorData?.aiErrors || 0;
+      const aiCorrect = errorData?.aiCorrect || 0;
+      
+      let calculatedErrorRate = "0.00";
+      let calculatedSuccessRate = "0.00";
+      
+      if (totalSegments > 0) {
+        calculatedErrorRate = ((aiErrors / totalSegments) * 100).toFixed(2);
+        calculatedSuccessRate = ((aiCorrect / totalSegments) * 100).toFixed(2);
+      }
       
       return {
         ...brand,
         totalVideoRequests: videoRequests,
-        totalSegments: errorData?.totalSegments || 0,
-        aiErrors: errorData?.aiErrors || 0,
-        aiCorrect: errorData?.aiCorrect || 0,
-        aiErrorRate: errorData?.aiErrorRate || "0.00",
-        aiSuccessRate: errorData?.aiSuccessRate || "0.00"
+        totalSegments: totalSegments,
+        aiErrors: aiErrors,
+        aiCorrect: aiCorrect,
+        aiErrorRate: errorData?.aiErrorRate || calculatedErrorRate,
+        aiSuccessRate: errorData?.aiSuccessRate || calculatedSuccessRate
       };
     });
   };
 
-  // Handle view brand analytics
+  // Handle view brand analytics - UPDATED with better debugging
   const handleViewBrandAnalytics = (brandId) => {
+    console.log('=== VIEW ANALYTICS CLICKED ===');
+    console.log('Brand ID:', brandId);
+    
     const stats = getBrandAIStats(brandId);
+    console.log('Generated stats:', stats);
+    
     setBrandAnalyticsData(stats);
     setShowBrandAnalyticsModal(brandId);
   };
@@ -141,21 +205,21 @@ const Analytics = () => {
     : getAllBrandsWithAIStats().filter(brand => brand.id === selectedBrand);
 
   // Calculate totals for display
-  const totalRequestsByBrand = aiVideoRequestsByBrand.reduce((sum, brand) => 
+  const totalRequestsByBrand = aiVideoRequestsByBrand?.reduce((sum, brand) => 
     sum + (brand.totalAIVideoRequests || 0), 0
-  );
+  ) || 0;
 
-  const totalBrandErrors = brandAIErrorStats.reduce((sum, brand) => 
+  const totalBrandErrors = brandAIErrorStats?.reduce((sum, brand) => 
     sum + (brand.aiErrors || 0), 0
-  );
+  ) || 0;
 
-  const totalBrandSuccess = brandAIErrorStats.reduce((sum, brand) => 
+  const totalBrandSuccess = brandAIErrorStats?.reduce((sum, brand) => 
     sum + (brand.aiCorrect || 0), 0
-  );
+  ) || 0;
 
-  const totalBrandSegments = brandAIErrorStats.reduce((sum, brand) => 
+  const totalBrandSegments = brandAIErrorStats?.reduce((sum, brand) => 
     sum + (brand.totalSegments || 0), 0
-  );
+  ) || 0;
 
   if (loading) {
     return (
@@ -168,45 +232,6 @@ const Analytics = () => {
 
   return (
     <div className="p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">AI Video Analytics Dashboard</h1>
-        <p className="text-gray-600">Track AI video requests and performance across all brands</p>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Brand Filter</label>
-            <select
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-            >
-              <option value="all">All Brands</option>
-              {brands?.map(brand => (
-                <option key={brand.id} value={brand.id}>
-                  {brand.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={fetchData}
-              className="w-full bg-[#002868] hover:bg-blue-800 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh Data
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Overall Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
@@ -273,12 +298,7 @@ const Analytics = () => {
           <p className="text-gray-600">AI video requests and error rates by brand</p>
         </div>
         
-        {loading ? (
-          <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868]"></div>
-            <p className="mt-4 text-gray-600">Loading brand analytics...</p>
-          </div>
-        ) : filteredBrandsWithStats.length > 0 ? (
+        {filteredBrandsWithStats.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -304,98 +324,104 @@ const Analytics = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredBrandsWithStats.map((brand) => (
-                  <tr key={brand.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
-                          <img 
-                            src={getBrandLogo(brand.id)}
-                            alt={brand.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = DEFAULT_BRAND_LOGO;
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">{brand.name}</div>
-                          <div className="text-sm text-gray-500">ID: {brand.id.slice(0, 8)}...</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
+                {filteredBrandsWithStats.map((brand) => {
+                  // Ensure values are properly formatted
+                  const successRate = parseFloat(brand.aiSuccessRate) || 0;
+                  const errorRate = parseFloat(brand.aiErrorRate) || 0;
+                  
+                  return (
+                    <tr key={brand.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
+                            <img 
+                              src={getBrandLogo(brand.id)}
+                              alt={brand.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = DEFAULT_BRAND_LOGO;
+                              }}
+                            />
+                          </div>
                           <div>
-                            <div className="text-lg font-bold text-blue-600">{brand.totalVideoRequests || 0}</div>
-                            <div className="text-xs text-gray-500">AI Video Requests</div>
+                            <div className="font-medium text-gray-900">{brand.name}</div>
+                           
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Success Rate:</span>
-                          <span className="text-sm font-medium text-green-600">{brand.aiSuccessRate || "0.00"}%</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            <div>
+                              <div className="text-lg font-bold text-blue-600">{brand.totalVideoRequests || 0}</div>
+                              <div className="text-xs text-gray-500">AI Video Requests</div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                          <div 
-                            className="bg-green-500 h-1.5 rounded-full"
-                            style={{ width: `${brand.aiSuccessRate || 0}%` }}
-                          ></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Success Rate:</span>
+                            <span className="text-sm font-medium text-green-600">{successRate.toFixed(2)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div 
+                              className="bg-green-500 h-1.5 rounded-full"
+                              style={{ width: `${Math.min(successRate, 100)}%` }}
+                            ></div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Error Rate:</span>
+                            <span className="text-sm font-medium text-red-600">{errorRate.toFixed(2)}%</span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Error Rate:</span>
-                          <span className="text-sm font-medium text-red-600">{brand.aiErrorRate || "0.00"}%</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">Total Segments:</span>
+                            <span className="text-xs font-medium text-gray-800">{brand.totalSegments || 0}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">AI Correct:</span>
+                            <span className="text-xs font-medium text-green-600">{brand.aiCorrect || 0}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">AI Errors:</span>
+                            <span className="text-xs font-medium text-red-600">{brand.aiErrors || 0}</span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-600">Total Segments:</span>
-                          <span className="text-xs font-medium text-gray-800">{brand.totalSegments || 0}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          brand.is_active 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {brand.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleViewBrandAnalytics(brand.id)}
+                            className="px-3 py-1 bg-[#002868] text-white hover:bg-blue-700 rounded text-sm flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View Analytics
+                          </button>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-600">AI Correct:</span>
-                          <span className="text-xs font-medium text-green-600">{brand.aiCorrect || 0}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-600">AI Errors:</span>
-                          <span className="text-xs font-medium text-red-600">{brand.aiErrors || 0}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        brand.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {brand.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleViewBrandAnalytics(brand.id)}
-                          className="px-3 py-1 bg-[#002868] text-white hover:bg-blue-700 rounded text-sm flex items-center"
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          View Analytics
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -418,13 +444,6 @@ const Analytics = () => {
         )}
       </div>
 
-      {/* Data Summary */}
-      <div className="mt-8 text-sm text-gray-500">
-        <p>Data last updated: {new Date().toLocaleString()}</p>
-        <p>Total AI video requests: {totalAIVideoRequests}</p>
-        <p>Total brands analyzed: {brandAIErrorStats?.length || 0}</p>
-      </div>
-
       {/* Brand Analytics Modal */}
       {showBrandAnalyticsModal && brandAnalyticsData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -445,11 +464,7 @@ const Analytics = () => {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800">{brandAnalyticsData.brandName}</h2>
                   <p className="text-gray-600">AI Video Analytics</p>
-                  <div className="mt-1">
-                    <span className="text-xs text-gray-500">
-                      Brand ID: {brandAnalyticsData.brandId.slice(0, 8)}...
-                    </span>
-                  </div>
+                 
                 </div>
               </div>
               <button
@@ -464,6 +479,7 @@ const Analytics = () => {
 
             {/* Modal Content */}
             <div className="p-6">
+             
               {/* AI Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
@@ -571,7 +587,7 @@ const Analytics = () => {
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
                               className="bg-green-500 h-2 rounded-full"
-                              style={{ width: `${brandAnalyticsData.aiSuccessRate}%` }}
+                              style={{ width: `${Math.min(parseFloat(brandAnalyticsData.aiSuccessRate) || 0, 100)}%` }}
                             ></div>
                           </div>
                         </div>
@@ -584,7 +600,7 @@ const Analytics = () => {
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
                               className="bg-red-500 h-2 rounded-full"
-                              style={{ width: `${brandAnalyticsData.aiErrorRate}%` }}
+                              style={{ width: `${Math.min(parseFloat(brandAnalyticsData.aiErrorRate) || 0, 100)}%` }}
                             ></div>
                           </div>
                         </div>

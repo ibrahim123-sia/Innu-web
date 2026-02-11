@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
-  getBrandShops
+  getBrandShops,
+  selectShopsByBrandId
 } from '../../redux/slice/shopSlice';
 import {
-  getOrdersByBrand
+  getOrdersByBrand,
+  selectOrdersByBrand
 } from '../../redux/slice/orderSlice';
 import {
-  getTotalAIVideoRequests,
-  getAIVideoRequestsByBrand,
-  getBrandAIErrorStats
+  getVideosByShop,
+  selectVideos
+} from '../../redux/slice/videoSlice';
+import {
+  selectTotalAIVideoRequests,
+  selectAIVideoRequestsByBrandStats,
+  selectBrandStats,
+  getVideoAnalyticsStats
 } from '../../redux/slice/videoEditSlice';
 import { Link } from 'react-router-dom';
 
@@ -18,20 +25,20 @@ const Overview = () => {
   const user = useSelector(state => state.user.currentUser);
   const brandId = user?.brand_id;
   
-  // Get shops directly from Redux state
-  const shops = useSelector(state => state.shop.shops || []);
-  
-  // Get orders specifically for this brand using the new method
-  const brandOrders = useSelector(state => 
-    state.order.ordersByBrand || []
-  );
+  // Correct selectors
+  const shops = useSelector(state => selectShopsByBrandId(brandId)(state));
+  const brandOrders = useSelector(selectOrdersByBrand);
+  const allVideos = useSelector(selectVideos);
+  const totalAIVideoRequests = useSelector(selectTotalAIVideoRequests);
+  const aiVideoRequestsByBrand = useSelector(selectAIVideoRequestsByBrandStats);
+  const brandAIErrorStats = useSelector(selectBrandStats);
   
   const [loading, setLoading] = useState(true);
   const [dailyOrders, setDailyOrders] = useState(0);
-  const [totalAIVideoRequests, setTotalAIVideoRequests] = useState(0);
-  const [aiRequestsByBrand, setAiRequestsByBrand] = useState([]);
+  const [brandVideoRequests, setBrandVideoRequests] = useState(0);
   const [brandAIStats, setBrandAIStats] = useState(null);
   const [topShop, setTopShop] = useState(null);
+  const [shopVideosMap, setShopVideosMap] = useState({});
 
   // Fetch data only once
   useEffect(() => {
@@ -40,12 +47,19 @@ const Overview = () => {
     }
   }, [brandId]);
 
+  // Fetch videos for each shop
+  useEffect(() => {
+    if (shops.length > 0 && brandId) {
+      fetchShopVideos();
+    }
+  }, [shops, brandId]);
+
   // Calculate stats when data changes
   useEffect(() => {
-    if (!loading) {
+    if (!loading && shops.length > 0) {
       calculateStats();
     }
-  }, [shops, brandOrders, aiRequestsByBrand, loading]);
+  }, [shops, brandOrders, aiVideoRequestsByBrand, brandAIErrorStats, shopVideosMap, loading]);
 
   const fetchData = async () => {
     if (!brandId) return;
@@ -55,9 +69,7 @@ const Overview = () => {
       await Promise.all([
         dispatch(getBrandShops(brandId)),
         dispatch(getOrdersByBrand({ brandId })),
-        dispatch(getTotalAIVideoRequests()),
-        dispatch(getAIVideoRequestsByBrand()),
-        dispatch(getBrandAIErrorStats())
+        dispatch(getVideoAnalyticsStats())
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -66,13 +78,30 @@ const Overview = () => {
     }
   };
 
+  const fetchShopVideos = async () => {
+    const videosByShop = {};
+    
+    for (const shop of shops) {
+      try {
+        const result = await dispatch(getVideosByShop(shop.id));
+        if (result.payload?.data) {
+          videosByShop[shop.id] = result.payload.data;
+        }
+      } catch (error) {
+        console.error(`Error fetching videos for shop ${shop.id}:`, error);
+        videosByShop[shop.id] = [];
+      }
+    }
+    
+    setShopVideosMap(videosByShop);
+  };
+
   const calculateStats = () => {
     // Calculate daily orders (last 24 hours)
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     
-    // Now brandOrders already contains only orders for this brand
     const todayOrders = brandOrders.filter(order => {
       if (!order?.created_at) return false;
       const orderDate = new Date(order.created_at);
@@ -81,39 +110,66 @@ const Overview = () => {
     
     setDailyOrders(todayOrders);
 
+    // Calculate brand-specific AI video requests
+    if (aiVideoRequestsByBrand && brandId) {
+      const brandRequestsData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
+      const brandRequests = brandRequestsData?.totalAIVideoRequests || 0;
+      setBrandVideoRequests(brandRequests);
+    }
+
+    // Find brand-specific AI stats
+    if (brandAIErrorStats && brandId) {
+      const brandStats = brandAIErrorStats.find(b => b.brandId === brandId);
+      if (brandStats) {
+        setBrandAIStats(brandStats);
+      }
+    }
+
     // Find top shop with most AI video requests
-    if (aiRequestsByBrand.length > 0 && shops.length > 0) {
-      // Combine shop info with AI request data
-      const shopsWithAIRequests = shops.map(shop => {
-        const shopAIRequests = aiRequestsByBrand.find(item => 
-          item.shop_id && shop.id && String(item.shop_id) === String(shop.id)
-        );
+    if (shops.length > 0 && Object.keys(shopVideosMap).length > 0) {
+      const shopsWithVideoCounts = shops.map(shop => {
+        const shopVideos = shopVideosMap[shop.id] || [];
+        
+        const aiVideoRequests = shopVideos.filter(video => {
+          return video.status === 'completed' || 
+                 video.status === 'processing' ||
+                 video.status === 'ai_processing';
+        }).length;
         
         return {
           ...shop,
-          aiVideoRequests: shopAIRequests?.total_ai_video_requests || 0
+          aiVideoRequests: aiVideoRequests,
+          totalVideos: shopVideos.length
         };
       });
-
-      // Sort shops by AI video requests (descending)
-      const sortedShops = [...shopsWithAIRequests].sort((a, b) => 
+      
+      const sortedShops = [...shopsWithVideoCounts].sort((a, b) => 
         (b.aiVideoRequests || 0) - (a.aiVideoRequests || 0)
       );
 
-      if (sortedShops.length > 0) {
+      if (sortedShops.length > 0 && sortedShops[0].aiVideoRequests > 0) {
         setTopShop(sortedShops[0]);
+      } else if (shops.length > 0) {
+        setTopShop({
+          ...shops[0],
+          aiVideoRequests: 0,
+          totalVideos: 0
+        });
       }
     } else if (shops.length > 0) {
-      // Set first shop as default if no AI data
       setTopShop({
         ...shops[0],
-        aiVideoRequests: 0
+        aiVideoRequests: 0,
+        totalVideos: 0
       });
     }
   };
 
-  const getTotalVideoRequests = () => {
-    return totalAIVideoRequests || 0;
+  const getBrandVideoRequests = () => {
+    if (!aiVideoRequestsByBrand || !brandId) return 0;
+    
+    const brandData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
+    return brandData?.totalAIVideoRequests || 0;
   };
 
   const getTotalShops = () => {
@@ -124,53 +180,60 @@ const Overview = () => {
     return shops?.filter(shop => shop.is_active).length || 0;
   };
 
+  const getShopsWithAIRequests = () => {
+    if (Object.keys(shopVideosMap).length === 0) return 0;
+    
+    return Object.keys(shopVideosMap).filter(shopId => {
+      const shopVideos = shopVideosMap[shopId] || [];
+      const aiRequests = shopVideos.filter(video => 
+        video.status === 'completed' || 
+        video.status === 'processing' ||
+        video.status === 'ai_processing'
+      ).length;
+      return aiRequests > 0;
+    }).length;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Brand Dashboard</h1>
-        <p className="text-gray-600">
-          Welcome to {user?.brand_name || 'your brand'} dashboard
-        </p>
-      </div>
-
-      {/* Stats Grid - REMOVED TOTAL ORDERS CARD */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#002868]">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-primary-blue">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Shops</h3>
-              <p className="text-3xl font-bold text-[#002868] mt-2">{getTotalShops()}</p>
+              <p className="text-3xl font-bold text-primary-blue mt-2">{getTotalShops()}</p>
               <p className="text-xs text-gray-400 mt-1">
                 {getActiveShops()} active shops
               </p>
             </div>
-            <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-[#002868]" fill="currentColor" viewBox="0 0 20 20">
+            <div className="w-12 h-12 bg-primary-blue-50 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-primary-blue" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z" clipRule="evenodd" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#BF0A30]">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-primary-red">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">AI Video Requests</h3>
-              <p className="text-3xl font-bold text-[#BF0A30] mt-2">{getTotalVideoRequests()}</p>
+              <p className="text-3xl font-bold text-primary-red mt-2">{getBrandVideoRequests()}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {aiRequestsByBrand.length > 0 ? `${aiRequestsByBrand.length} shops with requests` : 'No AI requests yet'}
+                {getShopsWithAIRequests()} shops with requests
               </p>
             </div>
-            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-[#BF0A30]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-primary-red-50 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-primary-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
             </div>
@@ -218,7 +281,7 @@ const Overview = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">Top Performing Shop</h2>
-            {topShop && (
+            {topShop && topShop.aiVideoRequests > 0 && (
               <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
                 #1 in AI Requests
               </span>
@@ -242,14 +305,14 @@ const Overview = () => {
               </div>
               
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="bg-primary-blue-50 p-3 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-primary-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-blue-600">{topShop.aiVideoRequests}</div>
-                      <div className="text-xs text-blue-500">AI Video Requests</div>
+                      <div className="text-xl font-bold text-primary-blue-600">{topShop.aiVideoRequests}</div>
+                      <div className="text-xs text-primary-blue-500">AI Video Requests</div>
                     </div>
                   </div>
                 </div>
@@ -262,7 +325,7 @@ const Overview = () => {
                     <div>
                       <div className="text-xl font-bold text-green-600">
                         {topShop.aiVideoRequests > 0 ? 
-                          `${((topShop.aiVideoRequests / (totalAIVideoRequests || 1)) * 100).toFixed(1)}%` : 
+                          `${((topShop.aiVideoRequests / (getBrandVideoRequests() || 1)) * 100).toFixed(1)}%` : 
                           '0%'
                         }
                       </div>
@@ -283,24 +346,22 @@ const Overview = () => {
                     {topShop.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium">Total Videos:</span>
+                  <span className="text-sm">{topShop.totalVideos || 0}</span>
+                </div>
                 <div className="text-sm">
                   <span className="font-medium">Tekmetric ID:</span>{' '}
                   {topShop.tekmetric_shop_id || 'Not set'}
                 </div>
               </div>
             </div>
-          ) : aiRequestsByBrand.length === 0 ? (
+          ) : (
             <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
               <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-gray-500">No AI video request data available</p>
-              <p className="text-sm text-gray-400 mt-1">Shops will appear here when they start making AI video requests</p>
-            </div>
-          ) : (
-            <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868] mx-auto mb-3"></div>
-              <p className="text-gray-500">Analyzing shop performance...</p>
+              <p className="text-gray-500">No shop data available</p>
             </div>
           )}
         </div>
@@ -310,9 +371,9 @@ const Overview = () => {
           <div className="space-y-4">
             <Link
               to="/brand-admin/shops"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center p-4 border rounded-lg hover:bg-primary-blue-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-[#002868] rounded-lg flex items-center justify-center mr-4">
+              <div className="w-10 h-10 bg-primary-blue rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                 </svg>
@@ -325,9 +386,9 @@ const Overview = () => {
             
             <Link
               to="/brand-admin/districts"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center p-4 border rounded-lg hover:bg-primary-blue-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-[#BF0A30] rounded-lg flex items-center justify-center mr-4">
+              <div className="w-10 h-10 bg-primary-red rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                 </svg>
@@ -340,7 +401,7 @@ const Overview = () => {
 
             <Link
               to="/brand-admin/analytics"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center p-4 border rounded-lg hover:bg-primary-blue-50 transition-colors"
             >
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -361,43 +422,43 @@ const Overview = () => {
         <div className="mt-8 bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">AI Performance Summary</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="text-sm text-blue-600 font-medium">AI Success Rate</h3>
-              <p className="text-2xl font-bold text-blue-700 mt-1">
-                {brandAIStats.aiSuccessRate || '0.00'}%
+            <div className="bg-primary-blue-50 p-4 rounded-lg">
+              <h3 className="text-sm text-primary-blue-600 font-medium">Total AI Requests</h3>
+              <p className="text-2xl font-bold text-primary-blue-700 mt-1">
+                {getBrandVideoRequests()}
               </p>
-              <p className="text-xs text-blue-600">
-                {brandAIStats.aiCorrect || 0} correct selections
-              </p>
-            </div>
-            
-            <div className="bg-red-50 p-4 rounded-lg">
-              <h3 className="text-sm text-red-600 font-medium">AI Error Rate</h3>
-              <p className="text-2xl font-bold text-red-700 mt-1">
-                {brandAIStats.aiErrorRate || '0.00'}%
-              </p>
-              <p className="text-xs text-red-600">
-                {brandAIStats.aiErrors || 0} manual corrections
+              <p className="text-xs text-primary-blue-600">
+                Videos processed by AI
               </p>
             </div>
             
             <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="text-sm text-green-600 font-medium">Total Segments</h3>
+              <h3 className="text-sm text-green-600 font-medium">AI Success Rate</h3>
               <p className="text-2xl font-bold text-green-700 mt-1">
-                {brandAIStats.totalSegments || 0}
+                {brandAIStats.aiSuccessRate || '0.00'}%
               </p>
               <p className="text-xs text-green-600">
-                Processed video segments
+                {brandAIStats.aiCorrect || 0} correct selections
+              </p>
+            </div>
+            
+            <div className="bg-primary-red-50 p-4 rounded-lg">
+              <h3 className="text-sm text-primary-red-600 font-medium">AI Error Rate</h3>
+              <p className="text-2xl font-bold text-primary-red-700 mt-1">
+                {brandAIStats.aiErrorRate || '0.00'}%
+              </p>
+              <p className="text-xs text-primary-red-600">
+                {brandAIStats.aiErrors || 0} manual corrections
               </p>
             </div>
             
             <div className="bg-purple-50 p-4 rounded-lg">
-              <h3 className="text-sm text-purple-600 font-medium">Daily Orders</h3>
+              <h3 className="text-sm text-purple-600 font-medium">Total Segments</h3>
               <p className="text-2xl font-bold text-purple-700 mt-1">
-                {dailyOrders}
+                {brandAIStats.totalSegments || 0}
               </p>
               <p className="text-xs text-purple-600">
-                Orders in last 24 hours
+                Processed video segments
               </p>
             </div>
           </div>

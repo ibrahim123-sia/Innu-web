@@ -10,10 +10,10 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
   // Check if AI video is attached
   const hasAIVideo = videos && videos.length > 0;
   const completedVideos = videos?.filter(v => v.status === 'completed') || [];
+  const processingVideos = videos?.filter(v => v.status === 'processing') || [];
 
   const handleDownloadVideo = (video) => {
     // This would typically download the video file
-    // For now, we'll just alert the user
     alert(`Downloading video ${video.id}...\nThis would trigger the actual download in a real application.`);
   };
 
@@ -27,10 +27,13 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
             <p className="text-gray-600">Order #{order.tekmetric_ro_id || order.id.slice(0, 8)}</p>
             <div className="mt-2 flex items-center space-x-2">
               <span className={`px-3 py-1 text-sm font-semibold rounded-full ${
-                order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                'bg-blue-100 text-blue-800'
+                ['completed', 'posted', 'done'].includes(order.status?.toLowerCase()) 
+                  ? 'bg-green-100 text-green-800' 
+                  : ['pending', 'estimate'].includes(order.status?.toLowerCase())
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : ['cancelled', 'canceled'].includes(order.status?.toLowerCase())
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-blue-100 text-blue-800'
               }`}>
                 {order.status?.replace('_', ' ') || 'Unknown'}
               </span>
@@ -109,7 +112,7 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-800">AI Video Status</h3>
               {hasAIVideo && (
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                <span className="bg-primary-blue-100 text-primary-blue-800 px-3 py-1 rounded-full text-sm">
                   {videos.length} video{videos.length > 1 ? 's' : ''} attached
                 </span>
               )}
@@ -136,12 +139,17 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
                         <div className="text-sm text-gray-500 mt-1">
                           Created: {new Date(video.created_at).toLocaleDateString()}
                         </div>
+                        {video.duration && (
+                          <div className="text-sm text-gray-500">
+                            Duration: {video.duration}s
+                          </div>
+                        )}
                       </div>
                       <div>
                         {video.status === 'completed' && (
                           <button
                             onClick={() => handleDownloadVideo(video)}
-                            className="px-4 py-2 bg-[#002868] text-white hover:bg-blue-700 rounded text-sm flex items-center"
+                            className="px-4 py-2 bg-primary-blue text-white hover:bg-primary-blue-dark rounded text-sm flex items-center"
                           >
                             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -165,6 +173,15 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     {completedVideos.length} video{completedVideos.length > 1 ? 's' : ''} ready for download
+                  </div>
+                )}
+                
+                {processingVideos.length > 0 && (
+                  <div className="mt-2 text-sm text-yellow-600">
+                    <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {processingVideos.length} video{processingVideos.length > 1 ? 's' : ''} still processing
                   </div>
                 )}
               </div>
@@ -239,7 +256,7 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
           </div>
 
           {/* Order Summary */}
-          <div className="bg-blue-50 rounded-lg p-6 mb-6">
+          <div className="bg-primary-blue-50 rounded-lg p-6 mb-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Order Summary</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
@@ -256,7 +273,7 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
               </div>
               <div className="flex justify-between border-t pt-2 mt-2">
                 <span className="text-lg font-bold text-gray-800">Total:</span>
-                <span className="text-lg font-bold text-blue-600">
+                <span className="text-lg font-bold text-primary-blue-600">
                   ${order.total_amount?.toFixed(2) || '0.00'}
                 </span>
               </div>

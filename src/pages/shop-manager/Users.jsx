@@ -15,6 +15,9 @@ import {
   selectMyShop
 } from '../../redux/slice/shopSlice';
 
+// Import SweetAlert for popup notifications
+import Swal from 'sweetalert2';
+
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 const Users = () => {
@@ -33,7 +36,6 @@ const Users = () => {
     first_name: '',
     last_name: '',
     email: '',
-    password: '',
     contact_no: '',
     role: 'technician',
     is_active: true
@@ -45,13 +47,32 @@ const Users = () => {
     contact_no: '',
     role: '',
     is_active: true,
-    change_password: false,
-    new_password: ''
+    original_first_name: '',
+    original_last_name: '',
+    original_contact_no: ''
   });
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+
+  // Phone formatting function for USA numbers
+  const formatPhoneNumber = (value) => {
+    if (!value) return value;
+    
+    // Remove all non-digits
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    
+    // If starting with 1, keep it as country code
+    if (phoneNumber.length === 0) return '';
+    
+    // Format: +1 (XXX) XXX-XXXX
+    if (phoneNumber.length <= 1) return `+1${phoneNumber}`;
+    if (phoneNumber.length <= 4) return `+1 (${phoneNumber.substring(1, 4)}`;
+    if (phoneNumber.length <= 7) return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}`;
+    
+    return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
+  };
 
   useEffect(() => {
     if (myShop) {
@@ -100,23 +121,62 @@ const Users = () => {
       userFormData.append('first_name', formData.first_name);
       userFormData.append('last_name', formData.last_name);
       userFormData.append('email', formData.email);
-      userFormData.append('password', formData.password);
-      userFormData.append('contact_no', formData.contact_no || '');
+      
+      // Format phone number before saving
+      const formattedPhone = formatPhoneNumber(formData.contact_no);
+      userFormData.append('contact_no', formattedPhone || '');
+      
       userFormData.append('role', formData.role);
       userFormData.append('shop_id', myShop.id);
+      userFormData.append('brand_id', myShop.brand_id);
+      userFormData.append('district_id', myShop.district_id || null);
       userFormData.append('is_active', formData.is_active);
       
       if (profilePicFile) {
         userFormData.append('profile_pic', profilePicFile);
       }
 
-      await dispatch(createUser(userFormData)).unwrap();
+      const userResult = await dispatch(createUser(userFormData)).unwrap();
       
-      resetForm();
-      dispatch(getUsersByShopId(myShop.id));
+      if (userResult.success) {
+        // Show success popup with SweetAlert
+        Swal.fire({
+          icon: 'success',
+          title: 'User Created Successfully!',
+          html: `
+            <div style="text-align: left;">
+              <p><strong>Name:</strong> ${formData.first_name} ${formData.last_name}</p>
+              <p><strong>Email:</strong> ${formData.email}</p>
+              <p><strong>Role:</strong> ${getRoleDisplay(formData.role)}</p>
+              <p><strong>Contact:</strong> ${formData.contact_no || 'Not provided'}</p>
+              <br>
+              <p style="color: #4CAF50; font-weight: bold;">
+                A random password has been sent to ${formData.email}
+              </p>
+              <p style="font-size: 14px; color: #666;">
+                The user can use this password for first-time login and will be prompted to create a new password.
+              </p>
+            </div>
+          `,
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#4CAF50',
+          width: '500px'
+        });
+        
+        resetForm();
+        dispatch(getUsersByShopId(myShop.id));
+      }
       
     } catch (err) {
       setFormError(err?.error || 'Failed to create user. Please try again.');
+      // Show error popup
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to create user. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -126,38 +186,57 @@ const Users = () => {
     setFormSuccess('');
 
     try {
-      const adminFormData = new FormData();
+      const userFormData = new FormData();
       
       // Update name if changed
       if (editFormData.first_name !== editFormData.original_first_name) {
-        adminFormData.append('first_name', editFormData.first_name);
+        userFormData.append('first_name', editFormData.first_name);
       }
       if (editFormData.last_name !== editFormData.original_last_name) {
-        adminFormData.append('last_name', editFormData.last_name);
+        userFormData.append('last_name', editFormData.last_name);
       }
+      
+      // Format phone number before updating
       if (editFormData.contact_no !== editFormData.original_contact_no) {
-        adminFormData.append('contact_no', editFormData.contact_no);
+        const formattedPhone = formatPhoneNumber(editFormData.contact_no);
+        userFormData.append('contact_no', formattedPhone);
       }
-      if (editFormData.change_password && editFormData.new_password) {
-        adminFormData.append('password', editFormData.new_password);
-      }
+      
       if (profilePicFile) {
-        adminFormData.append('profile_pic', profilePicFile);
+        userFormData.append('profile_pic', profilePicFile);
       }
 
       // Only update if there are changes
-      if (Array.from(adminFormData.entries()).length > 0) {
+      if (Array.from(userFormData.entries()).length > 0) {
         await dispatch(updateUser({
           id: showEditModal,
-          data: adminFormData
+          data: userFormData
         })).unwrap();
         dispatch(getUsersByShopId(myShop.id));
       }
+
+      // Show success popup
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'User updated successfully!',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
+      });
 
       resetEditForm();
       
     } catch (err) {
       setFormError(err?.error || 'Failed to update user. Please try again.');
+      // Show error popup
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to update user. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -166,7 +245,6 @@ const Users = () => {
       first_name: '',
       last_name: '',
       email: '',
-      password: '',
       contact_no: '',
       role: 'technician',
       is_active: true
@@ -185,9 +263,7 @@ const Users = () => {
       is_active: true,
       original_first_name: '',
       original_last_name: '',
-      original_contact_no: '',
-      change_password: false,
-      new_password: ''
+      original_contact_no: ''
     });
     setProfilePicFile(null);
     setProfilePicPreview(null);
@@ -195,18 +271,38 @@ const Users = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    if (name === 'contact_no') {
+      // Format phone number as user types
+      const formattedValue = formatPhoneNumber(value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    if (name === 'contact_no') {
+      // Format phone number as user types
+      const formattedValue = formatPhoneNumber(value);
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   const handleEdit = (user) => {
@@ -221,8 +317,7 @@ const Users = () => {
       original_first_name: user.first_name,
       original_last_name: user.last_name,
       original_contact_no: user.contact_no || '',
-      change_password: false,
-      new_password: ''
+      profile_pic: user.profile_pic_url || DEFAULT_PROFILE_PIC
     });
     setProfilePicPreview(user.profile_pic_url || DEFAULT_PROFILE_PIC);
     setProfilePicFile(null);
@@ -235,8 +330,24 @@ const Users = () => {
         is_active: !currentStatus
       })).unwrap();
       dispatch(getUsersByShopId(myShop.id));
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Status Updated',
+        text: `User ${!currentStatus ? 'activated' : 'deactivated'} successfully!`,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
+      });
     } catch (err) {
       console.error('Failed to toggle user status:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to update user status.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -269,6 +380,20 @@ const Users = () => {
     }
   };
 
+  // Get user counts
+  const getUserCounts = () => {
+    if (!shopUsers) return { total: 0, active: 0, technicians: 0, supervisors: 0 };
+    
+    return {
+      total: shopUsers.length,
+      active: shopUsers.filter(u => u.is_active).length,
+      technicians: shopUsers.filter(u => u.role === 'technician').length,
+      supervisors: shopUsers.filter(u => u.role === 'supervisor').length,
+    };
+  };
+
+  const userCounts = getUserCounts();
+
   return (
     <div>
       <div className="mb-8">
@@ -280,15 +405,15 @@ const Users = () => {
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">All Users</h2>
-          <span className="bg-[#002868] text-white px-3 py-1 rounded-full text-sm">
-            {shopUsers?.length || 0} Users
+          <span className="bg-primary-blue text-white px-3 py-1 rounded-full text-sm">
+            {userCounts.total} Users
           </span>
         </div>
         
         <div className="flex space-x-2">
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-[#BF0A30] hover:bg-red-800 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+            className="bg-primary-red hover:bg-primary-red-dark text-white px-4 py-2 rounded-lg flex items-center transition-colors"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -301,7 +426,7 @@ const Users = () => {
       {/* Create User Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-[#002868] mb-4">Create New User</h2>
+          <h2 className="text-xl font-bold text-primary-blue mb-4">Create New User</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -321,6 +446,15 @@ const Users = () => {
               <div className="space-y-8">
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Profile Picture</h3>
+                  
+                  {/* Add information about auto-generated password */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> A random password will be auto-generated and sent to the user's email.
+                      The user will use this password for first-time login and will be prompted to create a new password.
+                    </p>
+                  </div>
+                  
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     {profilePicPreview ? (
                       <div className="space-y-2">
@@ -335,7 +469,7 @@ const Users = () => {
                             setProfilePicFile(null);
                             setProfilePicPreview(null);
                           }}
-                          className="text-sm text-red-600 hover:text-red-800"
+                          className="text-sm text-primary-red hover:text-primary-red-dark"
                         >
                           Remove
                         </button>
@@ -351,7 +485,7 @@ const Users = () => {
                       </div>
                     )}
                     <label className="block mt-4">
-                      <span className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                         Choose Photo
                       </span>
                       <input
@@ -380,7 +514,7 @@ const Users = () => {
                         name="first_name"
                         value={formData.first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="First name"
                         required
                       />
@@ -395,7 +529,7 @@ const Users = () => {
                         name="last_name"
                         value={formData.last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="Last name"
                         required
                       />
@@ -411,26 +545,13 @@ const Users = () => {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                       placeholder="user@example.com"
                       required
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Password *
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                      placeholder="Enter password"
-                      required
-                    />
-                  </div>
+                  {/* REMOVED: Password Field */}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -441,9 +562,14 @@ const Users = () => {
                       name="contact_no"
                       value={formData.contact_no}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                      placeholder="+1234567890"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      placeholder="+1 (XXX) XXX-XXXX"
+                      pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                      title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: +1 (XXX) XXX-XXXX
+                    </p>
                   </div>
 
                   <div>
@@ -454,7 +580,7 @@ const Users = () => {
                       name="role"
                       value={formData.role}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                       required
                     >
                       <option value="technician">Technician</option>
@@ -468,7 +594,7 @@ const Users = () => {
                       name="is_active"
                       checked={formData.is_active}
                       onChange={handleInputChange}
-                      className="rounded border-gray-300 text-[#002868] focus:ring-[#002868]"
+                      className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
                     />
                     <span className="text-sm font-medium text-gray-700">Active</span>
                   </label>
@@ -479,7 +605,7 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-[#002868] hover:bg-blue-800 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                className="w-full bg-primary-blue hover:bg-primary-blue-dark text-white py-3 px-4 rounded-lg font-medium transition-colors"
               >
                 Create User
               </button>
@@ -498,7 +624,7 @@ const Users = () => {
               placeholder="Search by name or email"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
             />
           </div>
           
@@ -507,7 +633,7 @@ const Users = () => {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
             >
               <option value="all">All Roles</option>
               <option value="technician">Technician</option>
@@ -519,21 +645,15 @@ const Users = () => {
           <div className="flex items-end">
             <div className="flex space-x-4 w-full">
               <div className="text-center">
-                <div className="text-lg font-bold text-blue-600">
-                  {shopUsers?.filter(u => u.is_active).length || 0}
-                </div>
+                <div className="text-lg font-bold text-blue-600">{userCounts.active}</div>
                 <div className="text-sm text-gray-500">Active</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-green-600">
-                  {shopUsers?.filter(u => u.role === 'technician').length || 0}
-                </div>
+                <div className="text-lg font-bold text-green-600">{userCounts.technicians}</div>
                 <div className="text-sm text-gray-500">Technicians</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-purple-600">
-                  {shopUsers?.filter(u => u.role === 'supervisor').length || 0}
-                </div>
+                <div className="text-lg font-bold text-purple-600">{userCounts.supervisors}</div>
                 <div className="text-sm text-gray-500">Supervisors</div>
               </div>
             </div>
@@ -545,7 +665,7 @@ const Users = () => {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868]"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
             <p className="mt-4 text-gray-600">Loading users...</p>
           </div>
         ) : filteredUsers && filteredUsers.length > 0 ? (
@@ -599,7 +719,9 @@ const Users = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-500">{user.contact_no || 'No contact number'}</div>
+                        <div className="text-sm text-gray-500">
+                          {user.contact_no || 'No contact number'}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
@@ -660,7 +782,7 @@ const Users = () => {
             {!showCreateForm && (
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
               >
                 Create First User
               </button>
@@ -674,7 +796,7 @@ const Users = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-[#002868] mb-4">Edit User</h2>
+              <h2 className="text-xl font-bold text-primary-blue mb-4">Edit User</h2>
               
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -693,6 +815,15 @@ const Users = () => {
                   {/* Profile Picture */}
                   <div className="space-y-4">
                     <h3 className="font-semibold text-gray-700">Profile Picture</h3>
+                    
+                    {/* Note about password management */}
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> Password management is handled by users themselves.
+                        Users can reset their password using the "Forgot Password" feature.
+                      </p>
+                    </div>
+                    
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                       {profilePicPreview ? (
                         <div className="space-y-2">
@@ -707,7 +838,7 @@ const Users = () => {
                               setProfilePicFile(null);
                               setProfilePicPreview(editFormData.profile_pic);
                             }}
-                            className="text-sm text-red-600 hover:text-red-800"
+                            className="text-sm text-primary-red hover:text-primary-red-dark"
                           >
                             Remove
                           </button>
@@ -723,7 +854,7 @@ const Users = () => {
                         </div>
                       )}
                       <label className="block mt-4">
-                        <span className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                        <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                           Change Photo
                         </span>
                         <input
@@ -750,7 +881,7 @@ const Users = () => {
                           name="first_name"
                           value={editFormData.first_name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                           placeholder="First name"
                         />
                       </div>
@@ -764,7 +895,7 @@ const Users = () => {
                           name="last_name"
                           value={editFormData.last_name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                           placeholder="Last name"
                         />
                       </div>
@@ -779,44 +910,17 @@ const Users = () => {
                         name="contact_no"
                         value={editFormData.contact_no}
                         onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                        placeholder="+1234567890"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        placeholder="+1 (XXX) XXX-XXXX"
+                        pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                        title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Format: +1 (XXX) XXX-XXXX
+                      </p>
                     </div>
 
-                    {/* Password Change Section */}
-                    <div className="space-y-4 border-t pt-4">
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          name="change_password"
-                          checked={editFormData.change_password}
-                          onChange={(e) => setEditFormData(prev => ({ 
-                            ...prev, 
-                            change_password: e.target.checked,
-                            new_password: e.target.checked ? prev.new_password : ''
-                          }))}
-                          className="rounded border-gray-300 text-[#002868] focus:ring-[#002868]"
-                        />
-                        <span className="text-sm font-medium text-gray-700">Change Password</span>
-                      </label>
-
-                      {editFormData.change_password && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            New Password
-                          </label>
-                          <input
-                            type="password"
-                            name="new_password"
-                            value={editFormData.new_password}
-                            onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                            placeholder="Enter new password"
-                          />
-                        </div>
-                      )}
-                    </div>
+                    {/* REMOVED: Password Change Section */}
 
                     {/* Email and Role (Read-only) */}
                     <div>
@@ -855,7 +959,7 @@ const Users = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#002868] hover:bg-blue-700 text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-primary-blue hover:bg-primary-blue-dark text-white rounded-lg font-medium"
                   >
                     Update User
                   </button>

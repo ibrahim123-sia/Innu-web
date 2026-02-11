@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api', // Update with your backend URL
+  baseURL: 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -19,7 +19,7 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// Async Thunks
+// Async Thunks - 8 functions matching controller
 export const createDistrict = createAsyncThunk(
   'district/createDistrict',
   async (districtData, { rejectWithValue }) => {
@@ -92,11 +92,11 @@ export const getDistrictsByBrand = createAsyncThunk(
   }
 );
 
-export const toggleDistrictStatus = createAsyncThunk(
-  'district/toggleDistrictStatus',
-  async (districtId, { rejectWithValue }) => {
+export const getActiveDistricts = createAsyncThunk(
+  'district/getActiveDistricts',
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await API.patch(`/districts/districts/${districtId}/toggle-status`);
+      const response = await API.get('/districts/activedistricts');
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -104,16 +104,11 @@ export const toggleDistrictStatus = createAsyncThunk(
   }
 );
 
-export const searchDistricts = createAsyncThunk(
-  'district/searchDistricts',
-  async (searchParams, { rejectWithValue }) => {
+export const getShopsByDistrict = createAsyncThunk(
+  'district/getShopsByDistrict',
+  async (districtId, { rejectWithValue }) => {
     try {
-      const { name, brand_id } = searchParams;
-      const queryParams = new URLSearchParams();
-      if (name) queryParams.append('name', name);
-      if (brand_id) queryParams.append('brand_id', brand_id);
-      
-      const response = await API.get(`/districts/search?${queryParams.toString()}`);
+      const response = await API.get(`/districts/${districtId}/shops`);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -125,15 +120,12 @@ const initialState = {
   districts: [],
   currentDistrict: null,
   districtsByBrand: [],
-  searchResults: [],
+  activeDistricts: [],
+  shopsByDistrict: [],
   loading: false,
   error: null,
   success: false,
   message: '',
-  filters: {
-    brand_id: null,
-    is_active: true,
-  },
 };
 
 const districtSlice = createSlice({
@@ -152,17 +144,11 @@ const districtSlice = createSlice({
     clearDistrictsByBrand: (state) => {
       state.districtsByBrand = [];
     },
-    clearSearchResults: (state) => {
-      state.searchResults = [];
+    clearShopsByDistrict: (state) => {
+      state.shopsByDistrict = [];
     },
-    setFilters: (state, action) => {
-      state.filters = { ...state.filters, ...action.payload };
-    },
-    clearFilters: (state) => {
-      state.filters = {
-        brand_id: null,
-        is_active: true,
-      };
+    setDistricts: (state, action) => {
+      state.districts = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -177,7 +163,6 @@ const districtSlice = createSlice({
         state.loading = false;
         state.success = true;
         state.districts.unshift(action.payload.data);
-        state.districtsByBrand.unshift(action.payload.data);
         state.message = action.payload.message;
       })
       .addCase(createDistrict.rejected, (state, action) => {
@@ -230,12 +215,6 @@ const districtSlice = createSlice({
           state.districts[index] = updatedDistrict;
         }
         
-        // Update in districtsByBrand array
-        const brandIndex = state.districtsByBrand.findIndex(district => district.id === updatedDistrict.id);
-        if (brandIndex !== -1) {
-          state.districtsByBrand[brandIndex] = updatedDistrict;
-        }
-        
         // Update current district if it's the one being updated
         if (state.currentDistrict && state.currentDistrict.id === updatedDistrict.id) {
           state.currentDistrict = updatedDistrict;
@@ -261,9 +240,6 @@ const districtSlice = createSlice({
         
         // Remove from districts array
         state.districts = state.districts.filter(district => district.id !== deletedId);
-        
-        // Remove from districtsByBrand array
-        state.districtsByBrand = state.districtsByBrand.filter(district => district.id !== deletedId);
         
         // Clear current district if it's the one being deleted
         if (state.currentDistrict && state.currentDistrict.id === deletedId) {
@@ -291,53 +267,32 @@ const districtSlice = createSlice({
         state.error = action.payload?.error || 'Failed to fetch districts by brand';
       })
       
-      // Toggle District Status
-      .addCase(toggleDistrictStatus.pending, (state) => {
+      // Get Active Districts
+      .addCase(getActiveDistricts.pending, (state) => {
         state.loading = true;
         state.error = null;
-        state.success = false;
       })
-      .addCase(toggleDistrictStatus.fulfilled, (state, action) => {
+      .addCase(getActiveDistricts.fulfilled, (state, action) => {
         state.loading = false;
-        state.success = true;
-        const updatedDistrict = action.payload.data;
-        
-        // Update in districts array
-        const index = state.districts.findIndex(district => district.id === updatedDistrict.id);
-        if (index !== -1) {
-          state.districts[index] = updatedDistrict;
-        }
-        
-        // Update in districtsByBrand array
-        const brandIndex = state.districtsByBrand.findIndex(district => district.id === updatedDistrict.id);
-        if (brandIndex !== -1) {
-          state.districtsByBrand[brandIndex] = updatedDistrict;
-        }
-        
-        // Update current district if it's the one being updated
-        if (state.currentDistrict && state.currentDistrict.id === updatedDistrict.id) {
-          state.currentDistrict = updatedDistrict;
-        }
-        
-        state.message = action.payload.message;
+        state.activeDistricts = action.payload.data;
       })
-      .addCase(toggleDistrictStatus.rejected, (state, action) => {
+      .addCase(getActiveDistricts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to toggle district status';
+        state.error = action.payload?.error || 'Failed to fetch active districts';
       })
       
-      // Search Districts
-      .addCase(searchDistricts.pending, (state) => {
+      // Get Shops By District (NEW)
+      .addCase(getShopsByDistrict.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(searchDistricts.fulfilled, (state, action) => {
+      .addCase(getShopsByDistrict.fulfilled, (state, action) => {
         state.loading = false;
-        state.searchResults = action.payload.data;
+        state.shopsByDistrict = action.payload.data;
       })
-      .addCase(searchDistricts.rejected, (state, action) => {
+      .addCase(getShopsByDistrict.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to search districts';
+        state.error = action.payload?.error || 'Failed to fetch shops by district';
       });
   },
 });
@@ -346,35 +301,19 @@ export const {
   resetDistrictState,
   clearCurrentDistrict,
   clearDistrictsByBrand,
-  clearSearchResults,
-  setFilters,
-  clearFilters,
+  clearShopsByDistrict,
+  setDistricts,
 } = districtSlice.actions;
 
 // Selectors
 export const selectAllDistricts = (state) => state.district.districts;
 export const selectCurrentDistrict = (state) => state.district.currentDistrict;
-export const selectDistrictsByBrandFromState = (state) => state.district.districtsByBrand;
-export const selectDistrictsByBrand = (brandId) => (state) => {
-  if (!state.district || !state.district.districts) return [];
-  return state.district.districts.filter(district => district.brand_id === brandId);
-};
-export const selectSearchResults = (state) => state.district.searchResults;
+export const selectDistrictsByBrand = (state) => state.district.districtsByBrand;
+export const selectActiveDistricts = (state) => state.district.activeDistricts;
+export const selectShopsByDistrict = (state) => state.district.shopsByDistrict;
 export const selectDistrictLoading = (state) => state.district.loading;
 export const selectDistrictError = (state) => state.district.error;
 export const selectDistrictSuccess = (state) => state.district.success;
 export const selectDistrictMessage = (state) => state.district.message;
-export const selectDistrictFilters = (state) => state.district.filters;
-
-
-// Helper selectors
-export const selectActiveDistricts = (state) => 
-  state.district.districts.filter(district => district.is_active);
-
-export const selectDistrictsByManager = (managerId) => (state) =>
-  state.district.districts.filter(district => district.manager_id === managerId);
-
-export const selectDistrictById = (districtId) => (state) =>
-  state.district.districts.find(district => district.id === districtId);
 
 export default districtSlice.reducer;

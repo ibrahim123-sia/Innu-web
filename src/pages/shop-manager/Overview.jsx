@@ -30,6 +30,7 @@ const Overview = () => {
   const [loading, setLoading] = useState(true);
   const [dailyOrders, setDailyOrders] = useState(0);
   const [totalAIVideoRequests, setTotalAIVideoRequests] = useState(0);
+  const [shopStats, setShopStats] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -37,7 +38,7 @@ const Overview = () => {
 
   useEffect(() => {
     calculateStats();
-  }, [shopOrders, shopUsers, allVideos]);
+  }, [shopOrders, shopUsers, allVideos, myShop]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -66,6 +67,7 @@ const Overview = () => {
     yesterday.setDate(yesterday.getDate() - 1);
     
     const todayOrders = shopOrders?.filter(order => {
+      if (!order?.created_at) return false;
       const orderDate = new Date(order.created_at);
       return orderDate >= yesterday;
     }).length || 0;
@@ -76,6 +78,22 @@ const Overview = () => {
     if (myShop && allVideos) {
       const shopVideos = allVideos.filter(video => video.shop_id === myShop.id);
       setTotalAIVideoRequests(shopVideos.length);
+    }
+
+    // Calculate shop statistics
+    if (myShop && shopOrders && shopUsers) {
+      const activeUsers = shopUsers.filter(user => user.is_active).length;
+      const completedOrders = shopOrders.filter(order => 
+        ['completed', 'posted', 'done'].includes(order.status?.toLowerCase())
+      ).length;
+      
+      setShopStats({
+        activeUsers,
+        completedOrders,
+        completionRate: shopOrders.length > 0 
+          ? ((completedOrders / shopOrders.length) * 100).toFixed(1) 
+          : 0
+      });
     }
   };
 
@@ -88,13 +106,21 @@ const Overview = () => {
   };
 
   const getCompletedOrders = () => {
-    return shopOrders?.filter(order => order.status === 'completed').length || 0;
+    return shopOrders?.filter(order => 
+      ['completed', 'posted', 'done'].includes(order.status?.toLowerCase())
+    ).length || 0;
+  };
+
+  const getActiveTechnicians = () => {
+    return shopUsers?.filter(user => 
+      user.role === 'technician' && user.is_active
+    ).length || 0;
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
       </div>
     );
   }
@@ -110,34 +136,34 @@ const Overview = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#002868]">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-primary-blue">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Employees</h3>
-              <p className="text-3xl font-bold text-[#002868] mt-2">{getTotalEmployees()}</p>
+              <p className="text-3xl font-bold text-primary-blue mt-2">{getTotalEmployees()}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {shopUsers?.filter(u => u.is_active).length} Active
+                {getActiveTechnicians()} Active Technicians
               </p>
             </div>
-            <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-[#002868]" fill="currentColor" viewBox="0 0 20 20">
+            <div className="w-12 h-12 bg-primary-blue-50 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-primary-blue" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#BF0A30]">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-primary-red">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Orders</h3>
-              <p className="text-3xl font-bold text-[#BF0A30] mt-2">{getTotalOrders()}</p>
+              <p className="text-3xl font-bold text-primary-red mt-2">{getTotalOrders()}</p>
               <p className="text-xs text-gray-400 mt-1">
                 {getCompletedOrders()} Completed
               </p>
             </div>
-            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-[#BF0A30]" fill="currentColor" viewBox="0 0 20 20">
+            <div className="w-12 h-12 bg-primary-red-50 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-primary-red" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
               </svg>
             </div>
@@ -184,7 +210,7 @@ const Overview = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">Shop Information</h2>
-            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+            <span className="bg-primary-blue-100 text-primary-blue-800 px-3 py-1 rounded-full text-sm">
               ID: {myShop?.tekmetric_shop_id || 'N/A'}
             </span>
           </div>
@@ -200,8 +226,8 @@ const Overview = () => {
                   <div className="mb-3">
                     <label className="block text-sm font-medium text-gray-700">Location</label>
                     <p className="text-gray-600">
-                      {myShop.address_line1}<br />
-                      {myShop.city}, {myShop.state} {myShop.postal_code}
+                      {myShop.address || 'No address'}<br />
+                      {myShop.city}{myShop.state ? `, ${myShop.state}` : ''} {myShop.zip_code || ''}
                     </p>
                   </div>
                   <div className="mb-3">
@@ -240,12 +266,18 @@ const Overview = () => {
               <div className="mt-4 pt-4 border-t">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Total employees in shop:</span>
-                  <span className="font-bold text-blue-600">{getTotalEmployees()}</span>
+                  <span className="font-bold text-primary-blue-600">{getTotalEmployees()}</span>
                 </div>
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-sm text-gray-600">Total orders processed:</span>
                   <span className="font-bold text-green-600">{getTotalOrders()}</span>
                 </div>
+                {shopStats && (
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-sm text-gray-600">Completion rate:</span>
+                    <span className="font-bold text-purple-600">{shopStats.completionRate}%</span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -264,9 +296,9 @@ const Overview = () => {
           <div className="space-y-4">
             <Link
               to="/shop-manager/orders"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center p-4 border rounded-lg hover:bg-primary-blue-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-[#002868] rounded-lg flex items-center justify-center mr-4">
+              <div className="w-10 h-10 bg-primary-blue rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
                 </svg>
@@ -279,9 +311,9 @@ const Overview = () => {
             
             <Link
               to="/shop-manager/users"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center p-4 border rounded-lg hover:bg-primary-blue-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-[#BF0A30] rounded-lg flex items-center justify-center mr-4">
+              <div className="w-10 h-10 bg-primary-red rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                 </svg>
@@ -294,9 +326,9 @@ const Overview = () => {
 
             <Link
               to="/shop-manager/analytics"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center p-4 border rounded-lg hover:bg-primary-blue-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center mr-4">
+              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
@@ -310,11 +342,11 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Orders */}
       <div className="mt-8 bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">Recent Orders</h2>
-          <Link to="/shop-manager/orders" className="text-[#002868] hover:underline text-sm">
+          <Link to="/shop-manager/orders" className="text-primary-blue hover:underline text-sm">
             View All
           </Link>
         </div>
@@ -347,10 +379,13 @@ const Overview = () => {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          'bg-blue-100 text-blue-800'
+                          ['completed', 'posted', 'done'].includes(order.status?.toLowerCase()) 
+                            ? 'bg-green-100 text-green-800' 
+                            : ['pending', 'estimate'].includes(order.status?.toLowerCase())
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : ['cancelled', 'canceled'].includes(order.status?.toLowerCase())
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-blue-100 text-blue-800'
                         }`}>
                           {order.status || 'in_progress'}
                         </span>

@@ -4,7 +4,7 @@ import {
   selectAllShops, 
   selectShopLoading, 
   selectShopError,
-  getDistrictShops,  // Changed here
+  getDistrictShops,
   createShop,
   toggleShopStatus,
   updateShop
@@ -16,6 +16,9 @@ import {
   selectAllUsers
 } from '../../redux/slice/userSlice';
 import ShopDetailModal from '../../components/district-manager/ShopDetailModal';
+
+// Import SweetAlert for popup notifications
+import Swal from 'sweetalert2';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
@@ -48,7 +51,6 @@ const Shops = () => {
     manager_email: '',
     manager_first_name: '',
     manager_last_name: '',
-    manager_password: '',
     manager_contact: '',
     is_active: true
   });
@@ -68,12 +70,32 @@ const Shops = () => {
     manager_last_name: '',
     manager_contact: '',
     manager_profile_pic: '',
-    change_password: false,
-    new_password: ''
+    original_phone: '',
+    original_manager_first_name: '',
+    original_manager_last_name: '',
+    original_manager_contact: ''
   });
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [shopManagers, setShopManagers] = useState({});
+
+  // Phone formatting function for USA numbers
+  const formatPhoneNumber = (value) => {
+    if (!value) return value;
+    
+    // Remove all non-digits
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    
+    // If starting with 1, keep it as country code
+    if (phoneNumber.length === 0) return '';
+    
+    // Format: +1 (XXX) XXX-XXXX
+    if (phoneNumber.length <= 1) return `+1${phoneNumber}`;
+    if (phoneNumber.length <= 4) return `+1 (${phoneNumber.substring(1, 4)}`;
+    if (phoneNumber.length <= 7) return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}`;
+    
+    return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
+  };
 
   useEffect(() => {
     if (districtId) {
@@ -126,6 +148,12 @@ const Shops = () => {
     setFormError('');
     setFormSuccess('');
 
+    // Validate Tekmetric Shop ID - Required Field
+    if (!formData.tekmetric_shop_id || formData.tekmetric_shop_id.trim() === '') {
+      setFormError('Tekmetric Shop ID is required');
+      return;
+    }
+
     try {
       // Create shop
       const shopFormData = new FormData();
@@ -134,46 +162,108 @@ const Shops = () => {
       shopFormData.append('city', formData.city || '');
       shopFormData.append('state', formData.state || '');
       shopFormData.append('zip_code', formData.zip_code || '');
-      shopFormData.append('phone', formData.phone || '');
+      
+      // Format phone number before saving
+      const formattedPhone = formatPhoneNumber(formData.phone);
+      shopFormData.append('phone', formattedPhone || '');
+      
       shopFormData.append('email', formData.email || '');
-      shopFormData.append('tekmetric_shop_id', formData.tekmetric_shop_id || '');
+      shopFormData.append('tekmetric_shop_id', formData.tekmetric_shop_id);
       shopFormData.append('district_id', districtId);
+      shopFormData.append('brand_id', currentUser?.brand_id);
       shopFormData.append('is_active', formData.is_active);
 
       const shopResult = await dispatch(createShop(shopFormData)).unwrap();
       
       if (shopResult.success) {
-        // Create shop manager user
-        const userFormData = new FormData();
-        userFormData.append('email', formData.manager_email);
-        userFormData.append('first_name', formData.manager_first_name);
-        userFormData.append('last_name', formData.manager_last_name);
-        userFormData.append('password', formData.manager_password);
-        userFormData.append('contact_no', formData.manager_contact || '');
-        userFormData.append('role', 'shop_manager');
-        userFormData.append('shop_id', shopResult.data.id);
-        userFormData.append('district_id', districtId);
-        userFormData.append('is_active', true);
-        
-        if (managerProfilePicFile) {
-          userFormData.append('profile_pic', managerProfilePicFile);
+        // Create shop manager user if email is provided
+        if (formData.manager_email) {
+          const userFormData = new FormData();
+          userFormData.append('email', formData.manager_email);
+          userFormData.append('first_name', formData.manager_first_name);
+          userFormData.append('last_name', formData.manager_last_name);
+          
+          // Format phone number before saving
+          const formattedManagerPhone = formatPhoneNumber(formData.manager_contact);
+          userFormData.append('contact_no', formattedManagerPhone || '');
+          
+          userFormData.append('role', 'shop_manager');
+          userFormData.append('shop_id', shopResult.data.id);
+          userFormData.append('district_id', districtId);
+          userFormData.append('brand_id', currentUser?.brand_id);
+          userFormData.append('is_active', true);
+          
+          if (managerProfilePicFile) {
+            userFormData.append('profile_pic', managerProfilePicFile);
+          }
+
+          const userResult = await dispatch(createUser(userFormData)).unwrap();
+          
+          if (userResult.success) {
+            // Show success popup with SweetAlert
+            Swal.fire({
+              icon: 'success',
+              title: 'Shop Created Successfully!',
+              html: `
+                <div style="text-align: left;">
+                  <p><strong>Shop:</strong> ${formData.name}</p>
+                  <p><strong>Tekmetric ID:</strong> ${formData.tekmetric_shop_id}</p>
+                  <p><strong>Shop Manager:</strong> ${formData.manager_first_name} ${formData.manager_last_name}</p>
+                  <p><strong>Manager Email:</strong> ${formData.manager_email}</p>
+                  <p><strong>Contact:</strong> ${formData.manager_contact || 'Not provided'}</p>
+                  <br>
+                  <p style="color: #4CAF50; font-weight: bold;">
+                    A random password has been sent to ${formData.manager_email}
+                  </p>
+                  <p style="font-size: 14px; color: #666;">
+                    The manager can use this password for first-time login and will be prompted to create a new password.
+                  </p>
+                </div>
+              `,
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#4CAF50',
+              width: '500px'
+            });
+          }
+        } else {
+          // Show success popup without manager
+          Swal.fire({
+            icon: 'success',
+            title: 'Shop Created Successfully!',
+            html: `
+              <div style="text-align: left;">
+                <p><strong>Shop:</strong> ${formData.name}</p>
+                <p><strong>Tekmetric ID:</strong> ${formData.tekmetric_shop_id}</p>
+                <p><strong>Status:</strong> ${formData.is_active ? 'Active' : 'Inactive'}</p>
+                <br>
+                <p style="color: #666;">
+                  No shop manager was assigned. You can assign one later.
+                </p>
+              </div>
+            `,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#4CAF50',
+            width: '500px'
+          });
         }
 
-        const userResult = await dispatch(createUser(userFormData)).unwrap();
-        
-        if (userResult.success) {
-          setFormSuccess('Shop and manager created successfully!');
-          resetForm();
-          dispatch(getShopsByDistrict(districtId));
-          dispatch(getAllUsers());
-          setTimeout(() => {
-            setShowCreateForm(false);
-            setFormSuccess('');
-          }, 2000);
-        }
+        resetForm();
+        dispatch(getDistrictShops(districtId));
+        dispatch(getAllUsers());
+        setTimeout(() => {
+          setShowCreateForm(false);
+        }, 100);
       }
     } catch (err) {
       setFormError(err?.error || 'Failed to create shop. Please try again.');
+      // Show error popup
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to create shop. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -181,6 +271,12 @@ const Shops = () => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
+
+    // Validate Tekmetric Shop ID - Required Field
+    if (!editFormData.tekmetric_shop_id || editFormData.tekmetric_shop_id.trim() === '') {
+      setFormError('Tekmetric Shop ID is required');
+      return;
+    }
 
     try {
       // Update shop
@@ -190,9 +286,17 @@ const Shops = () => {
       shopFormData.append('city', editFormData.city || '');
       shopFormData.append('state', editFormData.state || '');
       shopFormData.append('zip_code', editFormData.zip_code || '');
-      shopFormData.append('phone', editFormData.phone || '');
+      
+      // Format phone number before updating
+      if (editFormData.phone !== editFormData.original_phone) {
+        const formattedPhone = formatPhoneNumber(editFormData.phone);
+        shopFormData.append('phone', formattedPhone || '');
+      } else {
+        shopFormData.append('phone', editFormData.phone || '');
+      }
+      
       shopFormData.append('email', editFormData.email || '');
-      shopFormData.append('tekmetric_shop_id', editFormData.tekmetric_shop_id || '');
+      shopFormData.append('tekmetric_shop_id', editFormData.tekmetric_shop_id);
       shopFormData.append('is_active', editFormData.is_active);
 
       await dispatch(updateShop({
@@ -200,7 +304,7 @@ const Shops = () => {
         data: shopFormData
       })).unwrap();
 
-      // Update shop manager user
+      // Update shop manager user if exists
       if (editFormData.manager_id) {
         const managerFormData = new FormData();
         
@@ -211,12 +315,13 @@ const Shops = () => {
         if (editFormData.manager_last_name !== editFormData.original_manager_last_name) {
           managerFormData.append('last_name', editFormData.manager_last_name);
         }
+        
+        // Format phone number before updating
         if (editFormData.manager_contact !== editFormData.original_manager_contact) {
-          managerFormData.append('contact_no', editFormData.manager_contact);
+          const formattedPhone = formatPhoneNumber(editFormData.manager_contact);
+          managerFormData.append('contact_no', formattedPhone);
         }
-        if (editFormData.change_password && editFormData.new_password) {
-          managerFormData.append('password', editFormData.new_password);
-        }
+        
         if (managerProfilePicFile) {
           managerFormData.append('profile_pic', managerProfilePicFile);
         }
@@ -231,16 +336,32 @@ const Shops = () => {
         }
       }
 
-      setFormSuccess('Shop and manager updated successfully!');
+      // Show success popup
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Shop updated successfully!',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
+      });
+      
       resetEditForm();
-      dispatch(getShopsByDistrict(districtId));
+      dispatch(getDistrictShops(districtId));
       setTimeout(() => {
         setShowEditModal(null);
-        setFormSuccess('');
-      }, 2000);
+      }, 100);
       
     } catch (err) {
       setFormError(err?.error || 'Failed to update shop. Please try again.');
+      // Show error popup
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to update shop. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -257,7 +378,6 @@ const Shops = () => {
       manager_email: '',
       manager_first_name: '',
       manager_last_name: '',
-      manager_password: '',
       manager_contact: '',
       is_active: true
     });
@@ -282,8 +402,10 @@ const Shops = () => {
       manager_last_name: '',
       manager_contact: '',
       manager_profile_pic: '',
-      change_password: false,
-      new_password: ''
+      original_phone: '',
+      original_manager_first_name: '',
+      original_manager_last_name: '',
+      original_manager_contact: ''
     });
     setManagerProfilePicFile(null);
     setManagerProfilePicPreview(null);
@@ -291,18 +413,38 @@ const Shops = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    // Format phone numbers
+    if (name === 'phone' || name === 'manager_contact') {
+      const formattedValue = formatPhoneNumber(value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    // Format phone numbers
+    if (name === 'phone' || name === 'manager_contact') {
+      const formattedValue = formatPhoneNumber(value);
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   const handleViewDetails = (shopId) => {
@@ -331,11 +473,10 @@ const Shops = () => {
       manager_last_name: shopManager.last_name || '',
       manager_contact: shopManager.contact_no || '',
       manager_profile_pic: managerProfilePic,
+      original_phone: shop.phone || '',
       original_manager_first_name: shopManager.first_name || '',
       original_manager_last_name: shopManager.last_name || '',
-      original_manager_contact: shopManager.contact_no || '',
-      change_password: false,
-      new_password: ''
+      original_manager_contact: shopManager.contact_no || ''
     });
     setManagerProfilePicPreview(managerProfilePic);
     setManagerProfilePicFile(null);
@@ -344,9 +485,25 @@ const Shops = () => {
   const handleToggleStatus = async (shopId) => {
     try {
       await dispatch(toggleShopStatus(shopId)).unwrap();
-      dispatch(getShopsByDistrict(districtId));
+      dispatch(getDistrictShops(districtId));
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Status Updated',
+        text: 'Shop status has been updated successfully.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
+      });
     } catch (err) {
       console.error('Failed to toggle shop status:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to update shop status.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -354,6 +511,17 @@ const Shops = () => {
   const getManagerForShop = (shopId) => {
     return shopManagers[shopId] || null;
   };
+
+  // Get shop counts
+  const getShopCounts = () => {
+    return {
+      total: shops.length,
+      active: shops.filter(s => s.is_active).length,
+      inactive: shops.filter(s => !s.is_active).length
+    };
+  };
+
+  const shopCounts = getShopCounts();
 
   return (
     <div>
@@ -363,28 +531,38 @@ const Shops = () => {
       </div>
 
       {/* Create Shop Button */}
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">All Shops</h2>
-          <span className="bg-[#002868] text-white px-3 py-1 rounded-full text-sm">
-            {shops?.length || 0} Shops
+          <span className="bg-primary-blue text-white px-3 py-1 rounded-full text-sm">
+            {shopCounts.total} Shops
           </span>
         </div>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-[#BF0A30] hover:bg-red-800 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          {showCreateForm ? 'Cancel' : 'New Shop'}
-        </button>
+        <div className="flex space-x-4">
+          <span className="text-sm text-gray-600 flex items-center">
+            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+            {shopCounts.active} Active
+          </span>
+          <span className="text-sm text-gray-600 flex items-center">
+            <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+            {shopCounts.inactive} Inactive
+          </span>
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="bg-primary-red hover:bg-primary-red-dark text-white px-4 py-2 rounded-lg flex items-center transition-colors ml-4"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            {showCreateForm ? 'Cancel' : 'New Shop'}
+          </button>
+        </div>
       </div>
 
       {/* Create Shop Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-[#002868] mb-4">Create New Shop</h2>
+          <h2 className="text-xl font-bold text-primary-blue mb-4">Create New Shop</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -405,6 +583,15 @@ const Shops = () => {
                 {/* Manager Profile Picture Upload */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Manager Profile Picture</h3>
+                  
+                  {/* Add information about auto-generated password */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> If you assign a manager, a random password will be auto-generated and sent to their email.
+                      The manager will use this password for first-time login and will be prompted to create a new password.
+                    </p>
+                  </div>
+                  
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     {managerProfilePicPreview ? (
                       <div className="space-y-2">
@@ -419,7 +606,7 @@ const Shops = () => {
                             setManagerProfilePicFile(null);
                             setManagerProfilePicPreview(null);
                           }}
-                          className="text-sm text-red-600 hover:text-red-800"
+                          className="text-sm text-primary-red hover:text-primary-red-dark"
                         >
                           Remove
                         </button>
@@ -435,7 +622,7 @@ const Shops = () => {
                       </div>
                     )}
                     <label className="block mt-4">
-                      <span className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                         Choose Photo
                       </span>
                       <input
@@ -464,7 +651,7 @@ const Shops = () => {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                       placeholder="Enter shop name"
                       required
                     />
@@ -479,7 +666,7 @@ const Shops = () => {
                       name="address"
                       value={formData.address}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                       placeholder="Enter shop address"
                     />
                   </div>
@@ -494,7 +681,7 @@ const Shops = () => {
                         name="city"
                         value={formData.city}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="City"
                       />
                     </div>
@@ -508,7 +695,7 @@ const Shops = () => {
                         name="state"
                         value={formData.state}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="State"
                       />
                     </div>
@@ -524,23 +711,27 @@ const Shops = () => {
                         name="zip_code"
                         value={formData.zip_code}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="Zip Code"
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Tekmetric Shop ID
+                        Tekmetric Shop ID <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         name="tekmetric_shop_id"
                         value={formData.tekmetric_shop_id}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                        placeholder="Tekmetric ID"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        placeholder="Enter Tekmetric Shop ID"
+                        required
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        This is a required field
+                      </p>
                     </div>
                   </div>
 
@@ -554,9 +745,14 @@ const Shops = () => {
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                        placeholder="Phone number"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        placeholder="+1 (XXX) XXX-XXXX"
+                        pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                        title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Format: +1 (XXX) XXX-XXXX
+                      </p>
                     </div>
 
                     <div>
@@ -568,7 +764,7 @@ const Shops = () => {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="shop@example.com"
                       />
                     </div>
@@ -577,68 +773,53 @@ const Shops = () => {
 
                 {/* Manager Info */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Manager Account</h3>
+                  <h3 className="font-semibold text-gray-700">Manager Account (Optional)</h3>
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Manager Email *
+                      Manager Email
                     </label>
                     <input
                       type="email"
                       name="manager_email"
                       value={formData.manager_email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                       placeholder="manager@example.com"
-                      required
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name *
+                        First Name
                       </label>
                       <input
                         type="text"
                         name="manager_first_name"
                         value={formData.manager_first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="First name"
-                        required
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name *
+                        Last Name
                       </label>
                       <input
                         type="text"
                         name="manager_last_name"
                         value={formData.manager_last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="Last name"
-                        required
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Password *
-                    </label>
-                    <input
-                      type="password"
-                      name="manager_password"
-                      value={formData.manager_password}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                      placeholder="Enter password"
-                      required
-                    />
-                  </div>
+                  {/* REMOVED: Password Field */}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -649,9 +830,14 @@ const Shops = () => {
                       name="manager_contact"
                       value={formData.manager_contact}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                      placeholder="+1234567890"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      placeholder="+1 (XXX) XXX-XXXX"
+                      pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                      title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: +1 (XXX) XXX-XXXX
+                    </p>
                   </div>
                 </div>
               </div>
@@ -660,9 +846,9 @@ const Shops = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-[#002868] hover:bg-blue-800 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                className="w-full bg-primary-blue hover:bg-primary-blue-dark text-white py-3 px-4 rounded-lg font-medium transition-colors"
               >
-                Create Shop & Manager Account
+                Create Shop {formData.manager_email ? '& Manager Account' : ''}
               </button>
             </div>
           </form>
@@ -673,7 +859,7 @@ const Shops = () => {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868]"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
             <p className="mt-4 text-gray-600">Loading shops...</p>
           </div>
         ) : error ? (
@@ -721,14 +907,19 @@ const Shops = () => {
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{shop.name}</div>
-                            <div className="text-sm text-gray-500">ID: {shop.id}</div>
+                            <div className="text-sm text-gray-500">ID: {shop.id.slice(0, 8)}...</div>
+                            {shop.phone && (
+                              <div className="text-xs text-gray-400">{shop.phone}</div>
+                            )}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <div className="text-sm text-gray-900">{shop.city}{shop.state ? `, ${shop.state}` : ''}</div>
-                          <div className="text-sm text-gray-500">{shop.address}</div>
+                          <div className="text-sm text-gray-900">
+                            {shop.city}{shop.state ? `, ${shop.state}` : ''}
+                          </div>
+                          <div className="text-sm text-gray-500">{shop.address || ''}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -773,14 +964,16 @@ const Shops = () => {
                           {shop.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 font-mono">
-                        {shop.tekmetric_shop_id || 'N/A'}
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-mono bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                          {shop.tekmetric_shop_id || 'N/A'}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewDetails(shop.id)}
-                            className="px-3 py-1 bg-[#002868] text-white hover:bg-blue-700 rounded text-sm"
+                            className="px-3 py-1 bg-primary-blue text-white hover:bg-primary-blue-dark rounded text-sm"
                           >
                             View Details
                           </button>
@@ -817,7 +1010,7 @@ const Shops = () => {
             <p className="text-gray-500 mb-4">Create your first shop to get started</p>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
             >
               Create First Shop
             </button>
@@ -838,7 +1031,7 @@ const Shops = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-[#002868] mb-4">Edit Shop</h2>
+              <h2 className="text-xl font-bold text-primary-blue mb-4">Edit Shop</h2>
               
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -859,6 +1052,15 @@ const Shops = () => {
                     {/* Manager Profile Picture */}
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-700">Manager Profile Picture</h3>
+                      
+                      {/* Note about password management */}
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <strong>Note:</strong> Password management is handled by users themselves.
+                          Managers can reset their password using the "Forgot Password" feature.
+                        </p>
+                      </div>
+                      
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                         {managerProfilePicPreview ? (
                           <div className="space-y-2">
@@ -873,7 +1075,7 @@ const Shops = () => {
                                 setManagerProfilePicFile(null);
                                 setManagerProfilePicPreview(editFormData.manager_profile_pic);
                               }}
-                              className="text-sm text-red-600 hover:text-red-800"
+                              className="text-sm text-primary-red hover:text-primary-red-dark"
                             >
                               Remove
                             </button>
@@ -889,7 +1091,7 @@ const Shops = () => {
                           </div>
                         )}
                         <label className="block mt-4">
-                          <span className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                          <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                             Change Photo
                           </span>
                           <input
@@ -918,7 +1120,7 @@ const Shops = () => {
                           name="name"
                           value={editFormData.name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                           placeholder="Enter shop name"
                           required
                         />
@@ -933,7 +1135,7 @@ const Shops = () => {
                           name="address"
                           value={editFormData.address}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                           placeholder="Enter shop address"
                         />
                       </div>
@@ -948,7 +1150,7 @@ const Shops = () => {
                             name="city"
                             value={editFormData.city}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                             placeholder="City"
                           />
                         </div>
@@ -962,7 +1164,7 @@ const Shops = () => {
                             name="state"
                             value={editFormData.state}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                             placeholder="State"
                           />
                         </div>
@@ -978,23 +1180,27 @@ const Shops = () => {
                             name="zip_code"
                             value={editFormData.zip_code}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                             placeholder="Zip Code"
                           />
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Tekmetric Shop ID
+                            Tekmetric Shop ID <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
                             name="tekmetric_shop_id"
                             value={editFormData.tekmetric_shop_id}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                            placeholder="Tekmetric ID"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            placeholder="Enter Tekmetric Shop ID"
+                            required
                           />
+                          <p className="text-xs text-gray-500 mt-1">
+                            This is a required field
+                          </p>
                         </div>
                       </div>
 
@@ -1008,9 +1214,14 @@ const Shops = () => {
                             name="phone"
                             value={editFormData.phone}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                            placeholder="Phone number"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            placeholder="+1 (XXX) XXX-XXXX"
+                            pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                            title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                           />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Format: +1 (XXX) XXX-XXXX
+                          </p>
                         </div>
 
                         <div>
@@ -1022,7 +1233,7 @@ const Shops = () => {
                             name="email"
                             value={editFormData.email}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                             placeholder="shop@example.com"
                           />
                         </div>
@@ -1034,7 +1245,7 @@ const Shops = () => {
                           name="is_active"
                           checked={editFormData.is_active}
                           onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.checked }))}
-                          className="rounded border-gray-300 text-[#002868] focus:ring-[#002868]"
+                          className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
                         />
                         <span className="text-sm font-medium text-gray-700">Active</span>
                       </label>
@@ -1055,7 +1266,7 @@ const Shops = () => {
                               name="manager_first_name"
                               value={editFormData.manager_first_name}
                               onChange={handleEditInputChange}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                               placeholder="First name"
                             />
                           </div>
@@ -1069,7 +1280,7 @@ const Shops = () => {
                               name="manager_last_name"
                               value={editFormData.manager_last_name}
                               onChange={handleEditInputChange}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                               placeholder="Last name"
                             />
                           </div>
@@ -1084,44 +1295,17 @@ const Shops = () => {
                             name="manager_contact"
                             value={editFormData.manager_contact}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                            placeholder="+1234567890"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            placeholder="+1 (XXX) XXX-XXXX"
+                            pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                            title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                           />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Format: +1 (XXX) XXX-XXXX
+                          </p>
                         </div>
 
-                        {/* Password Change Section */}
-                        <div className="space-y-4">
-                          <label className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              name="change_password"
-                              checked={editFormData.change_password}
-                              onChange={(e) => setEditFormData(prev => ({ 
-                                ...prev, 
-                                change_password: e.target.checked,
-                                new_password: e.target.checked ? prev.new_password : ''
-                              }))}
-                              className="rounded border-gray-300 text-[#002868] focus:ring-[#002868]"
-                            />
-                            <span className="text-sm font-medium text-gray-700">Change Manager Password</span>
-                          </label>
-
-                          {editFormData.change_password && (
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                New Password
-                              </label>
-                              <input
-                                type="password"
-                                name="new_password"
-                                value={editFormData.new_password}
-                                onChange={handleEditInputChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                                placeholder="Enter new password"
-                              />
-                            </div>
-                          )}
-                        </div>
+                        {/* REMOVED: Password Change Section */}
 
                         {/* Manager Email (Read-only) */}
                         <div>
@@ -1150,7 +1334,7 @@ const Shops = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#002868] hover:bg-blue-700 text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-primary-blue hover:bg-primary-blue-dark text-white rounded-lg font-medium"
                   >
                     Update Shop
                   </button>

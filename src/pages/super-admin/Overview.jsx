@@ -106,45 +106,40 @@ const Overview = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Dashboard Overview</h1>
-        <p className="text-gray-600">Welcome to your super admin dashboard</p>
-      </div>
-
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#002868]">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-primary-blue">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Brands</h3>
-              <p className="text-3xl font-bold text-[#002868] mt-2">{brands?.length || 0}</p>
+              <p className="text-3xl font-bold text-primary-blue mt-2">{brands?.length || 0}</p>
             </div>
-            <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-[#002868]" fill="currentColor" viewBox="0 0 20 20">
+            <div className="w-12 h-12 bg-primary-blue-50 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-primary-blue" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z" clipRule="evenodd" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#BF0A30]">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-primary-red">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">AI Video Requests</h3>
-              <p className="text-3xl font-bold text-[#BF0A30] mt-2">{getTotalVideoRequests()}</p>
+              <p className="text-3xl font-bold text-primary-red mt-2">{getTotalVideoRequests()}</p>
               <p className="text-xs text-gray-400 mt-1">
                 {aiRequestsByBrand.length > 0 ? `${aiRequestsByBrand.length} brands with requests` : 'No AI requests yet'}
               </p>
             </div>
-            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-[#BF0A30]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-primary-red-50 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-primary-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
             </div>
@@ -208,8 +203,8 @@ const Overview = () => {
                       }}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-blue-50">
-                      <svg className="w-8 h-8 text-blue-300" fill="currentColor" viewBox="0 0 20 20">
+                    <div className="w-full h-full flex items-center justify-center bg-primary-blue-50">
+                      <svg className="w-8 h-8 text-primary-blue-300" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z" clipRule="evenodd" />
                       </svg>
                     </div>
@@ -217,19 +212,18 @@ const Overview = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">{topBrand.name}</h3>
-                  <p className="text-sm text-gray-500">Brand ID: {topBrand.id?.slice(0, 8)}...</p>
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="bg-primary-blue-50 p-3 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-primary-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-blue-600">{topBrand.aiVideoRequests}</div>
-                      <div className="text-xs text-blue-500">AI Video Requests</div>
+                      <div className="text-xl font-bold text-primary-blue-600">{topBrand.aiVideoRequests}</div>
+                      <div className="text-xs text-primary-blue-500">AI Video Requests</div>
                     </div>
                   </div>
                 </div>
@@ -279,7 +273,7 @@ const Overview = () => {
             </div>
           ) : (
             <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868] mx-auto mb-3"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue mx-auto mb-3"></div>
               <p className="text-gray-500">Analyzing brand performance...</p>
             </div>
           )}
@@ -290,9 +284,9 @@ const Overview = () => {
           <div className="space-y-4">
             <Link
               to="/super-admin/brands"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center p-4 border rounded-lg hover:bg-primary-blue-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-[#002868] rounded-lg flex items-center justify-center mr-4">
+              <div className="w-10 h-10 bg-primary-blue rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                 </svg>
@@ -305,9 +299,9 @@ const Overview = () => {
             
             <Link
               to="/super-admin/analytics"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center p-4 border rounded-lg hover:bg-primary-blue-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-[#BF0A30] rounded-lg flex items-center justify-center mr-4">
+              <div className="w-10 h-10 bg-primary-red rounded-lg flex items-center justify-center mr-4">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
@@ -317,8 +311,6 @@ const Overview = () => {
                 <p className="text-sm text-gray-500">Check AI video performance analytics</p>
               </div>
             </Link>
-
-            
           </div>
         </div>
       </div>

@@ -17,6 +17,9 @@ import {
 } from '../../redux/slice/userSlice';
 import BrandDetailModal from '../../components/super-admin/BrandDetailModal';
 
+// Import SweetAlert for popup notifications
+import Swal from 'sweetalert2';
+
 // Default images
 const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png'; // Building icon
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png'; // User icon
@@ -40,7 +43,6 @@ const Brands = () => {
     admin_email: '',
     admin_first_name: '',
     admin_last_name: '',
-    admin_password: '',
     admin_contact: '',
     is_active: true
   });
@@ -53,8 +55,9 @@ const Brands = () => {
     admin_last_name: '',
     admin_contact: '',
     admin_profile_pic: '',
-    change_password: false,
-    new_password: ''
+    original_admin_first_name: '',
+    original_admin_last_name: '',
+    original_admin_contact: ''
   });
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -103,6 +106,24 @@ const Brands = () => {
     return DEFAULT_PROFILE_PIC;
   };
 
+  // Phone formatting function for USA numbers
+  const formatPhoneNumber = (value) => {
+    if (!value) return value;
+    
+    // Remove all non-digits
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    
+    // If starting with 1, keep it as country code
+    if (phoneNumber.length === 0) return '';
+    
+    // Format: +1 (XXX) XXX-XXXX
+    if (phoneNumber.length <= 1) return `+1${phoneNumber}`;
+    if (phoneNumber.length <= 4) return `+1 (${phoneNumber.substring(1, 4)}`;
+    if (phoneNumber.length <= 7) return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}`;
+    
+    return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -136,13 +157,16 @@ const Brands = () => {
       const brandResult = await dispatch(createBrand(brandFormData)).unwrap();
       
       if (brandResult.success) {
-        // Create brand admin user
+        // Create brand admin user WITHOUT password field
         const userFormData = new FormData();
         userFormData.append('email', formData.admin_email);
         userFormData.append('first_name', formData.admin_first_name);
         userFormData.append('last_name', formData.admin_last_name);
-        userFormData.append('password', formData.admin_password);
-        userFormData.append('contact_no', formData.admin_contact || '');
+        
+        // Format phone number before saving
+        const formattedPhone = formatPhoneNumber(formData.admin_contact);
+        userFormData.append('contact_no', formattedPhone || '');
+        
         userFormData.append('role', 'brand_admin');
         userFormData.append('brand_id', brandResult.data.id);
         userFormData.append('is_active', true);
@@ -154,18 +178,48 @@ const Brands = () => {
         const userResult = await dispatch(createUser(userFormData)).unwrap();
         
         if (userResult.success) {
-          setFormSuccess('Brand and admin created successfully!');
+          // Show success popup with SweetAlert
+          Swal.fire({
+            icon: 'success',
+            title: 'Brand Created Successfully!',
+            html: `
+              <div style="text-align: left;">
+                <p><strong>Brand:</strong> ${formData.name}</p>
+                <p><strong>Brand Admin:</strong> ${formData.admin_first_name} ${formData.admin_last_name}</p>
+                <p><strong>Admin Email:</strong> ${formData.admin_email}</p>
+                <p><strong>Contact:</strong> ${formData.admin_contact || 'Not provided'}</p>
+                <br>
+                <p style="color: #4CAF50; font-weight: bold;">
+                  A random password has been sent to ${formData.admin_email}
+                </p>
+                <p style="font-size: 14px; color: #666;">
+                  The admin can use this password for first-time login and will be prompted to create a new password.
+                </p>
+              </div>
+            `,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#4CAF50',
+            width: '500px'
+          });
+          
           resetForm();
           dispatch(getAllBrands());
           dispatch(getAllUsers());
           setTimeout(() => {
             setShowCreateForm(false);
-            setFormSuccess('');
-          }, 2000);
+          }, 100);
         }
       }
     } catch (err) {
       setFormError(err?.error || 'Failed to create brand. Please try again.');
+      // Show error popup
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to create brand. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -191,7 +245,7 @@ const Brands = () => {
         data: brandFormData
       })).unwrap();
 
-      // Update brand admin user
+      // Update brand admin user (NO PASSWORD HANDLING)
       if (editFormData.admin_id) {
         const adminFormData = new FormData();
         
@@ -202,12 +256,14 @@ const Brands = () => {
         if (editFormData.admin_last_name !== editFormData.original_admin_last_name) {
           adminFormData.append('last_name', editFormData.admin_last_name);
         }
+        
+        // Format phone number before updating
         if (editFormData.admin_contact !== editFormData.original_admin_contact) {
-          adminFormData.append('contact_no', editFormData.admin_contact);
+          const formattedPhone = formatPhoneNumber(editFormData.admin_contact);
+          adminFormData.append('contact_no', formattedPhone);
         }
-        if (editFormData.change_password && editFormData.new_password) {
-          adminFormData.append('password', editFormData.new_password);
-        }
+        
+        // NO PASSWORD FIELD - Users manage their own passwords
         if (adminProfilePicFile) {
           adminFormData.append('profile_pic', adminProfilePicFile);
         }
@@ -222,16 +278,31 @@ const Brands = () => {
         }
       }
 
-      setFormSuccess('Brand and admin updated successfully!');
+      // Show success popup
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Brand and admin updated successfully!',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50'
+      });
+      
       resetEditForm();
       dispatch(getAllBrands());
       setTimeout(() => {
         setShowEditModal(null);
-        setFormSuccess('');
-      }, 2000);
+      }, 100);
       
     } catch (err) {
       setFormError(err?.error || 'Failed to update brand. Please try again.');
+      // Show error popup
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to update brand. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -241,7 +312,6 @@ const Brands = () => {
       admin_email: '',
       admin_first_name: '',
       admin_last_name: '',
-      admin_password: '',
       admin_contact: '',
       is_active: true
     });
@@ -261,8 +331,9 @@ const Brands = () => {
       admin_last_name: '',
       admin_contact: '',
       admin_profile_pic: '',
-      change_password: false,
-      new_password: ''
+      original_admin_first_name: '',
+      original_admin_last_name: '',
+      original_admin_contact: ''
     });
     setLogoFile(null);
     setLogoPreview(null);
@@ -272,18 +343,38 @@ const Brands = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    if (name === 'admin_contact') {
+      // Format phone number as user types
+      const formattedValue = formatPhoneNumber(value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    if (name === 'admin_contact') {
+      // Format phone number as user types
+      const formattedValue = formatPhoneNumber(value);
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   const handleViewDetails = (brandId) => {
@@ -309,9 +400,7 @@ const Brands = () => {
       admin_profile_pic: adminProfilePic,
       original_admin_first_name: brandAdmin.first_name || '',
       original_admin_last_name: brandAdmin.last_name || '',
-      original_admin_contact: brandAdmin.contact_no || '',
-      change_password: false,
-      new_password: ''
+      original_admin_contact: brandAdmin.contact_no || ''
     });
     setLogoPreview(brandLogo);
     setLogoFile(null);
@@ -335,22 +424,17 @@ const Brands = () => {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Brand Management</h1>
-        <p className="text-gray-600">Manage all brands in the platform</p>
-      </div>
-
       {/* Create Brand Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">All Brands</h2>
-          <span className="bg-[#002868] text-white px-3 py-1 rounded-full text-sm">
+          <span className="bg-primary-blue text-white px-3 py-1 rounded-full text-sm">
             {brands?.length || 0} Brands
           </span>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-[#BF0A30] hover:bg-red-800 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+          className="bg-primary-red hover:bg-primary-red-dark text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -362,7 +446,7 @@ const Brands = () => {
       {/* Create Brand Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-[#002868] mb-4">Create New Brand</h2>
+          <h2 className="text-xl font-bold text-primary-blue mb-4">Create New Brand</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -397,7 +481,7 @@ const Brands = () => {
                             setLogoFile(null);
                             setLogoPreview(null);
                           }}
-                          className="text-sm text-red-600 hover:text-red-800"
+                          className="text-sm text-primary-red hover:text-primary-red-dark"
                         >
                           Remove
                         </button>
@@ -413,7 +497,7 @@ const Brands = () => {
                       </div>
                     )}
                     <label className="block mt-4">
-                      <span className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                         Choose Logo
                       </span>
                       <input
@@ -444,7 +528,7 @@ const Brands = () => {
                             setAdminProfilePicFile(null);
                             setAdminProfilePicPreview(null);
                           }}
-                          className="text-sm text-red-600 hover:text-red-800"
+                          className="text-sm text-primary-red hover:text-primary-red-dark"
                         >
                           Remove
                         </button>
@@ -460,7 +544,7 @@ const Brands = () => {
                       </div>
                     )}
                     <label className="block mt-4">
-                      <span className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                         Choose Photo
                       </span>
                       <input
@@ -480,6 +564,15 @@ const Brands = () => {
                 {/* Brand Info */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Brand Information</h3>
+                  
+                  {/* Add information about auto-generated password */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> A random password will be auto-generated and sent to the admin's email.
+                      The admin will use this password for first-time login and will be prompted to create a new password.
+                    </p>
+                  </div>
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Brand Name *
@@ -489,7 +582,7 @@ const Brands = () => {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                       placeholder="Enter brand name"
                       required
                     />
@@ -499,6 +592,7 @@ const Brands = () => {
                 {/* Admin Info */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Admin Account</h3>
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Admin Email *
@@ -508,7 +602,7 @@ const Brands = () => {
                       name="admin_email"
                       value={formData.admin_email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                       placeholder="admin@example.com"
                       required
                     />
@@ -524,7 +618,7 @@ const Brands = () => {
                         name="admin_first_name"
                         value={formData.admin_first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="First name"
                         required
                       />
@@ -539,26 +633,11 @@ const Brands = () => {
                         name="admin_last_name"
                         value={formData.admin_last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                         placeholder="Last name"
                         required
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Password *
-                    </label>
-                    <input
-                      type="password"
-                      name="admin_password"
-                      value={formData.admin_password}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                      placeholder="Enter password"
-                      required
-                    />
                   </div>
 
                   <div>
@@ -570,9 +649,14 @@ const Brands = () => {
                       name="admin_contact"
                       value={formData.admin_contact}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                      placeholder="+1234567890"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      placeholder="+1 (XXX) XXX-XXXX"
+                      pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                      title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: +1 (XXX) XXX-XXXX
+                    </p>
                   </div>
                 </div>
               </div>
@@ -581,7 +665,7 @@ const Brands = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-[#002868] hover:bg-blue-800 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                className="w-full bg-primary-blue hover:bg-primary-blue-dark text-white py-3 px-4 rounded-lg font-medium transition-colors"
               >
                 Create Brand & Admin Account
               </button>
@@ -594,7 +678,7 @@ const Brands = () => {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868]"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
             <p className="mt-4 text-gray-600">Loading brands...</p>
           </div>
         ) : error ? (
@@ -645,7 +729,6 @@ const Brands = () => {
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{brand.name}</div>
-                            <div className="text-sm text-gray-500">ID: {brand.id}</div>
                           </div>
                         </div>
                       </td>
@@ -667,6 +750,7 @@ const Brands = () => {
                                 {admin.first_name} {admin.last_name}
                               </div>
                               <div className="text-sm text-gray-500">{admin.email}</div>
+                              <div className="text-xs text-gray-400">{admin.contact_no}</div>
                             </div>
                           </div>
                         ) : (
@@ -698,7 +782,7 @@ const Brands = () => {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewDetails(brand.id)}
-                            className="px-3 py-1 bg-[#002868] text-white hover:bg-blue-700 rounded text-sm"
+                            className="px-3 py-1 bg-primary-blue text-white hover:bg-primary-blue-dark rounded text-sm"
                           >
                             View Details
                           </button>
@@ -737,7 +821,7 @@ const Brands = () => {
             <p className="text-gray-500 mb-4">Create your first brand to get started</p>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
             >
               Create First Brand
             </button>
@@ -758,7 +842,7 @@ const Brands = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-[#002868] mb-4">Edit Brand</h2>
+              <h2 className="text-xl font-bold text-primary-blue mb-4">Edit Brand</h2>
               
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -793,7 +877,7 @@ const Brands = () => {
                                 setLogoFile(null);
                                 setLogoPreview(editFormData.logo_url);
                               }}
-                              className="text-sm text-red-600 hover:text-red-800"
+                              className="text-sm text-primary-red hover:text-primary-red-dark"
                             >
                               Remove
                             </button>
@@ -809,7 +893,7 @@ const Brands = () => {
                           </div>
                         )}
                         <label className="block mt-4">
-                          <span className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                          <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                             Change Logo
                           </span>
                           <input
@@ -840,7 +924,7 @@ const Brands = () => {
                                 setAdminProfilePicFile(null);
                                 setAdminProfilePicPreview(editFormData.admin_profile_pic);
                               }}
-                              className="text-sm text-red-600 hover:text-red-800"
+                              className="text-sm text-primary-red hover:text-primary-red-dark"
                             >
                               Remove
                             </button>
@@ -856,7 +940,7 @@ const Brands = () => {
                           </div>
                         )}
                         <label className="block mt-4">
-                          <span className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                          <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                             Change Photo
                           </span>
                           <input
@@ -885,7 +969,7 @@ const Brands = () => {
                           name="name"
                           value={editFormData.name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                           placeholder="Enter brand name"
                           required
                         />
@@ -897,7 +981,7 @@ const Brands = () => {
                           name="is_active"
                           checked={editFormData.is_active}
                           onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.checked }))}
-                          className="rounded border-gray-300 text-[#002868] focus:ring-[#002868]"
+                          className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
                         />
                         <span className="text-sm font-medium text-gray-700">Active</span>
                       </label>
@@ -918,7 +1002,7 @@ const Brands = () => {
                               name="admin_first_name"
                               value={editFormData.admin_first_name}
                               onChange={handleEditInputChange}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                               placeholder="First name"
                             />
                           </div>
@@ -932,7 +1016,7 @@ const Brands = () => {
                               name="admin_last_name"
                               value={editFormData.admin_last_name}
                               onChange={handleEditInputChange}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                               placeholder="Last name"
                             />
                           </div>
@@ -947,43 +1031,22 @@ const Brands = () => {
                             name="admin_contact"
                             value={editFormData.admin_contact}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                            placeholder="+1234567890"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            placeholder="+1 (XXX) XXX-XXXX"
+                            pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                            title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                           />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Format: +1 (XXX) XXX-XXXX
+                          </p>
                         </div>
 
-                        {/* Password Change Section */}
-                        <div className="space-y-4">
-                          <label className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              name="change_password"
-                              checked={editFormData.change_password}
-                              onChange={(e) => setEditFormData(prev => ({ 
-                                ...prev, 
-                                change_password: e.target.checked,
-                                new_password: e.target.checked ? prev.new_password : ''
-                              }))}
-                              className="rounded border-gray-300 text-[#002868] focus:ring-[#002868]"
-                            />
-                            <span className="text-sm font-medium text-gray-700">Change Admin Password</span>
-                          </label>
-
-                          {editFormData.change_password && (
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                New Password
-                              </label>
-                              <input
-                                type="password"
-                                name="new_password"
-                                value={editFormData.new_password}
-                                onChange={handleEditInputChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                                placeholder="Enter new password"
-                              />
-                            </div>
-                          )}
+                        {/* Note about password management */}
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-800">
+                            <strong>Note:</strong> Password management is handled by users themselves.
+                            Admins can reset their password using the "Forgot Password" feature.
+                          </p>
                         </div>
 
                         {/* Admin Email (Read-only) */}
@@ -1013,7 +1076,7 @@ const Brands = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#002868] hover:bg-blue-700 text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-primary-blue hover:bg-primary-blue-dark text-white rounded-lg font-medium"
                   >
                     Update Brand
                   </button>

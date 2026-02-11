@@ -53,7 +53,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-lg p-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868] mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading brand details...</p>
         </div>
       </div>
@@ -64,7 +64,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 text-center">
-          <div className="text-red-500 mb-4">
+          <div className="text-primary-red mb-4">
             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -73,7 +73,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
           <p className="text-gray-500 mb-4">The brand you're looking for doesn't exist or has been removed.</p>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-[#002868] text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-primary-blue-dark transition-colors"
           >
             Close
           </button>
@@ -130,10 +130,10 @@ const BrandDetailModal = ({ brandId, onClose }) => {
         <div className="p-6">
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="text-sm text-blue-600 font-medium">Shops</h3>
-              <p className="text-2xl font-bold text-blue-700 mt-1">{brandShops.length}</p>
-              <p className="text-xs text-blue-600">
+            <div className="bg-primary-blue-50 p-4 rounded-lg">
+              <h3 className="text-sm text-primary-blue-600 font-medium">Shops</h3>
+              <p className="text-2xl font-bold text-primary-blue-700 mt-1">{brandShops.length}</p>
+              <p className="text-xs text-primary-blue-600">
                 {brandShops.filter(s => s.is_active).length} Active
               </p>
             </div>
@@ -187,7 +187,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                       href={brand.logo_url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-[#002868] hover:underline mt-2 inline-block text-sm"
+                      className="text-primary-blue hover:underline mt-2 inline-block text-sm"
                     >
                       View Logo
                     </a>
@@ -330,7 +330,6 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                     </tr>
@@ -345,9 +344,6 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500">
                             {order.customer_name || 'N/A'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {vehicleInfo.year ? `${vehicleInfo.year} ${vehicleInfo.make} ${vehicleInfo.model}` : 'N/A'}
                           </td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${

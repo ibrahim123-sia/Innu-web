@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  selectDistrictsByBrandFromState, // Changed from selectAllDistricts
+  selectDistrictsByBrandFromState,
   selectDistrictLoading,
   selectDistrictError,
   getDistrictsByBrand,
@@ -15,7 +15,13 @@ import {
   getAllUsers,
   selectAllUsers
 } from '../../redux/slice/userSlice';
-import { Link } from 'react-router-dom';
+import {
+  selectShopsByBrandId,
+  getBrandShops
+} from '../../redux/slice/shopSlice';
+
+// Import SweetAlert for popup notifications
+import Swal from 'sweetalert2';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
@@ -23,14 +29,27 @@ const Districts = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
   
-  // FIXED: Use districtsByBrand instead of all districts
+  // Correct selectors
   const districtsByBrand = useSelector(selectDistrictsByBrandFromState);
   const users = useSelector(selectAllUsers);
   const loading = useSelector(selectDistrictLoading);
   const error = useSelector(selectDistrictError);
+  const shops = useSelector(state => selectShopsByBrandId(user?.brand_id)(state));
   
+  // Modal and form states
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
+  const [expandedDistrict, setExpandedDistrict] = useState(null);
+  
+  // File states for create form
+  const [managerProfilePicFile, setManagerProfilePicFile] = useState(null);
+  const [managerProfilePicPreview, setManagerProfilePicPreview] = useState(null);
+  
+  // File states for edit form
+  const [editManagerProfilePicFile, setEditManagerProfilePicFile] = useState(null);
+  const [editManagerProfilePicPreview, setEditManagerProfilePicPreview] = useState(null);
+  
+  // Data states
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -38,7 +57,6 @@ const Districts = () => {
     manager_first_name: '',
     manager_last_name: '',
     manager_email: '',
-    manager_password: '',
     manager_contact: ''
   });
   const [editFormData, setEditFormData] = useState({});
@@ -46,25 +64,42 @@ const Districts = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [districtManagers, setDistrictManagers] = useState({});
 
-  // Debug: Check what's happening
+  // Phone formatting function for USA numbers
+  const formatPhoneNumber = (value) => {
+    if (!value) return value;
+    
+    // Remove all non-digits
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    
+    // If starting with 1, keep it as country code
+    if (phoneNumber.length === 0) return '';
+    
+    // Format: +1 (XXX) XXX-XXXX
+    if (phoneNumber.length <= 1) return `+1${phoneNumber}`;
+    if (phoneNumber.length <= 4) return `+1 (${phoneNumber.substring(1, 4)}`;
+    if (phoneNumber.length <= 7) return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}`;
+    
+    return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
+  };
+
+  // Fetch districts, users, and shops on component mount
   useEffect(() => {
     console.log('Districts Component Debug:');
     console.log('User:', user);
     console.log('User brand_id:', user?.brand_id);
-    console.log('Districts from API (districtsByBrand):', districtsByBrand);
-    console.log('Districts length:', districtsByBrand?.length);
     
     if (user?.brand_id) {
-      console.log(`Fetching districts for brand: ${user.brand_id}`);
+      console.log(`Fetching data for brand: ${user.brand_id}`);
       dispatch(getDistrictsByBrand(user.brand_id));
       dispatch(getAllUsers());
+      dispatch(getBrandShops(user.brand_id));
     } else {
       console.error('User has no brand_id!');
     }
   }, [dispatch, user?.brand_id]);
 
+  // Organize district managers by district_id
   useEffect(() => {
-    // Organize district managers by district_id
     const managersMap = {};
     users.forEach(user => {
       if (user.role === 'district_manager' && user.district_id) {
@@ -82,10 +117,56 @@ const Districts = () => {
     setDistrictManagers(managersMap);
   }, [users]);
 
+  // Helper function to get manager profile pic with fallback
+  const getManagerProfilePic = (districtId) => {
+    const manager = getManagerForDistrict(districtId);
+    if (!manager) return DEFAULT_PROFILE_PIC;
+    
+    if (manager.profile_pic_url && manager.profile_pic_url.trim() !== '') {
+      return manager.profile_pic_url;
+    }
+    return DEFAULT_PROFILE_PIC;
+  };
+
+  // Get manager for a specific district
   const getManagerForDistrict = (districtId) => {
     return districtManagers[districtId] || null;
   };
 
+  // Get shops for a specific district
+  const getShopsForDistrict = (districtId) => {
+    if (!shops || !Array.isArray(shops)) return [];
+    return shops.filter(shop => shop.district_id === districtId);
+  };
+
+  // Handle viewing shops for a district (dropdown toggle)
+  const handleViewShops = (districtId) => {
+    if (expandedDistrict === districtId) {
+      setExpandedDistrict(null);
+    } else {
+      setExpandedDistrict(districtId);
+    }
+  };
+
+  // Handle file change for profile pictures
+  const handleFileChange = (e, isEdit = false) => {
+    const file = e.target.files[0];
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      
+      if (e.target.name === 'manager_profile_pic') {
+        if (isEdit) {
+          setEditManagerProfilePicFile(file);
+          setEditManagerProfilePicPreview(previewUrl);
+        } else {
+          setManagerProfilePicFile(file);
+          setManagerProfilePicPreview(previewUrl);
+        }
+      }
+    }
+  };
+
+  // Create district
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -101,37 +182,95 @@ const Districts = () => {
       const districtResult = await dispatch(createDistrict(districtData)).unwrap();
       
       if (districtResult.success) {
-        // Create district manager user if provided
-        if (formData.manager_email && formData.manager_password) {
-          const userData = {
-            email: formData.manager_email,
-            first_name: formData.manager_first_name,
-            last_name: formData.manager_last_name,
-            password: formData.manager_password,
-            contact_no: formData.manager_contact || '',
-            role: 'district_manager',
-            brand_id: user.brand_id,
-            district_id: districtResult.data.id,
-            is_active: true
-          };
+        // Create district manager user if email is provided
+        if (formData.manager_email) {
+          const userFormData = new FormData();
+          userFormData.append('email', formData.manager_email);
+          userFormData.append('first_name', formData.manager_first_name);
+          userFormData.append('last_name', formData.manager_last_name);
+          
+          // Format phone number before saving
+          const formattedPhone = formatPhoneNumber(formData.manager_contact);
+          userFormData.append('contact_no', formattedPhone || '');
+          
+          userFormData.append('role', 'district_manager');
+          userFormData.append('brand_id', user.brand_id);
+          userFormData.append('district_id', districtResult.data.id);
+          userFormData.append('is_active', true);
+          
+          if (managerProfilePicFile) {
+            userFormData.append('profile_pic', managerProfilePicFile);
+          }
 
-          await dispatch(createUser(userData)).unwrap();
-          dispatch(getAllUsers());
+          const userResult = await dispatch(createUser(userFormData)).unwrap();
+          
+          if (userResult.success) {
+            // Show success popup with SweetAlert
+            Swal.fire({
+              icon: 'success',
+              title: 'District Created Successfully!',
+              html: `
+                <div style="text-align: left;">
+                  <p><strong>District:</strong> ${formData.name}</p>
+                  <p><strong>District Manager:</strong> ${formData.manager_first_name} ${formData.manager_last_name}</p>
+                  <p><strong>Manager Email:</strong> ${formData.manager_email}</p>
+                  <p><strong>Contact:</strong> ${formData.manager_contact || 'Not provided'}</p>
+                  <br>
+                  <p style="color: #4CAF50; font-weight: bold;">
+                    A random password has been sent to ${formData.manager_email}
+                  </p>
+                  <p style="font-size: 14px; color: #666;">
+                    The manager can use this password for first-time login and will be prompted to create a new password.
+                  </p>
+                </div>
+              `,
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#4CAF50',
+              width: '500px'
+            });
+          }
+        } else {
+          // Show success popup without manager
+          Swal.fire({
+            icon: 'success',
+            title: 'District Created Successfully!',
+            html: `
+              <div style="text-align: left;">
+                <p><strong>District:</strong> ${formData.name}</p>
+                <p><strong>Status:</strong> ${formData.is_active ? 'Active' : 'Inactive'}</p>
+                <br>
+                <p style="color: #666;">
+                  No district manager was assigned. You can assign one later.
+                </p>
+              </div>
+            `,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#4CAF50',
+            width: '500px'
+          });
         }
 
-        setFormSuccess('District created successfully!');
         resetForm();
         dispatch(getDistrictsByBrand(user.brand_id));
+        dispatch(getAllUsers());
         setTimeout(() => {
           setShowCreateForm(false);
-          setFormSuccess('');
-        }, 2000);
+        }, 100);
       }
     } catch (err) {
       setFormError(err?.error || 'Failed to create district. Please try again.');
+      // Show error popup
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to create district. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
+  // Edit district
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -146,68 +285,95 @@ const Districts = () => {
 
       // Update district manager if exists
       const manager = getManagerForDistrict(showEditModal);
-      if (manager && editFormData.manager_email) {
-        const managerData = {
-          first_name: editFormData.manager_first_name,
-          last_name: editFormData.manager_last_name,
-          contact_no: editFormData.manager_contact
-        };
+      if (manager) {
+        const managerFormData = new FormData();
+        
+        // Update name if changed
+        if (editFormData.manager_first_name !== editFormData.original_manager_first_name) {
+          managerFormData.append('first_name', editFormData.manager_first_name);
+        }
+        if (editFormData.manager_last_name !== editFormData.original_manager_last_name) {
+          managerFormData.append('last_name', editFormData.manager_last_name);
+        }
+        
+        // Format phone number before updating
+        if (editFormData.manager_contact !== editFormData.original_manager_contact) {
+          const formattedPhone = formatPhoneNumber(editFormData.manager_contact);
+          managerFormData.append('contact_no', formattedPhone);
+        }
+        
+        if (editManagerProfilePicFile) {
+          managerFormData.append('profile_pic', editManagerProfilePicFile);
+        }
 
-        await dispatch(updateUser({
-          id: manager.id,
-          data: managerData
-        })).unwrap();
-        dispatch(getAllUsers());
+        // Only update if there are changes
+        if (Array.from(managerFormData.entries()).length > 0) {
+          await dispatch(updateUser({
+            id: manager.id,
+            data: managerFormData
+          })).unwrap();
+          dispatch(getAllUsers());
+        }
       }
 
-      setFormSuccess('District updated successfully!');
+      // Show success popup
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'District updated successfully!',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50'
+      });
+      
       resetEditForm();
       dispatch(getDistrictsByBrand(user.brand_id));
       setTimeout(() => {
         setShowEditModal(null);
-        setFormSuccess('');
-      }, 2000);
+      }, 100);
       
     } catch (err) {
       setFormError(err?.error || 'Failed to update district. Please try again.');
+      // Show error popup
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to update district. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      is_active: true,
-      manager_first_name: '',
-      manager_last_name: '',
-      manager_email: '',
-      manager_password: '',
-      manager_contact: ''
-    });
+  // Toggle district status
+  const handleToggleStatus = async (districtId) => {
+    try {
+      await dispatch(toggleDistrictStatus(districtId)).unwrap();
+      dispatch(getDistrictsByBrand(user.brand_id));
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Status Updated',
+        text: 'District status has been updated successfully.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
+      });
+    } catch (err) {
+      console.error('Failed to toggle district status:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to update district status.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+    }
   };
 
-  const resetEditForm = () => {
-    setEditFormData({});
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  const handleEditInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
+  // Edit district
   const handleEdit = (district) => {
     const manager = getManagerForDistrict(district.id);
+    const managerProfilePic = getManagerProfilePic(district.id);
     
     setShowEditModal(district.id);
     setEditFormData({
@@ -217,40 +383,90 @@ const Districts = () => {
       manager_first_name: manager?.first_name || '',
       manager_last_name: manager?.last_name || '',
       manager_email: manager?.email || '',
-      manager_contact: manager?.contact_no || ''
+      manager_contact: manager?.contact_no || '',
+      original_manager_first_name: manager?.first_name || '',
+      original_manager_last_name: manager?.last_name || '',
+      original_manager_contact: manager?.contact_no || '',
+      manager_profile_pic: managerProfilePic
     });
+    setEditManagerProfilePicPreview(managerProfilePic);
+    setEditManagerProfilePicFile(null);
   };
 
-  const handleToggleStatus = async (districtId) => {
-    try {
-      await dispatch(toggleDistrictStatus(districtId)).unwrap();
-      dispatch(getDistrictsByBrand(user.brand_id));
-    } catch (err) {
-      console.error('Failed to toggle district status:', err);
+  // Reset forms
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      is_active: true,
+      manager_first_name: '',
+      manager_last_name: '',
+      manager_email: '',
+      manager_contact: ''
+    });
+    setManagerProfilePicFile(null);
+    setManagerProfilePicPreview(null);
+  };
+
+  const resetEditForm = () => {
+    setEditFormData({});
+    setEditManagerProfilePicFile(null);
+    setEditManagerProfilePicPreview(null);
+  };
+
+  // Handle input changes with phone formatting
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    if (name === 'manager_contact') {
+      // Format phone number as user types
+      const formattedValue = formatPhoneNumber(value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
     }
   };
 
-  // Use districtsByBrand for display
+  const handleEditInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    if (name === 'manager_contact') {
+      // Format phone number as user types
+      const formattedValue = formatPhoneNumber(value);
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
+  };
+
+  // Prepare districts for display
   const displayDistricts = districtsByBrand || [];
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">District Management</h1>
-        <p className="text-gray-600">Organize shops by districts</p>
-      </div>
-
       {/* Create District Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">Your Brand's Districts</h2>
-          <span className="bg-[#002868] text-white px-3 py-1 rounded-full text-sm">
+          <span className="bg-primary-blue text-white px-3 py-1 rounded-full text-sm">
             {displayDistricts.length} Districts
           </span>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-[#BF0A30] hover:bg-red-800 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+          className="bg-primary-red hover:bg-primary-red-dark text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -262,7 +478,7 @@ const Districts = () => {
       {/* Create District Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-[#002868] mb-4">Create New District</h2>
+          <h2 className="text-xl font-bold text-primary-blue mb-4">Create New District</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -277,87 +493,147 @@ const Districts = () => {
           )}
           
           <form onSubmit={handleSubmit}>
-            <div className="space-y-6">
-              {/* District Information */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-700">District Information</h3>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    District Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                    placeholder="Enter district name"
-                    required
-                  />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column: District Manager Profile Picture */}
+              <div className="space-y-8">
+                {/* District Manager Profile Picture Upload */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-700">District Manager Profile Picture</h3>
+                  
+                  {/* Add information about auto-generated password */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> If you assign a manager, a random password will be auto-generated and sent to their email.
+                      The manager will use this password for first-time login and will be prompted to create a new password.
+                    </p>
+                  </div>
+                  
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    {managerProfilePicPreview ? (
+                      <div className="space-y-2">
+                        <img 
+                          src={managerProfilePicPreview} 
+                          alt="Manager profile preview" 
+                          className="w-32 h-32 rounded-full mx-auto object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setManagerProfilePicFile(null);
+                            setManagerProfilePicPreview(null);
+                          }}
+                          className="text-sm text-primary-red hover:text-primary-red-dark"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <img 
+                          src={DEFAULT_PROFILE_PIC}
+                          alt="Default profile" 
+                          className="w-32 h-32 rounded-full mx-auto object-cover opacity-50"
+                        />
+                        <p className="text-sm text-gray-500">Default profile picture will be used if not uploaded</p>
+                      </div>
+                    )}
+                    <label className="block mt-4">
+                      <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                        Choose Photo
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, false)}
+                        className="hidden"
+                        name="manager_profile_pic"
+                      />
+                    </label>
+                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                    placeholder="Optional description about this district"
-                  />
-                </div>
-
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={formData.is_active}
-                    onChange={handleInputChange}
-                    className="rounded border-gray-300 text-[#002868] focus:ring-[#002868]"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Active</span>
-                </label>
               </div>
 
-              {/* District Manager Information */}
-              <div className="space-y-4 border-t pt-6">
-                <h3 className="font-semibold text-gray-700">District Manager (Optional)</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Right Column: District & Manager Info */}
+              <div className="space-y-6">
+                {/* District Information */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-700">District Information</h3>
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name
+                      District Name *
                     </label>
                     <input
                       type="text"
-                      name="manager_first_name"
-                      value={formData.manager_first_name}
+                      name="name"
+                      value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                      placeholder="First name"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      placeholder="Enter district name"
+                      required
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name
+                      Description
                     </label>
-                    <input
-                      type="text"
-                      name="manager_last_name"
-                      value={formData.manager_last_name}
+                    <textarea
+                      name="description"
+                      value={formData.description}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                      placeholder="Last name"
+                      rows="3"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      placeholder="Optional description about this district"
                     />
                   </div>
+
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      name="is_active"
+                      checked={formData.is_active}
+                      onChange={handleInputChange}
+                      className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Active</span>
+                  </label>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* District Manager Information */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-700">District Manager (Optional)</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        name="manager_first_name"
+                        value={formData.manager_first_name}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        placeholder="First name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        name="manager_last_name"
+                        value={formData.manager_last_name}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                        placeholder="Last name"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Email
@@ -367,38 +643,31 @@ const Districts = () => {
                       name="manager_email"
                       value={formData.manager_email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
                       placeholder="manager@example.com"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Password
+                      Contact Number
                     </label>
                     <input
-                      type="password"
-                      name="manager_password"
-                      value={formData.manager_password}
+                      type="tel"
+                      name="manager_contact"
+                      value={formData.manager_contact}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                      placeholder="Set password"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                      placeholder="+1 (XXX) XXX-XXXX"
+                      pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                      title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: +1 (XXX) XXX-XXXX
+                    </p>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Number
-                  </label>
-                  <input
-                    type="tel"
-                    name="manager_contact"
-                    value={formData.manager_contact}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                    placeholder="(123) 456-7890"
-                  />
+                  
+                  {/* REMOVED: Password Field */}
                 </div>
               </div>
             </div>
@@ -406,7 +675,7 @@ const Districts = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-[#002868] hover:bg-blue-800 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                className="w-full bg-primary-blue hover:bg-primary-blue-dark text-white py-3 px-4 rounded-lg font-medium transition-colors"
               >
                 Create District
               </button>
@@ -419,7 +688,7 @@ const Districts = () => {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#002868]"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
             <p className="mt-4 text-gray-600">Loading districts...</p>
           </div>
         ) : error ? (
@@ -441,10 +710,10 @@ const Districts = () => {
                     Manager
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Shops
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
+                    Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -454,90 +723,198 @@ const Districts = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {displayDistricts.map((district) => {
                   const manager = getManagerForDistrict(district.id);
+                  const managerProfilePic = getManagerProfilePic(district.id);
+                  const isExpanded = expandedDistrict === district.id;
+                  const districtShops = getShopsForDistrict(district.id);
                   
                   return (
-                    <tr key={district.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
-                            <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-900">{district.name}</div>
-                            <div className="text-sm text-gray-500">ID: {district.id.slice(0, 8)}...</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-xs truncate">
-                          {district.description || 'No description'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {manager ? (
+                    <React.Fragment key={district.id}>
+                      {/* District Row */}
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
                           <div className="flex items-center">
-                            <div className="w-8 h-8 rounded-full overflow-hidden mr-3 border bg-gray-100">
-                              <img 
-                                src={manager.profile_pic_url || DEFAULT_PROFILE_PIC}
-                                alt={`${manager.first_name} ${manager.last_name}`}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = DEFAULT_PROFILE_PIC;
-                                }}
-                              />
+                            <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-blue-50">
+                              <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                              </svg>
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {manager.first_name} {manager.last_name}
-                              </div>
-                              <div className="text-xs text-gray-500">{manager.email}</div>
+                              <div className="font-medium text-gray-900">{district.name}</div>
+                              <div className="text-xs text-gray-500">ID: {district.id.slice(0, 8)}...</div>
                             </div>
                           </div>
-                        ) : (
-                          <div className="text-sm text-gray-500 italic">No manager</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          district.is_active 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {district.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(district.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex space-x-2">
-                          <Link
-                            to={`/brand-admin/districts/${district.id}/shops`}
-                            className="px-3 py-1 bg-[#002868] text-white hover:bg-blue-700 rounded text-sm"
-                          >
-                            View Shops
-                          </Link>
-                          <button
-                            onClick={() => handleEdit(district)}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(district.id)}
-                            className={`px-3 py-1 rounded text-sm ${
-                              district.is_active 
-                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
-                            }`}
-                          >
-                            {district.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 max-w-xs truncate">
+                            {district.description || 'No description'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {manager ? (
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 rounded-full overflow-hidden mr-3 border bg-gray-100">
+                                <img 
+                                  src={managerProfilePic}
+                                  alt={`${manager.first_name} ${manager.last_name}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.src = DEFAULT_PROFILE_PIC;
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {manager.first_name} {manager.last_name}
+                                </div>
+                                <div className="text-xs text-gray-500">{manager.email}</div>
+                                {manager.contact_no && (
+                                  <div className="text-xs text-gray-400">{manager.contact_no}</div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-500 italic">No manager</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm">
+                            <span className="font-medium text-gray-900">{districtShops.length}</span>
+                            <span className="text-gray-500 ml-1">shops</span>
+                            {districtShops.length > 0 && (
+                              <span className="text-xs text-green-600 ml-2">
+                                ({districtShops.filter(s => s.is_active).length} active)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            district.is_active 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {district.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleViewShops(district.id)}
+                              className="px-3 py-1 bg-primary-blue text-white hover:bg-primary-blue-dark rounded text-sm flex items-center"
+                            >
+                              <svg 
+                                className={`w-4 h-4 mr-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                              {isExpanded ? 'Hide Shops' : 'View Shops'}
+                            </button>
+                            <button
+                              onClick={() => handleEdit(district)}
+                              className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleToggleStatus(district.id)}
+                              className={`px-3 py-1 rounded text-sm ${
+                                district.is_active 
+                                  ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+                              }`}
+                            >
+                              {district.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Shops Dropdown Row */}
+                      {isExpanded && (
+                        <tr className="bg-gray-50">
+                          <td colSpan="6" className="px-6 py-4">
+                            <div className="ml-14">
+                              <div className="mb-3">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h4 className="font-medium text-gray-700">
+                                    Shops in {district.name} ({districtShops.length})
+                                  </h4>
+                                  <span className="text-xs text-gray-500">
+                                    {districtShops.filter(s => s.is_active).length} active shops
+                                  </span>
+                                </div>
+                                
+                                {districtShops.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {districtShops.map((shop) => (
+                                      <div key={shop.id} className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
+                                        <div className="flex justify-between items-start">
+                                          <div className="flex items-start">
+                                            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center mr-3 border bg-gray-100">
+                                              <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
+                                              </svg>
+                                            </div>
+                                            <div>
+                                              <h5 className="font-medium text-gray-800">{shop.name}</h5>
+                                              <p className="text-sm text-gray-600 mt-1">
+                                                {shop.address || 'No address provided'}
+                                              </p>
+                                              {shop.city && (
+                                                <p className="text-sm text-gray-500">
+                                                  {shop.city}{shop.state ? `, ${shop.state}` : ''} {shop.zip_code}
+                                                </p>
+                                              )}
+                                              <div className="flex items-center mt-2 space-x-3">
+                                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                                  shop.is_active 
+                                                    ? 'bg-green-100 text-green-800' 
+                                                    : 'bg-red-100 text-red-800'
+                                                }`}>
+                                                  {shop.is_active ? 'Active' : 'Inactive'}
+                                                </span>
+                                                {shop.phone && (
+                                                  <span className="text-sm text-gray-600">
+                                                    {shop.phone}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="text-right">
+                                            <div className="text-sm text-gray-600">
+                                              Created: {new Date(shop.created_at).toLocaleDateString()}
+                                            </div>
+                                            <div className="mt-2">
+                                              <span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                                                Tekmetric ID: {shop.tekmetric_shop_id || 'Not Set'}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-8 bg-white rounded-lg border-2 border-dashed border-gray-200">
+                                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                    <p className="text-gray-600">No shops found in this district</p>
+                                    <p className="text-sm text-gray-500 mt-2">
+                                      Create a shop and assign it to this district
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -552,7 +929,7 @@ const Districts = () => {
             <p className="text-gray-500 mb-4">Create your first district to organize shops</p>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-[#002868] hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg"
             >
               Create First District
             </button>
@@ -563,9 +940,9 @@ const Districts = () => {
       {/* Edit District Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-[#002868] mb-4">Edit District</h2>
+              <h2 className="text-xl font-bold text-primary-blue mb-4">Edit District</h2>
               
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -580,113 +957,181 @@ const Districts = () => {
               )}
               
               <form onSubmit={handleEditSubmit}>
-                <div className="space-y-6">
-                  {/* District Information */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-700">District Information</h3>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        District Name *
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={editFormData.name || ''}
-                        onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                        placeholder="Enter district name"
-                        required
-                      />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column: District Manager Profile Picture */}
+                  <div className="space-y-8">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-700">District Manager Profile Picture</h3>
+                      
+                      {/* Note about password management */}
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <strong>Note:</strong> Password management is handled by users themselves.
+                          Managers can reset their password using the "Forgot Password" feature.
+                        </p>
+                      </div>
+                      
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        {editManagerProfilePicPreview ? (
+                          <div className="space-y-2">
+                            <img 
+                              src={editManagerProfilePicPreview} 
+                              alt="Manager profile preview" 
+                              className="w-32 h-32 rounded-full mx-auto object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditManagerProfilePicFile(null);
+                                setEditManagerProfilePicPreview(editFormData.manager_profile_pic);
+                              }}
+                              className="text-sm text-primary-red hover:text-primary-red-dark"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <img 
+                              src={editFormData.manager_profile_pic || DEFAULT_PROFILE_PIC}
+                              alt="Manager profile" 
+                              className="w-32 h-32 rounded-full mx-auto object-cover"
+                            />
+                            <p className="text-sm text-gray-500">Current manager profile picture</p>
+                          </div>
+                        )}
+                        <label className="block mt-4">
+                          <span className="bg-primary-blue hover:bg-primary-blue-dark text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                            Change Photo
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleFileChange(e, true)}
+                            className="hidden"
+                            name="manager_profile_pic"
+                          />
+                        </label>
+                      </div>
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Description
-                      </label>
-                      <textarea
-                        name="description"
-                        value={editFormData.description || ''}
-                        onChange={handleEditInputChange}
-                        rows="3"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                        placeholder="Optional description about this district"
-                      />
-                    </div>
-
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        name="is_active"
-                        checked={editFormData.is_active || false}
-                        onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.checked }))}
-                        className="rounded border-gray-300 text-[#002868] focus:ring-[#002868]"
-                      />
-                      <span className="text-sm font-medium text-gray-700">Active</span>
-                    </label>
                   </div>
 
-                  {/* District Manager Information */}
-                  <div className="space-y-4 border-t pt-6">
-                    <h3 className="font-semibold text-gray-700">District Manager</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Right Column: District & Manager Info */}
+                  <div className="space-y-6">
+                    {/* District Information */}
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-700">District Information</h3>
+                      
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          First Name
+                          District Name *
                         </label>
                         <input
                           type="text"
-                          name="manager_first_name"
-                          value={editFormData.manager_first_name || ''}
+                          name="name"
+                          value={editFormData.name || ''}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                          placeholder="First name"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                          placeholder="Enter district name"
+                          required
                         />
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Last Name
+                          Description
                         </label>
-                        <input
-                          type="text"
-                          name="manager_last_name"
-                          value={editFormData.manager_last_name || ''}
+                        <textarea
+                          name="description"
+                          value={editFormData.description || ''}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                          placeholder="Last name"
+                          rows="3"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                          placeholder="Optional description about this district"
                         />
                       </div>
+
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          name="is_active"
+                          checked={editFormData.is_active || false}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                          className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Active</span>
+                      </label>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
-                        <input
-                          type="email"
-                          name="manager_email"
-                          value={editFormData.manager_email || ''}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                          readOnly
-                        />
+                    {/* District Manager Information */}
+                    <div className="space-y-4 border-t pt-6">
+                      <h3 className="font-semibold text-gray-700">District Manager</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            First Name
+                          </label>
+                          <input
+                            type="text"
+                            name="manager_first_name"
+                            value={editFormData.manager_first_name || ''}
+                            onChange={handleEditInputChange}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            placeholder="First name"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Last Name
+                          </label>
+                          <input
+                            type="text"
+                            name="manager_last_name"
+                            value={editFormData.manager_last_name || ''}
+                            onChange={handleEditInputChange}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            placeholder="Last name"
+                          />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Contact Number
-                        </label>
-                        <input
-                          type="tel"
-                          name="manager_contact"
-                          value={editFormData.manager_contact || ''}
-                          onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002868]"
-                          placeholder="(123) 456-7890"
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email
+                          </label>
+                          <input
+                            type="email"
+                            name="manager_email"
+                            value={editFormData.manager_email || ''}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                            readOnly
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Contact Number
+                          </label>
+                          <input
+                            type="tel"
+                            name="manager_contact"
+                            value={editFormData.manager_contact || ''}
+                            onChange={handleEditInputChange}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                            placeholder="+1 (XXX) XXX-XXXX"
+                            pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                            title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Format: +1 (XXX) XXX-XXXX
+                          </p>
+                        </div>
                       </div>
+                      
+                      {/* REMOVED: Password Change Section */}
                     </div>
                   </div>
                 </div>
@@ -701,7 +1146,7 @@ const Districts = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#002868] hover:bg-blue-700 text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-primary-blue hover:bg-primary-blue-dark text-white rounded-lg font-medium"
                   >
                     Update District
                   </button>

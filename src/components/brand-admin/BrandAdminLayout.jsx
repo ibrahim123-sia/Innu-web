@@ -10,23 +10,23 @@ const BrandAdminLayout = ({ children }) => {
     { name: 'Overview', path: '/brand-admin' },
     { name: 'Shops', path: '/brand-admin/shops' },
     { name: 'Districts', path: '/brand-admin/districts' },
-    { name: 'Orders', path: '/brand-admin/orders' }, // ✅ ADDED: Orders link
+    { name: 'Orders', path: '/brand-admin/orders' },
     { name: 'Analytics', path: '/brand-admin/analytics' },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-[#002868] text-white p-4 shadow">
+      <header className="bg-primary-blue text-white p-4 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <h1 className="text-2xl font-bold">Brand Admin Dashboard</h1>
-            <p className="text-sm text-blue-100">
+            <p className="text-sm text-primary-blue-100">
               {user?.brand_name ? `Managing: ${user.brand_name}` : 'Brand Management'}
             </p>
           </div>
           <div className="flex items-center space-x-4">
-            <div className="bg-[#BF0A30] px-3 py-1 rounded-full text-sm">
+            <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
               Brand Admin
             </div>
             <span className="hidden md:inline text-white">{user?.email}</span>
@@ -47,8 +47,8 @@ const BrandAdminLayout = ({ children }) => {
                 className={({ isActive }) =>
                   `px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
-                      ? 'text-[#002868] border-b-2 border-[#002868]'
-                      : 'text-gray-500 hover:text-[#BF0A30]'
+                      ? 'text-primary-blue border-b-2 border-primary-blue'
+                      : 'text-gray-500 hover:text-primary-red'
                   }`
                 }
               >

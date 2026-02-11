@@ -1,4 +1,3 @@
-// src/redux/slice/userSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
@@ -23,10 +22,8 @@ API.interceptors.request.use((config) => {
 const createFormDataRequest = (url, data) => {
   const formData = new FormData();
   
-  // Append all data to FormData
   Object.keys(data).forEach(key => {
     if (data[key] !== undefined && data[key] !== null) {
-      // Handle file separately
       if (key === 'profile_pic' && data[key] instanceof File) {
         formData.append(key, data[key]);
       } else {
@@ -42,17 +39,22 @@ const createFormDataRequest = (url, data) => {
   });
 };
 
-// Async Thunks - Updated for file uploads
+// ============================================
+// ASYNC THUNKS - UPDATED WITH NEW FEATURES
+// ============================================
+
+// Login (Updated with first login flag)
 export const login = createAsyncThunk(
   'user/login',
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await API.post('/users/login', credentials);
       
-      // Store token in localStorage
+      // Store token and user data in localStorage
       if (response.data.data?.token) {
         localStorage.setItem('token', response.data.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
+        localStorage.setItem('is_first_login', response.data.data.is_first_login || false);
       }
       
       return response.data;
@@ -62,12 +64,11 @@ export const login = createAsyncThunk(
   }
 );
 
-// Updated createUser to handle file uploads
+// Create User (with ft_password)
 export const createUser = createAsyncThunk(
   'user/createUser',
   async (userData, { rejectWithValue }) => {
     try {
-      // Check if it's FormData (for file upload) or regular data
       let response;
       if (userData instanceof FormData) {
         response = await API.post('/users/createUser', userData, {
@@ -85,6 +86,172 @@ export const createUser = createAsyncThunk(
   }
 );
 
+// ============================================
+// NEW PASSWORD MANAGEMENT THUNKS
+// ============================================
+
+// Update first-time password
+export const updateFirstTimePassword = createAsyncThunk(
+  'user/updateFirstTimePassword',
+  async ({ currentPassword, newPassword }, { rejectWithValue }) => {
+    try {
+      const response = await API.post('/users/update-first-password', {
+        currentPassword,
+        newPassword
+      });
+      
+      // Update localStorage if first login completed
+      if (response.data.success) {
+        localStorage.setItem('is_first_login', 'false');
+      }
+      
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Request password reset OTP
+export const requestPasswordReset = createAsyncThunk(
+  'user/requestPasswordReset',
+  async (email, { rejectWithValue }) => {
+    try {
+      const response = await API.post('/users/request-password-reset', { email });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Reset password with OTP
+export const resetPasswordWithOTP = createAsyncThunk(
+  'user/resetPasswordWithOTP',
+  async ({ email, otp, newPassword }, { rejectWithValue }) => {
+    try {
+      const response = await API.post('/users/reset-password', {
+        email,
+        otp,
+        newPassword
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Change password (for logged-in users)
+export const changePassword = createAsyncThunk(
+  'user/changePassword',
+  async ({ currentPassword, newPassword }, { rejectWithValue }) => {
+    try {
+      const response = await API.post('/users/change-password', {
+        currentPassword,
+        newPassword
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Resend OTP
+export const resendOTP = createAsyncThunk(
+  'user/resendOTP',
+  async (email, { rejectWithValue }) => {
+    try {
+      const response = await API.post('/users/resend-otp', { email });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Validate OTP
+export const validateOTP = createAsyncThunk(
+  'user/validateOTP',
+  async ({ email, otp }, { rejectWithValue }) => {
+    try {
+      const response = await API.post('/users/validate-otp', {
+        email,
+        otp
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Get user profile
+export const getUserProfile = createAsyncThunk(
+  'user/getUserProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await API.get('/users/profile');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Update user profile
+export const updateUserProfile = createAsyncThunk(
+  'user/updateUserProfile',
+  async (profileData, { rejectWithValue }) => {
+    try {
+      let response;
+      if (profileData instanceof FormData) {
+        response = await API.put('/users/profile', profileData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        response = await API.put('/users/profile', profileData);
+      }
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Get password system status
+export const getPasswordSystemStatus = createAsyncThunk(
+  'user/getPasswordSystemStatus',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await API.get('/users/password-system/status');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Send first login reminders
+export const sendFirstLoginReminders = createAsyncThunk(
+  'user/sendFirstLoginReminders',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await API.post('/users/send-first-login-reminders');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// ============================================
+// EXISTING USER MANAGEMENT THUNKS
+// ============================================
+
 export const getUserById = createAsyncThunk(
   'user/getUserById',
   async (userId, { rejectWithValue }) => {
@@ -97,12 +264,10 @@ export const getUserById = createAsyncThunk(
   }
 );
 
-// Updated updateUser to handle file uploads
 export const updateUser = createAsyncThunk(
   'user/updateUser',
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      // Check if it's FormData (for file upload) or regular data
       let response;
       if (data instanceof FormData) {
         data.append('id', id);
@@ -121,7 +286,6 @@ export const updateUser = createAsyncThunk(
   }
 );
 
-// All other thunks remain the same...
 export const deleteUser = createAsyncThunk(
   'user/deleteUser',
   async (userId, { rejectWithValue }) => {
@@ -194,7 +358,6 @@ export const toggleUserActiveStatus = createAsyncThunk(
   }
 );
 
-// Alternative route thunks
 export const getAdminUsers = createAsyncThunk(
   'user/getAdminUsers',
   async (_, { rejectWithValue }) => {
@@ -231,13 +394,41 @@ export const getDistrictUsers = createAsyncThunk(
   }
 );
 
-// The rest of the file remains the same...
-// ... [Keep all the reducer logic, selectors, etc. exactly as they are]
+// Get users by brand
+export const getUsersByBrand = createAsyncThunk(
+  'user/getUsersByBrand',
+  async (brandId, { rejectWithValue }) => {
+    try {
+      const response = await API.get(`/users/users/brand/${brandId}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
 
-// Initialize state from localStorage if available
+// Get users by district
+export const getUsersByDistrict = createAsyncThunk(
+  'user/getUsersByDistrict',
+  async (districtId, { rejectWithValue }) => {
+    try {
+      const response = await API.get(`/users/users/district/${districtId}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// ============================================
+// INITIAL STATE
+// ============================================
+
 const getInitialState = () => {
   const token = localStorage.getItem('token');
   const userStr = localStorage.getItem('user');
+  const isFirstLogin = localStorage.getItem('is_first_login') === 'true';
+  
   let user = null;
   let isAuthenticated = false;
   
@@ -249,6 +440,7 @@ const getInitialState = () => {
       console.error('Failed to parse stored user data:', error);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('is_first_login');
     }
   }
   
@@ -262,7 +454,31 @@ const getInitialState = () => {
     success: false,
     message: '',
     isAuthenticated,
+    isFirstLogin,
     token: token || null,
+    
+    // Password management state
+    passwordReset: {
+      loading: false,
+      success: false,
+      error: null,
+      otpSent: false,
+      otpVerified: false,
+      email: null,
+      otpExpiresAt: null,
+    },
+    
+    // User profile state
+    profile: {
+      loading: false,
+      success: false,
+      error: null,
+    },
+    
+    // System status
+    systemStatus: null,
+    
+    // Filters
     filters: {
       role: '',
       brand_id: null,
@@ -270,7 +486,10 @@ const getInitialState = () => {
       district_id: null,
       is_active: true,
       search: '',
+      password_status: '', // New: filter by password status
     },
+    
+    // Statistics
     statistics: {
       total: 0,
       active: 0,
@@ -278,9 +497,18 @@ const getInitialState = () => {
       byRole: {},
       byShop: {},
       byBrand: {},
+      passwordStats: {
+        with_password: 0,
+        with_ft_password: 0,
+        first_login_pending: 0,
+      },
     },
   };
 };
+
+// ============================================
+// USER SLICE
+// ============================================
 
 const userSlice = createSlice({
   name: 'user',
@@ -291,21 +519,33 @@ const userSlice = createSlice({
       state.error = null;
       state.success = false;
       state.message = '';
+      state.passwordReset.loading = false;
+      state.passwordReset.success = false;
+      state.passwordReset.error = null;
+      state.profile.loading = false;
+      state.profile.success = false;
+      state.profile.error = null;
     },
+    
     clearCurrentUser: (state) => {
       state.currentUser = null;
       state.isAuthenticated = false;
       state.token = null;
+      state.isFirstLogin = false;
     },
+    
     clearUsersByShop: (state) => {
       state.usersByShop = [];
     },
+    
     clearUsersByRole: (state) => {
       state.usersByRole = {};
     },
+    
     setFilters: (state, action) => {
       state.filters = { ...state.filters, ...action.payload };
     },
+    
     clearFilters: (state) => {
       state.filters = {
         role: '',
@@ -314,29 +554,56 @@ const userSlice = createSlice({
         district_id: null,
         is_active: true,
         search: '',
+        password_status: '',
       };
     },
+    
     logout: (state) => {
       state.currentUser = null;
       state.isAuthenticated = false;
       state.token = null;
+      state.isFirstLogin = false;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('is_first_login');
     },
+    
     setCurrentUser: (state, action) => {
       state.currentUser = action.payload;
       state.isAuthenticated = true;
       localStorage.setItem('user', JSON.stringify(action.payload));
     },
+    
     updateCurrentUser: (state, action) => {
       if (state.currentUser) {
         state.currentUser = { ...state.currentUser, ...action.payload };
         localStorage.setItem('user', JSON.stringify(state.currentUser));
       }
     },
-    // Local filter for client-side filtering
+    
+    setIsFirstLogin: (state, action) => {
+      state.isFirstLogin = action.payload;
+      localStorage.setItem('is_first_login', action.payload);
+    },
+    
+    resetPasswordState: (state) => {
+      state.passwordReset = {
+        loading: false,
+        success: false,
+        error: null,
+        otpSent: false,
+        otpVerified: false,
+        email: null,
+        otpExpiresAt: null,
+      };
+    },
+    
+    setOtpVerified: (state, action) => {
+      state.passwordReset.otpVerified = action.payload;
+    },
+    
     filterUsers: (state, action) => {
-      const { role, brand_id, shop_id, district_id, is_active, search } = action.payload;
+      const { role, brand_id, shop_id, district_id, is_active, search, password_status } = action.payload;
       
       state.filteredUsers = state.users.filter(user => {
         let matches = true;
@@ -346,6 +613,14 @@ const userSlice = createSlice({
         if (shop_id && user.shop_id !== shop_id) matches = false;
         if (district_id && user.district_id !== district_id) matches = false;
         if (is_active !== undefined && user.is_active !== is_active) matches = false;
+        
+        // Password status filter
+        if (password_status) {
+          if (password_status === 'has_password' && !user.password) matches = false;
+          if (password_status === 'first_login' && (!user.ft_password || user.password)) matches = false;
+          if (password_status === 'no_password' && (user.password || user.ft_password)) matches = false;
+        }
+        
         if (search) {
           const searchLower = search.toLowerCase();
           const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
@@ -358,12 +633,13 @@ const userSlice = createSlice({
         return matches;
       });
     },
+    
     sortUsers: (state, action) => {
       const { field, direction = 'asc' } = action.payload;
       const usersToSort = state.filteredUsers?.length > 0 ? state.filteredUsers : state.users;
       
       const sortedUsers = [...usersToSort].sort((a, b) => {
-        if (field === 'created_at' || field === 'updated_at') {
+        if (field === 'created_at' || field === 'updated_at' || field === 'password_updated_at') {
           return direction === 'asc' 
             ? new Date(a[field]) - new Date(b[field])
             : new Date(b[field]) - new Date(a[field]);
@@ -392,6 +668,7 @@ const userSlice = createSlice({
         state.users = sortedUsers;
       }
     },
+    
     updateUserInList: (state, action) => {
       const updatedUser = action.payload;
       const index = state.users.findIndex(user => user.id === updatedUser.id);
@@ -424,6 +701,7 @@ const userSlice = createSlice({
         localStorage.setItem('user', JSON.stringify(state.currentUser));
       }
     },
+    
     updateStatistics: (state) => {
       const users = state.users;
       const stats = {
@@ -433,6 +711,11 @@ const userSlice = createSlice({
         byRole: {},
         byShop: {},
         byBrand: {},
+        passwordStats: {
+          with_password: users.filter(user => user.password && !user.ft_password).length,
+          with_ft_password: users.filter(user => user.ft_password && !user.password).length,
+          first_login_pending: users.filter(user => user.ft_password && !user.password && user.is_active).length,
+        },
       };
       
       // Calculate statistics by role
@@ -494,7 +777,9 @@ const userSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Login
+      // ============================================
+      // LOGIN
+      // ============================================
       .addCase(login.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -505,6 +790,7 @@ const userSlice = createSlice({
         state.success = true;
         state.currentUser = action.payload.data.user;
         state.isAuthenticated = true;
+        state.isFirstLogin = action.payload.data.is_first_login || false;
         state.token = action.payload.data.token;
         state.message = action.payload.message;
       })
@@ -514,7 +800,185 @@ const userSlice = createSlice({
         state.isAuthenticated = false;
         state.currentUser = null;
         state.token = null;
+        state.isFirstLogin = false;
       })
+      
+      // ============================================
+      // NEW PASSWORD MANAGEMENT THUNKS
+      // ============================================
+      
+      // Update First Time Password
+      .addCase(updateFirstTimePassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.success = false;
+      })
+      .addCase(updateFirstTimePassword.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
+        state.isFirstLogin = false;
+        state.message = action.payload.message;
+        
+        // Update current user's password status
+        if (state.currentUser) {
+          state.currentUser.is_first_login = false;
+        }
+      })
+      .addCase(updateFirstTimePassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.error || 'Failed to update password';
+      })
+      
+      // Request Password Reset OTP
+      .addCase(requestPasswordReset.pending, (state) => {
+        state.passwordReset.loading = true;
+        state.passwordReset.error = null;
+        state.passwordReset.success = false;
+      })
+      .addCase(requestPasswordReset.fulfilled, (state, action) => {
+        state.passwordReset.loading = false;
+        state.passwordReset.success = true;
+        state.passwordReset.otpSent = true;
+        state.passwordReset.email = action.payload.data?.email;
+        state.passwordReset.otpExpiresAt = action.payload.data?.otp_expires_at;
+        state.message = action.payload.message;
+      })
+      .addCase(requestPasswordReset.rejected, (state, action) => {
+        state.passwordReset.loading = false;
+        state.passwordReset.error = action.payload?.error || 'Failed to send OTP';
+      })
+      
+      // Reset Password with OTP
+      .addCase(resetPasswordWithOTP.pending, (state) => {
+        state.passwordReset.loading = true;
+        state.passwordReset.error = null;
+        state.passwordReset.success = false;
+      })
+      .addCase(resetPasswordWithOTP.fulfilled, (state, action) => {
+        state.passwordReset.loading = false;
+        state.passwordReset.success = true;
+        state.passwordReset.otpVerified = false;
+        state.message = action.payload.message;
+      })
+      .addCase(resetPasswordWithOTP.rejected, (state, action) => {
+        state.passwordReset.loading = false;
+        state.passwordReset.error = action.payload?.error || 'Failed to reset password';
+      })
+      
+      // Change Password
+      .addCase(changePassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.success = false;
+      })
+      .addCase(changePassword.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
+        state.message = action.payload.message;
+      })
+      .addCase(changePassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.error || 'Failed to change password';
+      })
+      
+      // Resend OTP
+      .addCase(resendOTP.pending, (state) => {
+        state.passwordReset.loading = true;
+        state.passwordReset.error = null;
+      })
+      .addCase(resendOTP.fulfilled, (state, action) => {
+        state.passwordReset.loading = false;
+        state.passwordReset.otpSent = true;
+        state.passwordReset.otpExpiresAt = action.payload.data?.otp_expires_at;
+        state.message = action.payload.message;
+      })
+      .addCase(resendOTP.rejected, (state, action) => {
+        state.passwordReset.loading = false;
+        state.passwordReset.error = action.payload?.error || 'Failed to resend OTP';
+      })
+      
+      // Validate OTP
+      .addCase(validateOTP.pending, (state) => {
+        state.passwordReset.loading = true;
+        state.passwordReset.error = null;
+      })
+      .addCase(validateOTP.fulfilled, (state, action) => {
+        state.passwordReset.loading = false;
+        state.passwordReset.otpVerified = true;
+        state.message = action.payload.message;
+      })
+      .addCase(validateOTP.rejected, (state, action) => {
+        state.passwordReset.loading = false;
+        state.passwordReset.error = action.payload?.error || 'Invalid OTP';
+        state.passwordReset.otpVerified = false;
+      })
+      
+      // Get User Profile
+      .addCase(getUserProfile.pending, (state) => {
+        state.profile.loading = true;
+        state.profile.error = null;
+      })
+      .addCase(getUserProfile.fulfilled, (state, action) => {
+        state.profile.loading = false;
+        state.profile.success = true;
+        state.currentUser = action.payload.data;
+        localStorage.setItem('user', JSON.stringify(action.payload.data));
+      })
+      .addCase(getUserProfile.rejected, (state, action) => {
+        state.profile.loading = false;
+        state.profile.error = action.payload?.error || 'Failed to get profile';
+      })
+      
+      // Update User Profile
+      .addCase(updateUserProfile.pending, (state) => {
+        state.profile.loading = true;
+        state.profile.error = null;
+        state.profile.success = false;
+      })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        state.profile.loading = false;
+        state.profile.success = true;
+        state.currentUser = { ...state.currentUser, ...action.payload.data };
+        localStorage.setItem('user', JSON.stringify(state.currentUser));
+        state.message = action.payload.message;
+      })
+      .addCase(updateUserProfile.rejected, (state, action) => {
+        state.profile.loading = false;
+        state.profile.error = action.payload?.error || 'Failed to update profile';
+      })
+      
+      // Get Password System Status
+      .addCase(getPasswordSystemStatus.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getPasswordSystemStatus.fulfilled, (state, action) => {
+        state.loading = false;
+        state.systemStatus = action.payload.data;
+      })
+      .addCase(getPasswordSystemStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.error || 'Failed to get system status';
+      })
+      
+      // Send First Login Reminders
+      .addCase(sendFirstLoginReminders.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(sendFirstLoginReminders.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
+        state.message = action.payload.message;
+      })
+      .addCase(sendFirstLoginReminders.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.error || 'Failed to send reminders';
+      })
+      
+      // ============================================
+      // EXISTING USER MANAGEMENT THUNKS
+      // ============================================
       
       // Create User
       .addCase(createUser.pending, (state) => {
@@ -528,7 +992,6 @@ const userSlice = createSlice({
         const newUser = action.payload.data;
         state.users.unshift(newUser);
         state.message = action.payload.message;
-        // Update statistics
         userSlice.caseReducers.updateStatistics(state);
       })
       .addCase(createUser.rejected, (state, action) => {
@@ -543,7 +1006,6 @@ const userSlice = createSlice({
       })
       .addCase(getUserById.fulfilled, (state, action) => {
         state.loading = false;
-        // If getting current user's data, update it
         if (state.currentUser && state.currentUser.id === action.payload.data?.id) {
           state.currentUser = action.payload.data;
           localStorage.setItem('user', JSON.stringify(action.payload.data));
@@ -566,7 +1028,6 @@ const userSlice = createSlice({
         const updatedUser = action.payload.data;
         userSlice.caseReducers.updateUserInList(state, { payload: updatedUser });
         state.message = action.payload.message;
-        // Update statistics
         userSlice.caseReducers.updateStatistics(state);
       })
       .addCase(updateUser.rejected, (state, action) => {
@@ -586,64 +1047,18 @@ const userSlice = createSlice({
         const deletedUserId = action.payload.data?.id;
         state.users = state.users.filter(user => user.id !== deletedUserId);
         
-        // Remove from usersByShop
         state.usersByShop = state.usersByShop.filter(user => user.id !== deletedUserId);
         
-        // Remove from usersByRole
         Object.keys(state.usersByRole).forEach(role => {
           state.usersByRole[role] = state.usersByRole[role].filter(user => user.id !== deletedUserId);
         });
         
         state.message = action.payload.message;
-        // Update statistics
         userSlice.caseReducers.updateStatistics(state);
       })
       .addCase(deleteUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.error || 'Failed to delete user';
-      })
-      
-      // Get User By Email
-      .addCase(getUserByEmail.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getUserByEmail.fulfilled, (state, action) => {
-        state.loading = false;
-        // Could be used for profile lookup
-      })
-      .addCase(getUserByEmail.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch user by email';
-      })
-      
-      // Get Users By Shop ID
-      .addCase(getUsersByShopId.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getUsersByShopId.fulfilled, (state, action) => {
-        state.loading = false;
-        state.usersByShop = action.payload.data;
-      })
-      .addCase(getUsersByShopId.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch users by shop';
-      })
-      
-      // Get Users By Role
-      .addCase(getUsersByRole.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getUsersByRole.fulfilled, (state, action) => {
-        state.loading = false;
-        const role = action.meta.arg;
-        state.usersByRole[role] = action.payload.data;
-      })
-      .addCase(getUsersByRole.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch users by role';
       })
       
       // Get All Users
@@ -654,7 +1069,6 @@ const userSlice = createSlice({
       .addCase(getAllUsers.fulfilled, (state, action) => {
         state.loading = false;
         state.users = action.payload.data;
-        // Update statistics
         userSlice.caseReducers.updateStatistics(state);
       })
       .addCase(getAllUsers.rejected, (state, action) => {
@@ -674,7 +1088,6 @@ const userSlice = createSlice({
         const updatedUser = action.payload.data;
         userSlice.caseReducers.updateUserInList(state, { payload: updatedUser });
         state.message = action.payload.message;
-        // Update statistics
         userSlice.caseReducers.updateStatistics(state);
       })
       .addCase(toggleUserActiveStatus.rejected, (state, action) => {
@@ -682,55 +1095,39 @@ const userSlice = createSlice({
         state.error = action.payload?.error || 'Failed to toggle user status';
       })
       
-      // Get Admin Users
-      .addCase(getAdminUsers.pending, (state) => {
+      // Get Users By Brand
+      .addCase(getUsersByBrand.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(getAdminUsers.fulfilled, (state, action) => {
+      .addCase(getUsersByBrand.fulfilled, (state, action) => {
         state.loading = false;
         state.users = action.payload.data;
-        // Update statistics
-        userSlice.caseReducers.updateStatistics(state);
       })
-      .addCase(getAdminUsers.rejected, (state, action) => {
+      .addCase(getUsersByBrand.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch admin users';
+        state.error = action.payload?.error || 'Failed to fetch users by brand';
       })
       
-      // Get Brand Users
-      .addCase(getBrandUsers.pending, (state) => {
+      // Get Users By District
+      .addCase(getUsersByDistrict.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(getBrandUsers.fulfilled, (state, action) => {
+      .addCase(getUsersByDistrict.fulfilled, (state, action) => {
         state.loading = false;
         state.users = action.payload.data;
-        // Update statistics
-        userSlice.caseReducers.updateStatistics(state);
       })
-      .addCase(getBrandUsers.rejected, (state, action) => {
+      .addCase(getUsersByDistrict.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch brand users';
-      })
-      
-      // Get District Users
-      .addCase(getDistrictUsers.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getDistrictUsers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.users = action.payload.data;
-        // Update statistics
-        userSlice.caseReducers.updateStatistics(state);
-      })
-      .addCase(getDistrictUsers.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch district users';
+        state.error = action.payload?.error || 'Failed to fetch users by district';
       });
   },
 });
+
+// ============================================
+// ACTIONS
+// ============================================
 
 export const {
   resetUserState,
@@ -742,13 +1139,20 @@ export const {
   logout,
   setCurrentUser,
   updateCurrentUser,
+  setIsFirstLogin,
+  resetPasswordState,
+  setOtpVerified,
   filterUsers,
   sortUsers,
   updateUserInList,
   updateStatistics,
 } = userSlice.actions;
 
-// Selectors
+// ============================================
+// SELECTORS
+// ============================================
+
+// Basic Selectors
 export const selectCurrentUser = (state) => state.user.currentUser;
 export const selectAllUsers = (state) => state.user.users;
 export const selectUsersByShop = (state) => state.user.usersByShop;
@@ -758,17 +1162,48 @@ export const selectUserError = (state) => state.user.error;
 export const selectUserSuccess = (state) => state.user.success;
 export const selectUserMessage = (state) => state.user.message;
 export const selectIsAuthenticated = (state) => state.user.isAuthenticated;
+export const selectIsFirstLogin = (state) => state.user.isFirstLogin;
 export const selectToken = (state) => state.user.token;
 export const selectUserFilters = (state) => state.user.filters;
 export const selectUserStatistics = (state) => state.user.statistics;
 
-// Helper selectors
+// Password Management Selectors
+export const selectPasswordReset = (state) => state.user.passwordReset;
+export const selectOtpSent = (state) => state.user.passwordReset.otpSent;
+export const selectOtpVerified = (state) => state.user.passwordReset.otpVerified;
+export const selectOtpEmail = (state) => state.user.passwordReset.email;
+export const selectOtpExpiresAt = (state) => state.user.passwordReset.otpExpiresAt;
+
+// Profile Selectors
+export const selectProfileLoading = (state) => state.user.profile.loading;
+export const selectProfileError = (state) => state.user.profile.error;
+export const selectProfileSuccess = (state) => state.user.profile.success;
+
+// System Status
+export const selectSystemStatus = (state) => state.user.systemStatus;
+
+// ============================================
+// HELPER SELECTORS
+// ============================================
+
+// User Status Selectors
 export const selectActiveUsers = (state) => 
   state.user.users.filter(user => user.is_active);
 
 export const selectInactiveUsers = (state) => 
   state.user.users.filter(user => !user.is_active);
 
+// Password Status Selectors
+export const selectUsersWithPassword = (state) =>
+  state.user.users.filter(user => user.password && !user.ft_password);
+
+export const selectUsersWithFtPassword = (state) =>
+  state.user.users.filter(user => user.ft_password && !user.password);
+
+export const selectFirstLoginPendingUsers = (state) =>
+  state.user.users.filter(user => user.ft_password && !user.password && user.is_active);
+
+// Filter Selectors
 export const selectUserById = (userId) => (state) =>
   state.user.users.find(user => user.id === userId);
 
@@ -784,23 +1219,7 @@ export const selectUsersByShopId = (shopId) => (state) =>
 export const selectUsersByDistrictId = (districtId) => (state) =>
   state.user.users.filter(user => user.district_id === districtId);
 
-// Role-specific selectors
-export const selectSuperAdmins = (state) =>
-  state.user.users.filter(user => user.role === 'super_admin');
-
-export const selectBrandAdmins = (state) =>
-  state.user.users.filter(user => user.role === 'brand_admin');
-
-export const selectDistrictManagers = (state) =>
-  state.user.users.filter(user => user.role === 'district_manager');
-
-export const selectShopManagers = (state) =>
-  state.user.users.filter(user => user.role === 'shop_manager');
-
-export const selectTechnicians = (state) =>
-  state.user.users.filter(user => user.role === 'technician');
-
-// Search selector
+// Search Selector
 export const selectUsersBySearch = (searchTerm) => (state) => {
   if (!searchTerm) return state.user.users;
   
@@ -812,7 +1231,21 @@ export const selectUsersBySearch = (searchTerm) => (state) => {
   });
 };
 
-// Role hierarchy helper
+// Password Strength Helper
+export const selectPasswordStrength = (password) => {
+  if (!password) return 0;
+  
+  let strength = 0;
+  if (password.length >= 8) strength += 1;
+  if (/[A-Z]/.test(password)) strength += 1;
+  if (/[a-z]/.test(password)) strength += 1;
+  if (/[0-9]/.test(password)) strength += 1;
+  if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+  
+  return strength;
+};
+
+// Role Hierarchy Helper
 export const selectRolesUserCanCreate = (state) => {
   const currentUserRole = state.user.currentUser?.role;
   const creationHierarchy = {
@@ -824,6 +1257,28 @@ export const selectRolesUserCanCreate = (state) => {
   };
   
   return creationHierarchy[currentUserRole] || [];
+};
+
+// OTP Validity Checker
+export const selectIsOtpValid = (state) => {
+  const { otpExpiresAt } = state.user.passwordReset;
+  if (!otpExpiresAt) return false;
+  
+  const expiresAt = new Date(otpExpiresAt);
+  const now = new Date();
+  return expiresAt > now;
+};
+
+// Time until OTP expires
+export const selectOtpTimeRemaining = (state) => {
+  const { otpExpiresAt } = state.user.passwordReset;
+  if (!otpExpiresAt) return 0;
+  
+  const expiresAt = new Date(otpExpiresAt);
+  const now = new Date();
+  const diffMs = expiresAt - now;
+  
+  return Math.max(0, Math.floor(diffMs / 1000)); // Return seconds remaining
 };
 
 export default userSlice.reducer;
