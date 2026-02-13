@@ -4,7 +4,7 @@ import {
   getOrdersByBrand,
   selectOrderLoading,
   selectOrderError,
-  selectOrdersByBrand, // Removed selectBrandOrderStats - it doesn't exist
+  selectOrdersByBrand,
 } from '../../redux/slice/orderSlice';
 import {
   selectDistrictsByBrand,
@@ -12,7 +12,7 @@ import {
 } from '../../redux/slice/districtSlice';
 import {
   getShopsByBrand,
-  selectShopsByBrand
+  selectShopsForBrand  // ✅ Import the correct selector
 } from '../../redux/slice/shopSlice';
 
 const Orders = () => {
@@ -24,9 +24,12 @@ const Orders = () => {
   const orders = useSelector(selectOrdersByBrand) || [];
   const loading = useSelector(selectOrderLoading);
   const error = useSelector(selectOrderError);
-  // Removed brandStats - selector doesn't exist
   const districts = useSelector(selectDistrictsByBrand) || [];
-  const shops = useSelector(selectShopsByBrand) || [];
+  
+  // ✅ Use the correct shop selector - pass the brand_id to get shops array
+  const shops = useSelector(
+    brandId ? selectShopsForBrand(brandId) : () => []
+  ) || [];
   
   const [selectedDistrict, setSelectedDistrict] = useState('all');
   const [expandedDistrict, setExpandedDistrict] = useState(null);
@@ -73,7 +76,7 @@ const Orders = () => {
     
     try {
       await Promise.all([
-        dispatch(getOrdersByBrand({ brandId })),
+        dispatch(getOrdersByBrand(brandId)),
         dispatch(getDistrictsByBrand(brandId)),
         dispatch(getShopsByBrand(brandId))
       ]);
@@ -191,7 +194,10 @@ const Orders = () => {
   const getDistrictOrders = (districtId) => {
     if (districtId === 'all') return filteredOrders;
     
-    const districtShops = shops?.filter(shop => shop.district_id === districtId) || [];
+    // ✅ Safely handle shops array
+    const districtShops = Array.isArray(shops) 
+      ? shops.filter(shop => shop.district_id === districtId) 
+      : [];
     const shopIds = districtShops.map(shop => shop.id);
     
     return filteredOrders.filter(order => 
@@ -204,15 +210,19 @@ const Orders = () => {
   };
 
   const getShopName = (shopId) => {
-    const shop = shops?.find(s => s.id === shopId);
+    // ✅ Safely handle shops array
+    if (!Array.isArray(shops)) return 'Unknown Shop';
+    const shop = shops.find(s => s.id === shopId);
     return shop?.name || 'Unknown Shop';
   };
 
   const getDistrictNameByShopId = (shopId) => {
-    const shop = shops?.find(s => s.id === shopId);
+    // ✅ Safely handle shops and districts arrays
+    if (!Array.isArray(shops) || !Array.isArray(districts)) return 'Unknown District';
+    const shop = shops.find(s => s.id === shopId);
     if (!shop) return 'Unknown District';
     
-    const district = districts?.find(d => d.id === shop.district_id);
+    const district = districts.find(d => d.id === shop.district_id);
     return district?.name || 'Unknown District';
   };
 
@@ -268,9 +278,10 @@ const Orders = () => {
     }
   };
 
+  // ✅ Safely filter districts
   const filteredDistricts = selectedDistrict === 'all' 
-    ? (districts || []) 
-    : (districts || []).filter(d => d.id === selectedDistrict);
+    ? (Array.isArray(districts) ? districts : []) 
+    : (Array.isArray(districts) ? districts : []).filter(d => d.id === selectedDistrict);
 
   // Debug logging
   useEffect(() => {
@@ -282,7 +293,9 @@ const Orders = () => {
     console.log('Completed count:', getCompletedOrders());
     console.log('Pending count:', getPendingOrders());
     console.log('In Progress count:', getInProgressOrders());
-  }, [allOrders, filteredOrders]);
+    console.log('Shops data type:', typeof shops, Array.isArray(shops) ? 'array' : 'not array');
+    console.log('Shops count:', Array.isArray(shops) ? shops.length : 0);
+  }, [allOrders, filteredOrders, shops]);
 
   if (loading) {
     return (
@@ -327,7 +340,7 @@ const Orders = () => {
             className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Districts</option>
-            {districts.map(district => (
+            {Array.isArray(districts) && districts.map(district => (
               <option key={district.id} value={district.id}>
                 {district.name}
               </option>
@@ -464,7 +477,9 @@ const Orders = () => {
           <div className="divide-y divide-gray-200">
             {filteredDistricts.map(district => {
               const districtOrders = getDistrictOrders(district.id);
-              const districtShops = shops?.filter(shop => shop.district_id === district.id) || [];
+              const districtShops = Array.isArray(shops) 
+                ? shops.filter(shop => shop.district_id === district.id) 
+                : [];
               const isExpanded = expandedDistrict === district.id;
               
               const districtCompleted = districtOrders.filter(order => {
@@ -703,7 +718,7 @@ const Orders = () => {
         <div className="flex flex-wrap items-center justify-between">
           <div>
             <p>Data last updated: {new Date().toLocaleString()}</p>
-            <p>Total orders: {allOrders.length} • Total districts: {districts?.length || 0} • Total shops: {shops?.length || 0}</p>
+            <p>Total orders: {allOrders.length} • Total districts: {Array.isArray(districts) ? districts.length : 0} • Total shops: {Array.isArray(shops) ? shops.length : 0}</p>
           </div>
           <div className="mt-2 md:mt-0">
             <p>Status Summary: 

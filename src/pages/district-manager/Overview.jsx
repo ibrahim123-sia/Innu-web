@@ -2,11 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
   selectAllShops, 
-  getShopsByDistrict
+  getShopsByDistrict,
+  selectShopsByDistrict 
 } from '../../redux/slice/shopSlice';
 import { 
-  selectOrdersByDistrict, // Changed from selectAllOrders to selectOrdersByDistrict
-  getOrdersByDistrict 
+  selectOrdersByDistrict,
+  getOrdersByDistrict,
+  selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
   selectDashboardSummary,
@@ -22,98 +24,54 @@ const Overview = () => {
   const districtId = currentUser?.district_id;
   
   // Get data from Redux with correct selectors
-  const allShops = useSelector(selectAllShops);
-  const districtOrders = useSelector(selectOrdersByDistrict) || []; // Changed from selectAllOrders
+    const shopsByDistrict = useSelector(selectShopsByDistrict);
+  const districtOrders = useSelector(selectOrdersByDistrict) || []; 
   const videoDashboardSummary = useSelector(selectDashboardSummary);
   const allVideos = useSelector(selectVideos);
+  const orderLoading = useSelector(selectOrderLoading);
   
   // Local state
   const [loading, setLoading] = useState(true);
   
-  // Memoized calculations
+  // Get shops for this district
   const filteredShops = useMemo(() => {
-    if (allShops && districtId) {
-      return allShops.filter(shop => shop.district_id === districtId);
+    if (shopsByDistrict && districtId) {
+      // shopsByDistrict should already be filtered by district from the API
+      return shopsByDistrict;
     }
     return [];
-  }, [allShops, districtId]);
+  }, [shopsByDistrict, districtId]);
 
-  const filteredOrders = useMemo(() => {
-    if (districtOrders && filteredShops.length > 0) {
-      const shopIds = filteredShops.map(shop => shop.id);
-      return districtOrders.filter(order => shopIds.includes(order.shop_id));
-    }
-    return [];
-  }, [districtOrders, filteredShops]);
-
+  // ✅ SIMPLE: Calculate DAILY ORDERS (last 24 hours)
   const dailyOrders = useMemo(() => {
-    const today = new Date();
-    const yesterday = new Date(today);
+    const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     
-    return filteredOrders.filter(order => {
+    return districtOrders.filter(order => {
       if (!order?.created_at) return false;
       const orderDate = new Date(order.created_at);
       return orderDate >= yesterday;
-    }).length || 0;
-  }, [filteredOrders]);
+    }).length;
+  }, [districtOrders]);
 
-  const topShop = useMemo(() => {
-    if (filteredShops.length > 0) {
-      const shopsWithVideoCounts = filteredShops.map(shop => {
-        // Filter videos for this shop
-        const shopVideos = allVideos.filter(video => video.shop_id === shop.id);
-        
-        // Count video requests by status
-        const totalVideos = shopVideos.length;
-        const uploadedVideos = shopVideos.filter(v => v.status === 'uploaded').length;
-        const processingVideos = shopVideos.filter(v => v.status === 'processing').length;
-        const completedVideos = shopVideos.filter(v => v.status === 'completed').length;
-        const failedVideos = shopVideos.filter(v => v.status === 'failed').length;
-        
-        return {
-          ...shop,
-          totalVideos,
-          uploadedVideos,
-          processingVideos,
-          completedVideos,
-          failedVideos,
-          completionRate: totalVideos > 0 ? ((completedVideos / totalVideos) * 100) : 0
-        };
-      });
-      
-      // Sort shops by total videos (descending)
-      const sortedShops = [...shopsWithVideoCounts].sort((a, b) => 
-        (b.totalVideos || 0) - (a.totalVideos || 0)
-      );
-
-      if (sortedShops.length > 0 && sortedShops[0].totalVideos > 0) {
-        return sortedShops[0];
-      } else if (filteredShops.length > 0) {
-        // Set first shop as default with 0 videos
-        return {
-          ...filteredShops[0],
-          totalVideos: 0,
-          uploadedVideos: 0,
-          processingVideos: 0,
-          completedVideos: 0,
-          failedVideos: 0,
-          completionRate: 0
-        };
-      }
-    }
-    return null;
+  // Get videos for this district
+  const districtVideos = useMemo(() => {
+    const shopIds = filteredShops.map(shop => shop.id);
+    return allVideos.filter(video => shopIds.includes(video.shop_id));
   }, [filteredShops, allVideos]);
 
-  const totalShops = useMemo(() => filteredShops.length || 0, [filteredShops]);
-  const activeShops = useMemo(() => filteredShops.filter(shop => shop.is_active).length || 0, [filteredShops]);
-  const totalVideos = useMemo(() => videoDashboardSummary?.total || 0, [videoDashboardSummary]);
-  const completedVideos = useMemo(() => videoDashboardSummary?.completed || 0, [videoDashboardSummary]);
-  const completionRate = useMemo(() => {
-    const total = totalVideos;
-    const completed = completedVideos;
-    return total > 0 ? Math.round((completed / total) * 100) : 0;
-  }, [totalVideos, completedVideos]);
+  // Calculate video stats
+  const totalVideos = districtVideos.length;
+  const completedVideos = districtVideos.filter(v => v.status === 'completed').length;
+  const processingVideos = districtVideos.filter(v => v.status === 'processing').length;
+  const uploadedVideos = districtVideos.filter(v => v.status === 'uploaded').length;
+  const failedVideos = districtVideos.filter(v => v.status === 'failed').length;
+  
+  const completionRate = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
+  
+  // Shop stats
+  const totalShops = filteredShops.length;
+  const activeShops = filteredShops.filter(shop => shop.is_active).length;
 
   // Fetch initial data
   useEffect(() => {
@@ -129,7 +87,7 @@ const Overview = () => {
     try {
       await Promise.all([
         dispatch(getShopsByDistrict(districtId)),
-        dispatch(getOrdersByDistrict({ districtId })),
+        dispatch(getOrdersByDistrict(districtId)),
         dispatch(getAllVideos()),
         dispatch(getVideoStats())
       ]);
@@ -140,7 +98,7 @@ const Overview = () => {
     }
   };
 
-  if (loading) {
+  if (loading || orderLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -155,7 +113,7 @@ const Overview = () => {
         <p className="text-gray-600">Welcome to your district manager dashboard</p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - All showing DAILY numbers */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
           <div className="flex items-center justify-between">
@@ -163,7 +121,7 @@ const Overview = () => {
               <h3 className="text-sm text-gray-500">Total Shops</h3>
               <p className="text-3xl font-bold text-blue-600 mt-2">{totalShops}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {activeShops} active shops
+                {activeShops} active
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -196,7 +154,9 @@ const Overview = () => {
             <div>
               <h3 className="text-sm text-gray-500">Daily Orders</h3>
               <p className="text-3xl font-bold text-indigo-600 mt-2">{dailyOrders}</p>
-              <p className="text-xs text-gray-400 mt-1">Last 24 hours</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Last 24 hours
+              </p>
             </div>
             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
@@ -236,7 +196,7 @@ const Overview = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-blue-600 font-medium">Uploaded</p>
-                  <p className="text-2xl font-bold text-blue-700">{videoDashboardSummary?.uploaded || 0}</p>
+                  <p className="text-2xl font-bold text-blue-700">{uploadedVideos}</p>
                 </div>
                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                   <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -250,7 +210,7 @@ const Overview = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-yellow-600 font-medium">Processing</p>
-                  <p className="text-2xl font-bold text-yellow-700">{videoDashboardSummary?.processing || 0}</p>
+                  <p className="text-2xl font-bold text-yellow-700">{processingVideos}</p>
                 </div>
                 <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
                   <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
@@ -264,7 +224,7 @@ const Overview = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-green-600 font-medium">Completed</p>
-                  <p className="text-2xl font-bold text-green-700">{videoDashboardSummary?.completed || 0}</p>
+                  <p className="text-2xl font-bold text-green-700">{completedVideos}</p>
                 </div>
                 <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                   <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -278,7 +238,7 @@ const Overview = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-red-600 font-medium">Failed</p>
-                  <p className="text-2xl font-bold text-red-700">{videoDashboardSummary?.failed || 0}</p>
+                  <p className="text-2xl font-bold text-red-700">{failedVideos}</p>
                 </div>
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                   <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
@@ -294,16 +254,9 @@ const Overview = () => {
       {/* Top Shop & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800">Top Performing Shop</h2>
-            {topShop && topShop.totalVideos > 0 && (
-              <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
-                #1 in Video Requests
-              </span>
-            )}
-          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Top Performing Shop</h2>
           
-          {topShop ? (
+          {filteredShops.length > 0 ? (
             <div className="border rounded-lg p-4">
               <div className="flex items-center space-x-4 mb-3">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
@@ -312,9 +265,9 @@ const Overview = () => {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">{topShop.name}</h3>
+                  <h3 className="font-bold text-lg">{filteredShops[0]?.name}</h3>
                   <p className="text-sm text-gray-500">
-                    {topShop.city}{topShop.state ? `, ${topShop.state}` : ''}
+                    {filteredShops[0]?.city}{filteredShops[0]?.state ? `, ${filteredShops[0]?.state}` : ''}
                   </p>
                 </div>
               </div>
@@ -326,8 +279,10 @@ const Overview = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-blue-600">{topShop.totalVideos || 0}</div>
-                      <div className="text-xs text-blue-500">Video Requests</div>
+                      <div className="text-xl font-bold text-blue-600">
+                        {districtVideos.filter(v => v.shop_id === filteredShops[0]?.id).length}
+                      </div>
+                      <div className="text-xs text-blue-500">Videos</div>
                     </div>
                   </div>
                 </div>
@@ -338,13 +293,8 @@ const Overview = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-green-600">
-                        {topShop.completionRate > 0 ? 
-                          `${topShop.completionRate.toFixed(1)}%` : 
-                          '0%'
-                        }
-                      </div>
-                      <div className="text-xs text-green-500">Completion Rate</div>
+                      <div className="text-xl font-bold text-green-600">Active</div>
+                      <div className="text-xs text-green-500">Status</div>
                     </div>
                   </div>
                 </div>
@@ -354,20 +304,16 @@ const Overview = () => {
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium">Status:</span>
                   <span className={`px-2 py-1 rounded text-xs ${
-                    topShop.is_active 
+                    filteredShops[0]?.is_active 
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {topShop.is_active ? 'Active' : 'Inactive'}
+                    {filteredShops[0]?.is_active ? 'Active' : 'Inactive'}
                   </span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium">Completed Videos:</span>
-                  <span className="text-sm">{topShop.completedVideos || 0}</span>
                 </div>
                 <div className="text-sm">
                   <span className="font-medium">Tekmetric ID:</span>{' '}
-                  {topShop.tekmetric_shop_id || 'Not set'}
+                  {filteredShops[0]?.tekmetric_shop_id || 'Not set'}
                 </div>
               </div>
             </div>
@@ -439,47 +385,50 @@ const Overview = () => {
             </Link>
           </div>
 
-          {/* District Summary */}
+          {/* Simple District Summary */}
           <div className="mt-6 pt-6 border-t">
-            <h3 className="font-medium text-gray-800 mb-3">District Summary</h3>
+            <h3 className="font-medium text-gray-800 mb-3">Today's Summary</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Total Orders</div>
-                <div className="text-xl font-bold text-gray-800">{filteredOrders.length}</div>
+                <div className="text-sm text-gray-500">Orders Today</div>
+                <div className="text-xl font-bold text-gray-800">{dailyOrders}</div>
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Shops with Videos</div>
-                <div className="text-xl font-bold text-gray-800">
-                  {filteredShops.filter(shop => 
-                    allVideos.some(video => video.shop_id === shop.id)
-                  ).length}
-                </div>
+                <div className="text-sm text-gray-500">Active Shops</div>
+                <div className="text-xl font-bold text-gray-800">{activeShops}</div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity Summary */}
+      {/* Recent Activity - Only Daily Stats */}
       <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Activity Summary</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Activity</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-sm text-gray-600 font-medium">Today's Orders</h3>
+            <h3 className="text-sm text-gray-600 font-medium">Daily Orders</h3>
             <p className="text-2xl font-bold text-gray-800 mt-1">{dailyOrders}</p>
-            <p className="text-xs text-gray-500">New orders in the last 24 hours</p>
+            <p className="text-xs text-gray-500">Last 24 hours</p>
           </div>
           
           <div className="bg-blue-50 p-4 rounded-lg">
             <h3 className="text-sm text-blue-600 font-medium">Processing Videos</h3>
-            <p className="text-2xl font-bold text-blue-700 mt-1">{videoDashboardSummary?.processing || 0}</p>
-            <p className="text-xs text-blue-600">Videos currently being processed</p>
+            <p className="text-2xl font-bold text-blue-700 mt-1">{processingVideos}</p>
+            <p className="text-xs text-blue-600">Currently processing</p>
           </div>
           
           <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-sm text-green-600 font-medium">Video Completion</h3>
-            <p className="text-2xl font-bold text-green-700 mt-1">{completionRate}%</p>
-            <p className="text-xs text-green-600">Successfully completed videos</p>
+            <h3 className="text-sm text-green-600 font-medium">Completed Today</h3>
+            <p className="text-2xl font-bold text-green-700 mt-1">
+              {districtVideos.filter(v => {
+                if (!v.updated_at) return false;
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                return new Date(v.updated_at) >= yesterday && v.status === 'completed';
+              }).length}
+            </p>
+            <p className="text-xs text-green-600">Last 24 hours</p>
           </div>
         </div>
       </div>

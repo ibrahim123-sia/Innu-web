@@ -19,7 +19,7 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// Async Thunks - 6 functions matching controller
+// Async Thunks
 export const createShop = createAsyncThunk(
   'shop/createShop',
   async (shopData, { rejectWithValue }) => {
@@ -37,18 +37,6 @@ export const getShopById = createAsyncThunk(
   async (shopId, { rejectWithValue }) => {
     try {
       const response = await API.get(`/shops/getshops/${shopId}`);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
-    }
-  }
-);
-
-export const getAllShops = createAsyncThunk(
-  'shop/getAllShops',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await API.get('/shops/getAllshops');
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -85,7 +73,8 @@ export const getShopsByBrand = createAsyncThunk(
   async (brandId, { rejectWithValue }) => {
     try {
       const response = await API.get(`/shops/brand/${brandId}/shops`);
-      return response.data;
+      console.log('Shop API Response:', response.data);
+      return { brandId, data: response.data };
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
@@ -107,7 +96,7 @@ export const getShopsByDistrict = createAsyncThunk(
 const initialState = {
   shops: [],
   currentShop: null,
-  shopsByBrand: [],
+  shopsByBrand: {},
   shopsByDistrict: [],
   loading: false,
   error: null,
@@ -129,13 +118,17 @@ const shopSlice = createSlice({
       state.currentShop = null;
     },
     clearShopsByBrand: (state) => {
-      state.shopsByBrand = [];
+      state.shopsByBrand = {};
     },
     clearShopsByDistrict: (state) => {
       state.shopsByDistrict = [];
     },
-    setShops: (state, action) => {
+    setShopsData: (state, action) => {
       state.shops = action.payload;
+    },
+    setShopsByBrand: (state, action) => {
+      const { brandId, shops } = action.payload;
+      state.shopsByBrand[brandId] = shops;
     },
   },
   extraReducers: (builder) => {
@@ -149,8 +142,10 @@ const shopSlice = createSlice({
       .addCase(createShop.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        state.shops.unshift(action.payload.data);
-        state.message = action.payload.message;
+        if (action.payload?.data) {
+          state.shops.unshift(action.payload.data);
+        }
+        state.message = action.payload?.message || 'Shop created successfully';
       })
       .addCase(createShop.rejected, (state, action) => {
         state.loading = false;
@@ -164,25 +159,11 @@ const shopSlice = createSlice({
       })
       .addCase(getShopById.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentShop = action.payload.data;
+        state.currentShop = action.payload?.data || null;
       })
       .addCase(getShopById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.error || 'Failed to fetch shop';
-      })
-      
-      // Get All Shops
-      .addCase(getAllShops.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getAllShops.fulfilled, (state, action) => {
-        state.loading = false;
-        state.shops = action.payload.data;
-      })
-      .addCase(getAllShops.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch shops';
       })
       
       // Update Shop
@@ -194,20 +175,29 @@ const shopSlice = createSlice({
       .addCase(updateShop.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        const updatedShop = action.payload.data;
+        const updatedShop = action.payload?.data;
         
-        // Update in shops array
-        const index = state.shops.findIndex(shop => shop.id === updatedShop.id);
-        if (index !== -1) {
-          state.shops[index] = updatedShop;
+        if (updatedShop) {
+          const index = state.shops.findIndex(shop => shop.id === updatedShop.id);
+          if (index !== -1) {
+            state.shops[index] = updatedShop;
+          }
+          
+          Object.keys(state.shopsByBrand).forEach(brandId => {
+            if (state.shopsByBrand[brandId]) {
+              const brandIndex = state.shopsByBrand[brandId].findIndex(shop => shop.id === updatedShop.id);
+              if (brandIndex !== -1) {
+                state.shopsByBrand[brandId][brandIndex] = updatedShop;
+              }
+            }
+          });
+          
+          if (state.currentShop && state.currentShop.id === updatedShop.id) {
+            state.currentShop = updatedShop;
+          }
         }
         
-        // Update current shop if it's the one being updated
-        if (state.currentShop && state.currentShop.id === updatedShop.id) {
-          state.currentShop = updatedShop;
-        }
-        
-        state.message = action.payload.message;
+        state.message = action.payload?.message || 'Shop updated successfully';
       })
       .addCase(updateShop.rejected, (state, action) => {
         state.loading = false;
@@ -223,17 +213,23 @@ const shopSlice = createSlice({
       .addCase(deleteShop.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        const deletedId = action.payload.data.id;
+        const deletedShopId = action.payload?.data?.id;
         
-        // Remove from shops array
-        state.shops = state.shops.filter(shop => shop.id !== deletedId);
-        
-        // Clear current shop if it's the one being deleted
-        if (state.currentShop && state.currentShop.id === deletedId) {
-          state.currentShop = null;
+        if (deletedShopId) {
+          state.shops = state.shops.filter(shop => shop.id !== deletedShopId);
+          
+          Object.keys(state.shopsByBrand).forEach(brandId => {
+            if (state.shopsByBrand[brandId]) {
+              state.shopsByBrand[brandId] = state.shopsByBrand[brandId].filter(shop => shop.id !== deletedShopId);
+            }
+          });
+          
+          if (state.currentShop && state.currentShop.id === deletedShopId) {
+            state.currentShop = null;
+          }
         }
         
-        state.message = action.payload.message;
+        state.message = action.payload?.message || 'Shop deleted successfully';
       })
       .addCase(deleteShop.rejected, (state, action) => {
         state.loading = false;
@@ -247,7 +243,19 @@ const shopSlice = createSlice({
       })
       .addCase(getShopsByBrand.fulfilled, (state, action) => {
         state.loading = false;
-        state.shopsByBrand = action.payload.data;
+        const { brandId, data } = action.payload;
+        const shops = data?.data || [];
+        
+        console.log(`Setting ${shops.length} shops for brand ${brandId}`);
+        
+        state.shopsByBrand[brandId] = shops;
+        
+        shops.forEach(shop => {
+          const exists = state.shops.some(s => s.id === shop.id);
+          if (!exists) {
+            state.shops.push(shop);
+          }
+        });
       })
       .addCase(getShopsByBrand.rejected, (state, action) => {
         state.loading = false;
@@ -261,7 +269,7 @@ const shopSlice = createSlice({
       })
       .addCase(getShopsByDistrict.fulfilled, (state, action) => {
         state.loading = false;
-        state.shopsByDistrict = action.payload.data;
+        state.shopsByDistrict = action.payload?.data || [];
       })
       .addCase(getShopsByDistrict.rejected, (state, action) => {
         state.loading = false;
@@ -275,7 +283,8 @@ export const {
   clearCurrentShop,
   clearShopsByBrand,
   clearShopsByDistrict,
-  setShops,
+  setShopsData,
+  setShopsByBrand,
 } = shopSlice.actions;
 
 // Selectors
@@ -287,5 +296,16 @@ export const selectShopLoading = (state) => state.shop.loading;
 export const selectShopError = (state) => state.shop.error;
 export const selectShopSuccess = (state) => state.shop.success;
 export const selectShopMessage = (state) => state.shop.message;
+
+export const selectShopsForBrand = (brandId) => (state) => 
+  state.shop.shopsByBrand[brandId] || [];
+
+export const selectShopCountsByBrand = (state) => {
+  const counts = {};
+  Object.keys(state.shop.shopsByBrand).forEach(brandId => {
+    counts[brandId] = state.shop.shopsByBrand[brandId]?.length || 0;
+  });
+  return counts;
+};
 
 export default shopSlice.reducer;

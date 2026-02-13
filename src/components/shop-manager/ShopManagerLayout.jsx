@@ -1,11 +1,13 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { selectCurrentShop } from '../../redux/slice/shopSlice'; // ✅ Import the correct selector
 import LogoutButton from '../../components/common/LogoutButton';
 
 const ShopManagerLayout = ({ children }) => {
   const user = useSelector(state => state.user.currentUser);
-  const myShop = useSelector(state => state.shop.myShop);
+  const myShop = useSelector(selectCurrentShop); // ✅ Use the correct selector
+  const shopLoading = useSelector(state => state.shop.loading);
   
   const navItems = [
     { name: 'Overview', path: '/shop-manager' },
@@ -21,9 +23,18 @@ const ShopManagerLayout = ({ children }) => {
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <h1 className="text-2xl font-bold">Shop Manager Dashboard</h1>
-            <p className="text-sm text-primary-blue-100">
-              {myShop ? `${myShop.name} - ${myShop.city}` : 'Loading shop...'}
-            </p>
+            <div className="text-sm text-primary-blue-100 mt-1">
+              {shopLoading ? (
+                <div className="flex items-center">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  <span>Loading shop...</span>
+                </div>
+              ) : myShop ? (
+                `${myShop.name}${myShop.city ? ` - ${myShop.city}` : ''}`
+              ) : (
+                'Shop not available'
+              )}
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">

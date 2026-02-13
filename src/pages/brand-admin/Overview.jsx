@@ -1,38 +1,67 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { Link } from 'react-router-dom';
+
+// Shop selectors
 import {
   getShopsByBrand,
-  selectShopsByBrand
+  selectShopsForBrand,
+  selectShopLoading
 } from '../../redux/slice/shopSlice';
+
+// Order selectors
 import {
   getOrdersByBrand,
-  selectOrdersByBrand
+  selectOrdersByBrand,
+  selectOrderLoading
 } from '../../redux/slice/orderSlice';
+
+// ✅ IMPORT FROM VIDEO SLICE - NOT videoEditSlice
 import {
-  getVideosByShop,
-  selectVideos
+  getVideosByBrand,
+  selectVideos,
+  selectVideoLoading,
+  selectDashboardSummary,
+  selectDerivedVideoStats
 } from '../../redux/slice/videoSlice';
+
+// Video Edit selectors
 import {
   selectTotalAIVideoRequests,
   selectAIVideoRequestsByBrandStats,
   selectBrandStats,
   getVideoAnalyticsStats
 } from '../../redux/slice/videoEditSlice';
-import { Link } from 'react-router-dom';
 
 const Overview = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
   const brandId = user?.brand_id;
-  
-  // Get shops by brand using the correct selector
-  const shops = useSelector(selectShopsByBrand) || [];
-  
+
+  // ✅ CORRECT: Using memoized selectors with brandId
+  const shops = useSelector(selectShopsForBrand(brandId));
   const brandOrders = useSelector(selectOrdersByBrand);
+  
+  // ✅ Get videos from Redux state - filter by brand
   const allVideos = useSelector(selectVideos);
+  const brandVideos = useMemo(() => 
+    allVideos?.filter(video => video.brand_id === brandId) || [],
+    [allVideos, brandId]
+  );
+  
+  // ✅ Use memoized dashboard summary
+  const dashboardSummary = useSelector(selectDashboardSummary);
+  const videoStats = useSelector(selectDerivedVideoStats);
+  
+  // Video Edit selectors
   const totalAIVideoRequests = useSelector(selectTotalAIVideoRequests);
   const aiVideoRequestsByBrand = useSelector(selectAIVideoRequestsByBrandStats);
   const brandAIErrorStats = useSelector(selectBrandStats);
+
+  // Loading states
+  const shopsLoading = useSelector(selectShopLoading);
+  const ordersLoading = useSelector(selectOrderLoading);
+  const videosLoading = useSelector(selectVideoLoading);
   
   const [loading, setLoading] = useState(true);
   const [dailyOrders, setDailyOrders] = useState(0);
@@ -41,69 +70,89 @@ const Overview = () => {
   const [topShop, setTopShop] = useState(null);
   const [shopVideosMap, setShopVideosMap] = useState({});
 
-  // Fetch data only once
+  // Combined loading state
+  const isLoading = loading || shopsLoading || ordersLoading || videosLoading;
+
+  // ✅ Calculate video stats for this brand whenever brandVideos changes
+  useEffect(() => {
+    console.log('🎥 Brand videos from Redux:', brandVideos?.length);
+    
+    if (brandVideos && brandVideos.length > 0) {
+      setBrandVideoRequests(brandVideos.length);
+    } else {
+      setBrandVideoRequests(0);
+    }
+  }, [brandVideos]);
+
+  // Fetch all data
   useEffect(() => {
     if (brandId) {
       fetchData();
     }
   }, [brandId]);
 
-  // Fetch videos for each shop
+  // Calculate shop videos map when shops and brandVideos are loaded
   useEffect(() => {
-    if (shops.length > 0 && brandId) {
-      fetchShopVideos();
+    if (shops?.length > 0 && brandVideos?.length > 0) {
+      calculateShopVideosMap();
     }
-  }, [shops, brandId]);
+  }, [shops, brandVideos]);
 
   // Calculate stats when data changes
   useEffect(() => {
-    if (!loading && shops.length > 0) {
+    if (!isLoading && shops?.length > 0) {
       calculateStats();
     }
-  }, [shops, brandOrders, aiVideoRequestsByBrand, brandAIErrorStats, shopVideosMap, loading]);
+  }, [shops, brandOrders, aiVideoRequestsByBrand, brandAIErrorStats, shopVideosMap, brandVideos, isLoading]);
 
   const fetchData = async () => {
     if (!brandId) return;
     
     setLoading(true);
+    console.log('🚀 Fetching brand data...');
     try {
-      await Promise.all([
-        dispatch(getShopsByBrand(brandId)), // Correct thunk name
-        dispatch(getOrdersByBrand({ brandId })),
-        dispatch(getVideoAnalyticsStats())
-      ]);
+      // ✅ 1. Fetch shops for this brand
+      console.log('🏪 Fetching shops for brand:', brandId);
+      await dispatch(getShopsByBrand(brandId));
+      
+      // ✅ 2. Fetch orders for this brand
+      console.log('📦 Fetching orders for brand:', brandId);
+      await dispatch(getOrdersByBrand(brandId));
+      
+      // ✅ 3. Fetch ALL videos and filter client-side for this brand
+      console.log('🎬 Fetching all videos...');
+      await dispatch(getVideosByBrand(brandId));
+      
+      // ✅ 4. Fetch video analytics stats
+      console.log('📊 Fetching video analytics stats...');
+      await dispatch(getVideoAnalyticsStats());
+      
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('💥 Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchShopVideos = async () => {
+  const calculateShopVideosMap = useCallback(() => {
     const videosByShop = {};
     
-    for (const shop of shops) {
-      try {
-        const result = await dispatch(getVideosByShop(shop.id));
-        if (result.payload?.data) {
-          videosByShop[shop.id] = result.payload.data;
-        }
-      } catch (error) {
-        console.error(`Error fetching videos for shop ${shop.id}:`, error);
-        videosByShop[shop.id] = [];
-      }
-    }
+    shops.forEach(shop => {
+      const shopVideos = brandVideos.filter(video => video.shop_id === shop.id);
+      videosByShop[shop.id] = shopVideos || [];
+    });
     
+    console.log('🏪 Shop videos map:', Object.keys(videosByShop).length, 'shops with videos');
     setShopVideosMap(videosByShop);
-  };
+  }, [shops, brandVideos]);
 
-  const calculateStats = () => {
+  const calculateStats = useCallback(() => {
     // Calculate daily orders (last 24 hours)
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     
-    const todayOrders = brandOrders.filter(order => {
+    const todayOrders = brandOrders?.filter(order => {
       if (!order?.created_at) return false;
       const orderDate = new Date(order.created_at);
       return orderDate >= yesterday;
@@ -111,7 +160,7 @@ const Overview = () => {
     
     setDailyOrders(todayOrders);
 
-    // Calculate brand-specific AI video requests
+    // Calculate brand-specific AI video requests from videoEditSlice
     if (aiVideoRequestsByBrand && brandId) {
       const brandRequestsData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
       const brandRequests = brandRequestsData?.totalAIVideoRequests || 0;
@@ -127,75 +176,107 @@ const Overview = () => {
     }
 
     // Find top shop with most AI video requests
-    if (shops.length > 0 && Object.keys(shopVideosMap).length > 0) {
+    if (shops?.length > 0 && Object.keys(shopVideosMap).length > 0) {
       const shopsWithVideoCounts = shops.map(shop => {
         const shopVideos = shopVideosMap[shop.id] || [];
         
-        const aiVideoRequests = shopVideos.filter(video => {
-          return video.status === 'completed' || 
-                 video.status === 'processing' ||
-                 video.status === 'ai_processing';
-        }).length;
+        const aiVideoRequests = shopVideos.filter(video => 
+          ['completed', 'processing', 'ai_processing'].includes(video?.status)
+        ).length;
         
         return {
           ...shop,
-          aiVideoRequests: aiVideoRequests,
+          aiVideoRequests,
           totalVideos: shopVideos.length
         };
       });
       
-      const sortedShops = [...shopsWithVideoCounts].sort((a, b) => 
-        (b.aiVideoRequests || 0) - (a.aiVideoRequests || 0)
+      const sortedShops = [...shopsWithVideoCounts].sort(
+        (a, b) => (b.aiVideoRequests || 0) - (a.aiVideoRequests || 0)
       );
 
-      if (sortedShops.length > 0 && sortedShops[0].aiVideoRequests > 0) {
-        setTopShop(sortedShops[0]);
-      } else if (shops.length > 0) {
-        setTopShop({
-          ...shops[0],
-          aiVideoRequests: 0,
-          totalVideos: 0
-        });
-      }
-    } else if (shops.length > 0) {
-      setTopShop({
+      setTopShop(sortedShops[0] || (shops[0] ? {
         ...shops[0],
         aiVideoRequests: 0,
         totalVideos: 0
-      });
+      } : null));
     }
-  };
+  }, [brandOrders, aiVideoRequestsByBrand, brandAIErrorStats, brandId, shops, shopVideosMap]);
 
-  const getBrandVideoRequests = () => {
-    if (!aiVideoRequestsByBrand || !brandId) return 0;
-    
-    const brandData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
-    return brandData?.totalAIVideoRequests || 0;
-  };
+  // ✅ Memoized derived values
+  const brandVideoRequestsCount = useMemo(() => 
+    brandVideoRequests || brandVideos?.length || 0,
+    [brandVideoRequests, brandVideos]
+  );
 
-  const getTotalShops = () => {
-    return shops?.length || 0;
-  };
+  const totalShops = shops?.length || 0;
+  
+  const activeShops = useMemo(() => 
+    shops?.filter(shop => shop.is_active).length || 0,
+    [shops]
+  );
 
-  const getActiveShops = () => {
-    return shops?.filter(shop => shop.is_active).length || 0;
-  };
-
-  const getShopsWithAIRequests = () => {
+  const shopsWithAIRequests = useMemo(() => {
     if (Object.keys(shopVideosMap).length === 0) return 0;
     
     return Object.keys(shopVideosMap).filter(shopId => {
       const shopVideos = shopVideosMap[shopId] || [];
-      const aiRequests = shopVideos.filter(video => 
-        video.status === 'completed' || 
-        video.status === 'processing' ||
-        video.status === 'ai_processing'
-      ).length;
-      return aiRequests > 0;
+      return shopVideos.some(video => 
+        ['completed', 'processing', 'ai_processing'].includes(video?.status)
+      );
     }).length;
-  };
+  }, [shopVideosMap]);
 
-  if (loading) {
+  const activeShopsPercentage = useMemo(() => 
+    totalShops > 0 ? ((activeShops / totalShops) * 100).toFixed(1) : '0.0',
+    [activeShops, totalShops]
+  );
+
+  const totalOrders = brandOrders?.length || 0;
+  
+  const completedOrders = useMemo(() => 
+    brandOrders?.filter(order => {
+      if (!order?.status) return false;
+      const status = order.status.toLowerCase();
+      return ['posted', 'completed', 'done'].includes(status);
+    }).length || 0,
+    [brandOrders]
+  );
+
+  const pendingOrders = useMemo(() => 
+    brandOrders?.filter(order => {
+      if (!order?.status) return false;
+      const status = order.status.toLowerCase();
+      return ['estimate', 'pending'].includes(status);
+    }).length || 0,
+    [brandOrders]
+  );
+
+  const inProgressOrders = useMemo(() => 
+    brandOrders?.filter(order => {
+      if (!order?.status) return false;
+      const status = order.status.toLowerCase();
+      return ['work-in-progress', 'in_progress', 'processing', 'in progress'].includes(status);
+    }).length || 0,
+    [brandOrders]
+  );
+
+  // Debug logging
+  useEffect(() => {
+    console.log('📊 Brand Overview State:', {
+      brandId,
+      totalShops,
+      activeShops,
+      totalOrders,
+      brandVideos: brandVideos?.length,
+      brandVideoRequests,
+      shopsWithAIRequests,
+      topShop: topShop?.name,
+      dailyOrders
+    });
+  }, [brandId, totalShops, activeShops, totalOrders, brandVideos, brandVideoRequests, shopsWithAIRequests, topShop, dailyOrders]);
+
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -212,9 +293,9 @@ const Overview = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Shops</h3>
-              <p className="text-3xl font-bold text-blue-600 mt-2">{getTotalShops()}</p>
+              <p className="text-3xl font-bold text-blue-600 mt-2">{totalShops}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {getActiveShops()} active shops
+                {activeShops} active ({activeShopsPercentage}%)
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -225,14 +306,14 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* AI Video Requests Card */}
+        {/* AI Video Requests Card - USING ACTUAL VIDEO DATA */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">AI Video Requests</h3>
-              <p className="text-3xl font-bold text-red-600 mt-2">{getBrandVideoRequests()}</p>
+              <p className="text-3xl font-bold text-red-600 mt-2">{brandVideoRequestsCount}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {getShopsWithAIRequests()} shops with requests
+                {shopsWithAIRequests} {shopsWithAIRequests === 1 ? 'shop' : 'shops'} with videos
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -259,35 +340,129 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* Active Shops Card */}
+        {/* Orders Summary Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Active Shops</h3>
-              <p className="text-3xl font-bold text-green-600 mt-2">
-                {getActiveShops()}
-              </p>
+              <h3 className="text-sm text-gray-500">Total Orders</h3>
+              <p className="text-3xl font-bold text-green-600 mt-2">{totalOrders}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {((getActiveShops() / (shops?.length || 1)) * 100).toFixed(1)}% of total
+                {completedOrders} completed • {inProgressOrders} in progress
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
               </svg>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Shops Summary Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-800">Your Shops</h2>
+          <Link 
+            to="/brand-admin/shops" 
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
+          >
+            View All Shops
+            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {shops && shops.length > 0 ? (
+            shops.slice(0, 6).map(shop => {
+              const shopVideos = shopVideosMap[shop.id] || [];
+              const aiRequests = shopVideos.filter(v => 
+                ['completed', 'processing', 'ai_processing'].includes(v?.status)
+              ).length;
+              
+              return (
+                <div key={shop.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden border bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-gray-800 truncate">{shop.name}</h3>
+                      <p className="text-xs text-gray-500 truncate">
+                        {shop.city}{shop.state ? `, ${shop.state}` : ''}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      shop.is_active 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {shop.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mt-2 text-sm">
+                    <span className="text-gray-600">AI Video Requests:</span>
+                    <span className="font-bold text-red-600">{aiRequests}</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-1 text-sm">
+                    <span className="text-gray-600">Total Videos:</span>
+                    <span className="font-bold text-blue-600">{shopVideos.length}</span>
+                  </div>
+                  <Link 
+                    to={`/brand-admin/shops/${shop.id}`}
+                    className="mt-3 text-xs text-blue-600 hover:text-blue-800 flex items-center justify-end"
+                  >
+                    View Details
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-3 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+              <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              <p className="text-gray-500">No shops found for this brand</p>
+              <Link 
+                to="/brand-admin/shops/add"
+                className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add your first shop
+              </Link>
+            </div>
+          )}
+        </div>
+        
+        {shops && shops.length > 6 && (
+          <div className="mt-4 text-center">
+            <Link 
+              to="/brand-admin/shops" 
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              View all {shops.length} shops →
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* Top Shop & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Top Performing Shop */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">Top Performing Shop</h2>
-            {topShop && topShop.aiVideoRequests > 0 && (
-              <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
+            {topShop?.aiVideoRequests > 0 && (
+              <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
                 #1 in AI Requests
               </span>
             )}
@@ -306,18 +481,23 @@ const Overview = () => {
                   <p className="text-sm text-gray-500">
                     {topShop.city}{topShop.state ? `, ${topShop.state}` : ''}
                   </p>
+                  {topShop.tekmetric_shop_id && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Tekmetric ID: {topShop.tekmetric_shop_id}
+                    </p>
+                  )}
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="bg-red-50 p-3 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-blue-600">{topShop.aiVideoRequests}</div>
-                      <div className="text-xs text-blue-500">AI Video Requests</div>
+                      <div className="text-xl font-bold text-red-600">{topShop.aiVideoRequests}</div>
+                      <div className="text-xs text-red-500">AI Video Requests</div>
                     </div>
                   </div>
                 </div>
@@ -329,9 +509,9 @@ const Overview = () => {
                     </svg>
                     <div>
                       <div className="text-xl font-bold text-green-600">
-                        {topShop.aiVideoRequests > 0 ? 
-                          `${((topShop.aiVideoRequests / (getBrandVideoRequests() || 1)) * 100).toFixed(1)}%` : 
-                          '0%'
+                        {brandVideoRequestsCount > 0 
+                          ? `${((topShop.aiVideoRequests / brandVideoRequestsCount) * 100).toFixed(1)}%`
+                          : '0%'
                         }
                       </div>
                       <div className="text-xs text-green-500">of Total Requests</div>
@@ -340,24 +520,31 @@ const Overview = () => {
                 </div>
               </div>
               
-              <div className="text-gray-600">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium">Status:</span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    topShop.is_active 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {topShop.is_active ? 'Active' : 'Inactive'}
-                  </span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                    </svg>
+                    <div>
+                      <div className="text-xl font-bold text-blue-600">{topShop.totalVideos || 0}</div>
+                      <div className="text-xs text-blue-500">Total Videos</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium">Total Videos:</span>
-                  <span className="text-sm">{topShop.totalVideos || 0}</span>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">Tekmetric ID:</span>{' '}
-                  {topShop.tekmetric_shop_id || 'Not set'}
+                
+                <div className="bg-purple-50 p-3 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-5 h-5 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <div className="text-xl font-bold text-purple-600">
+                        {topShop.is_active ? 'Active' : 'Inactive'}
+                      </div>
+                      <div className="text-xs text-purple-500">Status</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -366,14 +553,17 @@ const Overview = () => {
               <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-gray-500">No shop data available</p>
+              <p className="text-gray-500">No AI video request data available</p>
               <p className="text-sm text-gray-400 mt-1">
-                {shops.length === 0 ? 'No shops found for this brand' : 'No AI video requests yet'}
+                {totalShops === 0 
+                  ? 'Add shops to start uploading videos' 
+                  : 'Upload videos to see shop performance'}
               </p>
             </div>
           )}
         </div>
 
+        {/* Quick Actions */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
           <div className="space-y-4">
@@ -388,7 +578,7 @@ const Overview = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-medium text-gray-800">Manage Shops</h3>
-                <p className="text-sm text-gray-500">View and manage all shops</p>
+                <p className="text-sm text-gray-500">View and manage all your shops</p>
               </div>
               <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -397,16 +587,35 @@ const Overview = () => {
             
             <Link
               to="/brand-admin/districts"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors group"
+              className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-colors group"
             >
-              <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-red-700 transition-colors">
+              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                 </svg>
               </div>
               <div className="flex-1">
                 <h3 className="font-medium text-gray-800">Manage Districts</h3>
-                <p className="text-sm text-gray-500">Organize shops by districts</p>
+                <p className="text-sm text-gray-500">Organize your shops by districts</p>
+              </div>
+              <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+
+            <Link
+              to="/brand-admin/orders"
+              className="flex items-center p-4 border rounded-lg hover:bg-indigo-50 transition-colors group"
+            >
+              <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-indigo-700 transition-colors">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                  <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-gray-800">View Orders</h3>
+                <p className="text-sm text-gray-500">Check all orders across your shops</p>
               </div>
               <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -415,16 +624,16 @@ const Overview = () => {
 
             <Link
               to="/brand-admin/analytics"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors group"
+              className="flex items-center p-4 border rounded-lg hover:bg-purple-50 transition-colors group"
             >
-              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
+              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-purple-700 transition-colors">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div className="flex-1">
                 <h3 className="font-medium text-gray-800">View Analytics</h3>
-                <p className="text-sm text-gray-500">Check performance analytics</p>
+                <p className="text-sm text-gray-500">Check your brand performance analytics</p>
               </div>
               <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -432,17 +641,27 @@ const Overview = () => {
             </Link>
           </div>
 
-          {/* System Summary */}
+          {/* Brand Summary */}
           <div className="mt-6 pt-6 border-t">
             <h3 className="font-medium text-gray-800 mb-3">Brand Summary</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-50 p-3 rounded-lg">
                 <div className="text-sm text-gray-500">Total Orders</div>
-                <div className="text-xl font-bold text-gray-800">{brandOrders?.length || 0}</div>
+                <div className="text-xl font-bold text-gray-800">{totalOrders}</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm text-gray-500">Completion Rate</div>
+                <div className="text-xl font-bold text-gray-800">
+                  {totalOrders > 0 ? ((completedOrders / totalOrders) * 100).toFixed(1) : '0'}%
+                </div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm text-gray-500">Total Videos</div>
+                <div className="text-xl font-bold text-gray-800">{brandVideos?.length || 0}</div>
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
                 <div className="text-sm text-gray-500">Shops with AI</div>
-                <div className="text-xl font-bold text-gray-800">{getShopsWithAIRequests()}</div>
+                <div className="text-xl font-bold text-gray-800">{shopsWithAIRequests}</div>
               </div>
             </div>
           </div>
@@ -457,7 +676,7 @@ const Overview = () => {
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="text-sm text-blue-600 font-medium">Total AI Requests</h3>
               <p className="text-2xl font-bold text-blue-700 mt-1">
-                {getBrandVideoRequests()}
+                {brandVideoRequestsCount}
               </p>
               <p className="text-xs text-blue-600">
                 Videos processed by AI
@@ -493,6 +712,30 @@ const Overview = () => {
                 Processed video segments
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Video Status Distribution */}
+      {videoStats?.byStatus && Object.keys(videoStats.byStatus).length > 0 && (
+        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Video Status Distribution</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(videoStats.byStatus).map(([status, count]) => (
+              <div key={status} className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-sm text-gray-600 font-medium capitalize">
+                  {status.replace('_', ' ')}
+                </h3>
+                <p className="text-2xl font-bold text-gray-700 mt-1">{count}</p>
+                <p className="text-xs text-gray-500">
+                  {videoStats.byStatusPercentage?.[status] || 0}% of total
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 text-sm text-gray-500">
+            <span className="font-medium">Recent uploads (7 days):</span>{' '}
+            {videoStats.recentUploads || 0} ({videoStats.recentUploadsPercentage || 0}%)
           </div>
         </div>
       )}

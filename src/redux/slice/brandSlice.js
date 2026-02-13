@@ -1,4 +1,4 @@
-// src/redux/slice/brandSlice.js
+// ✅ FIXED: brandSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
@@ -19,12 +19,11 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// Async Thunks - Only 6 functions matching controller
+// Async Thunks
 export const createBrand = createAsyncThunk(
   'brand/createBrand',
   async (brandData, { rejectWithValue }) => {
     try {
-      // Check if it's FormData (for file upload) or regular data
       let response;
       if (brandData instanceof FormData) {
         response = await API.post('/brands/createbrands', brandData, {
@@ -47,7 +46,14 @@ export const getAllBrands = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await API.get('/brands/getbrands');
-      return response.data;
+      console.log('Brand API Response:', response.data); // Add logging
+      
+      if (response.data.success && response.data.data) {
+        // ✅ FIXED: Return the array directly, not wrapped
+        return response.data.data;  // Returns [brand1, brand2, brand3]
+      } else {
+        return [];
+      }
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
@@ -70,10 +76,8 @@ export const updateBrand = createAsyncThunk(
   'brand/updateBrand',
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      // Check if it's FormData (for file upload) or regular data
       let response;
       if (data instanceof FormData) {
-        data.append('id', id);
         response = await API.put(`/brands/updatebrands/${id}`, data, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -151,26 +155,31 @@ const brandSlice = createSlice({
       .addCase(createBrand.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        state.brands.unshift(action.payload.data);
-        state.message = action.payload.message;
+        if (action.payload?.data) {
+          state.brands.unshift(action.payload.data);
+        }
+        state.message = action.payload?.message || 'Brand created successfully';
       })
       .addCase(createBrand.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.error || 'Failed to create brand';
       })
       
-      // Get All Brands
+      // Get All Brands - FIXED
       .addCase(getAllBrands.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(getAllBrands.fulfilled, (state, action) => {
         state.loading = false;
-        state.brands = action.payload.data;
+        // ✅ FIXED: action.payload is now the array of brands directly
+        state.brands = Array.isArray(action.payload) ? action.payload : [];
+        console.log('Brands loaded in Redux:', state.brands); // Add logging
       })
       .addCase(getAllBrands.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.error || 'Failed to fetch brands';
+        state.brands = [];
       })
       
       // Get Brand By ID
@@ -180,7 +189,7 @@ const brandSlice = createSlice({
       })
       .addCase(getBrandById.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentBrand = action.payload.data;
+        state.currentBrand = action.payload?.data || null;
       })
       .addCase(getBrandById.rejected, (state, action) => {
         state.loading = false;
@@ -196,20 +205,20 @@ const brandSlice = createSlice({
       .addCase(updateBrand.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        const updatedBrand = action.payload.data;
+        const updatedBrand = action.payload?.data;
         
-        // Update in brands array
-        const index = state.brands.findIndex(brand => brand.id === updatedBrand.id);
-        if (index !== -1) {
-          state.brands[index] = updatedBrand;
+        if (updatedBrand) {
+          const index = state.brands.findIndex(brand => brand.id === updatedBrand.id);
+          if (index !== -1) {
+            state.brands[index] = updatedBrand;
+          }
+          
+          if (state.currentBrand && state.currentBrand.id === updatedBrand.id) {
+            state.currentBrand = updatedBrand;
+          }
         }
         
-        // Update current brand if it's the one being updated
-        if (state.currentBrand && state.currentBrand.id === updatedBrand.id) {
-          state.currentBrand = updatedBrand;
-        }
-        
-        state.message = action.payload.message;
+        state.message = action.payload?.message || 'Brand updated successfully';
       })
       .addCase(updateBrand.rejected, (state, action) => {
         state.loading = false;
@@ -225,11 +234,16 @@ const brandSlice = createSlice({
       .addCase(deleteBrand.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        state.brands = state.brands.filter(brand => brand.id !== action.payload.data.id);
-        if (state.currentBrand && state.currentBrand.id === action.payload.data.id) {
-          state.currentBrand = null;
+        const deletedBrandId = action.payload?.data?.id;
+        
+        if (deletedBrandId) {
+          state.brands = state.brands.filter(brand => brand.id !== deletedBrandId);
+          if (state.currentBrand && state.currentBrand.id === deletedBrandId) {
+            state.currentBrand = null;
+          }
         }
-        state.message = action.payload.message;
+        
+        state.message = action.payload?.message || 'Brand deleted successfully';
       })
       .addCase(deleteBrand.rejected, (state, action) => {
         state.loading = false;
@@ -243,7 +257,7 @@ const brandSlice = createSlice({
       })
       .addCase(getActiveBrands.fulfilled, (state, action) => {
         state.loading = false;
-        state.activeBrands = action.payload.data;
+        state.activeBrands = action.payload?.data || [];
       })
       .addCase(getActiveBrands.rejected, (state, action) => {
         state.loading = false;
@@ -258,7 +272,7 @@ export const {
   setBrands,
 } = brandSlice.actions;
 
-// Selectors - Only basic selectors
+// Selectors
 export const selectAllBrands = (state) => state.brand.brands;
 export const selectCurrentBrand = (state) => state.brand.currentBrand;
 export const selectActiveBrands = (state) => state.brand.activeBrands;

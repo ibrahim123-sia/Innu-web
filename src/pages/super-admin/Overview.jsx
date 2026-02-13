@@ -1,26 +1,30 @@
-import React, { useState, useEffect } from 'react';
+// src/pages/super-admin/Overview.jsx
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
   selectAllBrands,
   getAllBrands
 } from '../../redux/slice/brandSlice';
 import {
-  selectAllShops,
-  getAllShops
+  getShopsByBrand,
+  selectShopsByBrand
 } from '../../redux/slice/shopSlice';
 import {
   getOrdersByBrand
 } from '../../redux/slice/orderSlice';
+// ✅ IMPORT FROM VIDEO SLICE - NOT videoEditSlice
 import {
-  getTotalAIVideoRequests,
-  getAIVideoRequestsByBrand
-} from '../../redux/slice/videoEditSlice';
+  getAllVideos,
+  selectVideos
+} from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
 
 const Overview = () => {
   const dispatch = useDispatch();
   const brands = useSelector(selectAllBrands);
-  const allShops = useSelector(selectAllShops);
+  const shopsByBrand = useSelector(selectShopsByBrand);
+  // ✅ Get videos from Redux state
+  const videos = useSelector(selectVideos);
   
   const [loading, setLoading] = useState(true);
   const [dailyOrders, setDailyOrders] = useState(0);
@@ -28,6 +32,82 @@ const Overview = () => {
   const [aiRequestsByBrand, setAiRequestsByBrand] = useState([]);
   const [topBrand, setTopBrand] = useState(null);
   const [allOrders, setAllOrders] = useState([]);
+  const [totalShops, setTotalShops] = useState(0);
+  const [activeShops, setActiveShops] = useState(0);
+
+  // ✅ Calculate video stats from videos whenever videos change
+  useEffect(() => {
+    console.log('🎥 Videos from Redux:', videos);
+    
+    if (videos && videos.length > 0) {
+      // Set total video count
+      setTotalAIVideoRequests(videos.length);
+      
+      // Calculate videos by brand
+      const videosByBrandMap = {};
+      videos.forEach(video => {
+        if (video.brand_id) {
+          if (!videosByBrandMap[video.brand_id]) {
+            videosByBrandMap[video.brand_id] = {
+              brand_id: video.brand_id,
+              total_ai_video_requests: 0
+            };
+          }
+          videosByBrandMap[video.brand_id].total_ai_video_requests++;
+        }
+      });
+      
+      const videosByBrandArray = Object.values(videosByBrandMap);
+      setAiRequestsByBrand(videosByBrandArray);
+      console.log('📊 Videos by brand:', videosByBrandArray);
+    } else {
+      setTotalAIVideoRequests(0);
+      setAiRequestsByBrand([]);
+    }
+  }, [videos]);
+
+  // Calculate shop stats whenever Redux shopsByBrand changes
+  useEffect(() => {
+    console.log('🔄 Redux shopsByBrand updated:', shopsByBrand);
+    calculateShopStats(shopsByBrand);
+  }, [shopsByBrand]);
+
+  const fetchShopsForBrand = useCallback(async (brandId) => {
+    try {
+      console.log(`🔍 Fetching shops for brand: ${brandId}`);
+      const result = await dispatch(getShopsByBrand(brandId));
+      
+      if (result.payload?.data?.data) {
+        console.log(`✅ Found ${result.payload.data.data.length} shops for brand ${brandId}`);
+        return result.payload.data.data;
+      }
+      return [];
+    } catch (error) {
+      console.error(`❌ Error fetching shops for brand ${brandId}:`, error);
+      return [];
+    }
+  }, [dispatch]);
+
+  const calculateShopStats = useCallback((shopsData) => {
+    let total = 0;
+    let active = 0;
+    
+    if (!shopsData || Object.keys(shopsData).length === 0) {
+      setTotalShops(0);
+      setActiveShops(0);
+      return;
+    }
+    
+    Object.values(shopsData).forEach(shops => {
+      if (Array.isArray(shops)) {
+        total += shops.length;
+        active += shops.filter(shop => shop?.is_active).length;
+      }
+    });
+
+    setTotalShops(total);
+    setActiveShops(active);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -35,57 +115,54 @@ const Overview = () => {
 
   useEffect(() => {
     calculateStats();
-  }, [allOrders, allShops, aiRequestsByBrand, brands]);
+  }, [allOrders, aiRequestsByBrand, brands, shopsByBrand, videos]);
 
   const fetchData = async () => {
     setLoading(true);
+    console.log('🚀 Fetching data...');
     try {
-      // First fetch all brands
+      // ✅ 1. Fetch all brands FIRST
       const brandsResult = await dispatch(getAllBrands());
-      const brandsData = brandsResult.payload?.data || [];
+      const brandsData = brandsResult.payload || brandsResult.data || [];
+      console.log('Brands loaded:', brandsData.length);
       
-      // Fetch shops and AI requests
-      const [shopsResult, totalAIResult, aiByBrandResult] = await Promise.all([
-        dispatch(getAllShops({ include_inactive: true })),
-        dispatch(getTotalAIVideoRequests()),
-        dispatch(getAIVideoRequestsByBrand())
-      ]);
-
-      // Fetch orders for each brand to get all orders
-      if (brandsData.length > 0) {
-        const allOrdersPromises = brandsData.map(brand => 
+      // ✅ 2. Fetch ALL videos - THIS IS THE KEY FIX
+      console.log('🎬 Fetching all videos...');
+      const videosResult = await dispatch(getAllVideos());
+      console.log('Videos API response:', videosResult);
+      
+      // ✅ 3. Fetch shops for each brand
+      if (brandsData && brandsData.length > 0) {
+        console.log('🏪 Fetching shops for each brand...');
+        
+        for (const brand of brandsData) {
+          await fetchShopsForBrand(brand.id);
+        }
+        
+        // ✅ 4. Fetch orders for each brand
+        const ordersPromises = brandsData.map(brand => 
           dispatch(getOrdersByBrand(brand.id))
         );
         
-        const ordersResults = await Promise.all(allOrdersPromises);
+        const ordersResponses = await Promise.all(ordersPromises);
         
-        // Combine all orders from all brands
-        const combinedOrders = ordersResults.reduce((acc, result) => {
-          const orders = result.payload?.data || [];
+        const combinedOrders = ordersResponses.reduce((acc, result) => {
+          const orders = result.payload?.data || result.data || [];
           return [...acc, ...orders];
         }, []);
         
         setAllOrders(combinedOrders);
       }
-
-      // Set AI video requests data
-      if (totalAIResult.payload?.data?.total_ai_video_requests !== undefined) {
-        setTotalAIVideoRequests(totalAIResult.payload.data.total_ai_video_requests);
-      }
       
-      // Set AI requests by brand data
-      if (aiByBrandResult.payload?.data) {
-        setAiRequestsByBrand(aiByBrandResult.payload.data);
-      }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('💥 Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const calculateStats = () => {
-    // Calculate daily orders (last 24 hours)
+    // Calculate daily orders
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -98,9 +175,8 @@ const Overview = () => {
     
     setDailyOrders(todayOrders);
 
-    // Find top brand with most AI video requests
-    if (aiRequestsByBrand.length > 0 && brands.length > 0) {
-      // Sort brands by AI video requests (descending)
+    // Find top brand based on video requests
+    if (aiRequestsByBrand && aiRequestsByBrand.length > 0 && brands && brands.length > 0) {
       const sortedBrands = [...aiRequestsByBrand].sort((a, b) => 
         (b.total_ai_video_requests || 0) - (a.total_ai_video_requests || 0)
       );
@@ -112,20 +188,31 @@ const Overview = () => {
         if (brandInfo) {
           setTopBrand({
             ...brandInfo,
-            aiVideoRequests: topBrandData.total_ai_video_requests || 0
+            aiVideoRequests: topBrandData.total_ai_video_requests || 0,
+            shopCount: shopsByBrand[brandInfo.id]?.length || 0,
+            activeShopCount: shopsByBrand[brandInfo.id]?.filter(shop => shop.is_active).length || 0
           });
         }
       }
     }
   };
 
-  const getTotalVideoRequests = () => {
-    return totalAIVideoRequests || 0;
-  };
+  const getTotalVideoRequests = () => totalAIVideoRequests || 0;
+  const getShopCountForBrand = (brandId) => shopsByBrand[brandId]?.length || 0;
+  const getActiveShopCountForBrand = (brandId) => shopsByBrand[brandId]?.filter(shop => shop.is_active).length || 0;
 
-  const getActiveShopsCount = () => {
-    return allShops?.filter(shop => shop.is_active).length || 0;
-  };
+  // Debug logging
+  useEffect(() => {
+    console.log('📊 Current state:', {
+      totalVideos: videos?.length,
+      totalAIVideoRequests,
+      aiRequestsByBrandCount: aiRequestsByBrand?.length,
+      brandsCount: brands?.length,
+      totalShops,
+      activeShops,
+      dailyOrders
+    });
+  }, [videos, totalAIVideoRequests, aiRequestsByBrand, brands, totalShops, activeShops, dailyOrders]);
 
   if (loading) {
     return (
@@ -154,14 +241,16 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* AI Video Requests Card */}
+        {/* AI Video Requests Card - NOW USING ACTUAL VIDEO DATA */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">AI Video Requests</h3>
               <p className="text-3xl font-bold text-red-600 mt-2">{getTotalVideoRequests()}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {aiRequestsByBrand.length > 0 ? `${aiRequestsByBrand.length} brands with requests` : 'No AI requests yet'}
+                {aiRequestsByBrand && aiRequestsByBrand.length > 0 
+                  ? `${aiRequestsByBrand.length} brands with videos` 
+                  : 'No videos yet'}
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -195,9 +284,9 @@ const Overview = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Active Shops</h3>
-              <p className="text-3xl font-bold text-green-600 mt-2">{getActiveShopsCount()}</p>
+              <p className="text-3xl font-bold text-green-600 mt-2">{activeShops}</p>
               <p className="text-xs text-gray-400 mt-1">
-                Total: {allShops?.length || 0} shops
+                Total: {totalShops} shops across {brands?.length || 0} brands
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -207,6 +296,76 @@ const Overview = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Brand Shops Summary */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Shops by Brand</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {brands && brands.length > 0 ? (
+            brands.slice(0, 6).map(brand => (
+              <div key={brand.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden border bg-gray-100 flex-shrink-0">
+                    {brand.logo_url ? (
+                      <img 
+                        src={brand.logo_url} 
+                        alt={brand.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.src = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-blue-50">
+                        <svg className="w-5 h-5 text-blue-300" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-gray-800 truncate">{brand.name}</h3>
+                    <p className="text-xs text-gray-500 truncate">{brand.email || 'No email'}</p>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-sm text-gray-600">Total Shops:</span>
+                  <span className="font-bold text-primary-blue">{getShopCountForBrand(brand.id)}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm text-gray-600">Active Shops:</span>
+                  <span className="font-bold text-green-600">
+                    {getActiveShopCountForBrand(brand.id)}
+                  </span>
+                </div>
+                <Link 
+                  to={`/super-admin/brands/${brand.id}/shops`}
+                  className="mt-3 text-xs text-blue-600 hover:text-blue-800 flex items-center justify-end"
+                >
+                  View Shops
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-3 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+              <p className="text-gray-500">No brands available</p>
+            </div>
+          )}
+        </div>
+        {brands && brands.length > 6 && (
+          <div className="mt-4 text-center">
+            <Link 
+              to="/super-admin/brands" 
+              className="text-sm text-primary-blue hover:text-blue-700 font-medium"
+            >
+              View all {brands.length} brands →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Top Brand & Quick Actions Section */}
@@ -280,6 +439,32 @@ const Overview = () => {
                 </div>
               </div>
               
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <div className="text-xl font-bold text-blue-600">{topBrand.shopCount || 0}</div>
+                      <div className="text-xs text-blue-500">Total Shops</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-purple-50 p-3 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <div>
+                      <div className="text-xl font-bold text-purple-600">{topBrand.activeShopCount || 0}</div>
+                      <div className="text-xs text-purple-500">Active Shops</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <div className="text-gray-600">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium">Status:</span>
@@ -303,25 +488,20 @@ const Overview = () => {
                 )}
               </div>
             </div>
-          ) : aiRequestsByBrand.length === 0 ? (
+          ) : (
             <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
               <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-gray-500">No AI video request data available</p>
               <p className="text-sm text-gray-400 mt-1">
-                Brands will appear here when they start making AI video requests
+                Upload videos to see brand performance
               </p>
-            </div>
-          ) : (
-            <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue mx-auto mb-3"></div>
-              <p className="text-gray-500">Analyzing brand performance...</p>
             </div>
           )}
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Keep your existing Quick Actions JSX */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
           <div className="space-y-4">
@@ -354,7 +534,7 @@ const Overview = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-medium text-gray-800">Manage Shops</h3>
-                <p className="text-sm text-gray-500">View and manage all shops</p>
+                <p className="text-sm text-gray-500">View and manage all shops by brand</p>
               </div>
               <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -362,17 +542,17 @@ const Overview = () => {
             </Link>
             
             <Link
-              to="/super-admin/analytics"
+              to="/super-admin/videos"
               className="flex items-center p-4 border rounded-lg hover:bg-red-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-red-700 transition-colors">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-gray-800">View AI Analytics</h3>
-                <p className="text-sm text-gray-500">Check AI video performance analytics</p>
+                <h3 className="font-medium text-gray-800">View All Videos</h3>
+                <p className="text-sm text-gray-500">Check all uploaded AI videos</p>
               </div>
               <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -380,7 +560,7 @@ const Overview = () => {
             </Link>
           </div>
 
-          {/* Recent Activity Summary */}
+          {/* System Summary */}
           <div className="mt-6 pt-6 border-t">
             <h3 className="font-medium text-gray-800 mb-3">System Summary</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -389,8 +569,18 @@ const Overview = () => {
                 <div className="text-xl font-bold text-gray-800">{allOrders.length}</div>
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Brands with AI</div>
-                <div className="text-xl font-bold text-gray-800">{aiRequestsByBrand.length}</div>
+                <div className="text-sm text-gray-500">Brands with Videos</div>
+                <div className="text-xl font-bold text-gray-800">{aiRequestsByBrand?.length || 0}</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm text-gray-500">Total Shops</div>
+                <div className="text-xl font-bold text-gray-800">{totalShops}</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm text-gray-500">Avg Shops/Brand</div>
+                <div className="text-xl font-bold text-gray-800">
+                  {brands?.length > 0 ? (totalShops / brands.length).toFixed(1) : 0}
+                </div>
               </div>
             </div>
           </div>

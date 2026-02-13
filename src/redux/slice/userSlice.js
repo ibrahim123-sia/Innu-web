@@ -103,6 +103,14 @@ export const updateFirstTimePassword = createAsyncThunk(
       // Update localStorage if first login completed
       if (response.data.success) {
         localStorage.setItem('is_first_login', 'false');
+        
+        // Update user in localStorage to remove first login flag
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          user.is_first_login = false;
+          localStorage.setItem('user', JSON.stringify(user));
+        }
       }
       
       return response.data;
@@ -312,9 +320,9 @@ export const getUserByEmail = createAsyncThunk(
 
 export const getUsersByShopId = createAsyncThunk(
   'user/getUsersByShopId',
-  async (shopId, { rejectWithValue }) => {
+  async (shop_id, { rejectWithValue }) => {
     try {
-      const response = await API.get(`/users/users/shop/${shopId}`);
+      const response = await API.get(`/users/users/shop/${shop_id}`);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -449,6 +457,7 @@ const getInitialState = () => {
     users: [],
     usersByShop: [],
     usersByRole: {},
+    filteredUsers: [], // Added filteredUsers array
     loading: false,
     error: null,
     success: false,
@@ -486,7 +495,7 @@ const getInitialState = () => {
       district_id: null,
       is_active: true,
       search: '',
-      password_status: '', // New: filter by password status
+      password_status: '',
     },
     
     // Statistics
@@ -556,6 +565,7 @@ const userSlice = createSlice({
         search: '',
         password_status: '',
       };
+      state.filteredUsers = [];
     },
     
     logout: (state) => {
@@ -614,10 +624,10 @@ const userSlice = createSlice({
         if (district_id && user.district_id !== district_id) matches = false;
         if (is_active !== undefined && user.is_active !== is_active) matches = false;
         
-        // Password status filter
+        // FIXED: Password status filter
         if (password_status) {
           if (password_status === 'has_password' && !user.password) matches = false;
-          if (password_status === 'first_login' && (!user.ft_password || user.password)) matches = false;
+          if (password_status === 'first_login' && (!user.ft_password || user.password || user.is_first_login === false)) matches = false;
           if (password_status === 'no_password' && (user.password || user.ft_password)) matches = false;
         }
         
@@ -695,6 +705,14 @@ const userSlice = createSlice({
         }
       }
       
+      // Update in filteredUsers
+      if (state.filteredUsers?.length > 0) {
+        const filteredIndex = state.filteredUsers.findIndex(user => user.id === updatedUser.id);
+        if (filteredIndex !== -1) {
+          state.filteredUsers[filteredIndex] = { ...state.filteredUsers[filteredIndex], ...updatedUser };
+        }
+      }
+      
       // Update current user if it's the one being updated
       if (state.currentUser && state.currentUser.id === updatedUser.id) {
         state.currentUser = { ...state.currentUser, ...updatedUser };
@@ -702,6 +720,7 @@ const userSlice = createSlice({
       }
     },
     
+    // FIXED: Update statistics with proper first login pending calculation
     updateStatistics: (state) => {
       const users = state.users;
       const stats = {
@@ -714,7 +733,12 @@ const userSlice = createSlice({
         passwordStats: {
           with_password: users.filter(user => user.password && !user.ft_password).length,
           with_ft_password: users.filter(user => user.ft_password && !user.password).length,
-          first_login_pending: users.filter(user => user.ft_password && !user.password && user.is_active).length,
+          first_login_pending: users.filter(user => 
+            user.ft_password && 
+            !user.password && 
+            user.is_active &&
+            (user.is_first_login === true || user.is_first_login === undefined)
+          ).length,
         },
       };
       
@@ -726,6 +750,7 @@ const userSlice = createSlice({
             total: 0,
             active: 0,
             inactive: 0,
+            first_login_pending: 0
           };
         }
         stats.byRole[user.role].total++;
@@ -733,6 +758,13 @@ const userSlice = createSlice({
           stats.byRole[user.role].active++;
         } else {
           stats.byRole[user.role].inactive++;
+        }
+        
+        // First login pending by role
+        if (user.ft_password && !user.password && user.is_active && 
+            (user.is_first_login === true || user.is_first_login === undefined)) {
+          stats.byRole[user.role].first_login_pending = 
+            (stats.byRole[user.role].first_login_pending || 0) + 1;
         }
         
         // By shop
@@ -822,7 +854,24 @@ const userSlice = createSlice({
         // Update current user's password status
         if (state.currentUser) {
           state.currentUser.is_first_login = false;
+          // Update localStorage
+          localStorage.setItem('user', JSON.stringify(state.currentUser));
         }
+        
+        // Update the user in the users array
+        if (state.currentUser?.id) {
+          const userIndex = state.users.findIndex(u => u.id === state.currentUser.id);
+          if (userIndex !== -1) {
+            state.users[userIndex] = { 
+              ...state.users[userIndex], 
+              is_first_login: false,
+              password: 'exists', // Just to indicate password is set, actual value not stored in state
+              ft_password: null
+            };
+          }
+        }
+        
+        userSlice.caseReducers.updateStatistics(state);
       })
       .addCase(updateFirstTimePassword.rejected, (state, action) => {
         state.loading = false;
@@ -980,7 +1029,7 @@ const userSlice = createSlice({
       // EXISTING USER MANAGEMENT THUNKS
       // ============================================
       
-      // Create User
+      // FIXED: Create User
       .addCase(createUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -990,7 +1039,18 @@ const userSlice = createSlice({
         state.loading = false;
         state.success = true;
         const newUser = action.payload.data;
-        state.users.unshift(newUser);
+        
+        // Ensure the user object has all necessary fields for ft_password users
+        const enhancedUser = {
+          ...newUser,
+          is_first_login: true,
+          password_type: 'ft_password',
+          // These fields might not come from backend but are needed for UI
+          ft_password: 'exists', // Just a flag, actual password not stored
+          password: null
+        };
+        
+        state.users.unshift(enhancedUser);
         state.message = action.payload.message;
         userSlice.caseReducers.updateStatistics(state);
       })
@@ -1053,6 +1113,10 @@ const userSlice = createSlice({
           state.usersByRole[role] = state.usersByRole[role].filter(user => user.id !== deletedUserId);
         });
         
+        if (state.filteredUsers?.length > 0) {
+          state.filteredUsers = state.filteredUsers.filter(user => user.id !== deletedUserId);
+        }
+        
         state.message = action.payload.message;
         userSlice.caseReducers.updateStatistics(state);
       })
@@ -1068,12 +1132,39 @@ const userSlice = createSlice({
       })
       .addCase(getAllUsers.fulfilled, (state, action) => {
         state.loading = false;
-        state.users = action.payload.data;
+        // Ensure all users have proper flags for password status
+        state.users = action.payload.data.map(user => ({
+          ...user,
+          // Ensure is_first_login is set correctly for ft_password users
+          is_first_login: user.ft_password && !user.password ? true : (user.is_first_login || false)
+        }));
         userSlice.caseReducers.updateStatistics(state);
       })
       .addCase(getAllUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.error || 'Failed to fetch users';
+      })
+      
+      // ============================================
+      // FIXED: GET USERS BY SHOP ID
+      // ============================================
+      .addCase(getUsersByShopId.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getUsersByShopId.fulfilled, (state, action) => {
+        state.loading = false;
+        // Store in both places for compatibility
+        state.users = action.payload.data.map(user => ({
+          ...user,
+          is_first_login: user.ft_password && !user.password ? true : (user.is_first_login || false)
+        }));
+        state.usersByShop = state.users;
+        userSlice.caseReducers.updateStatistics(state);
+      })
+      .addCase(getUsersByShopId.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.error || 'Failed to fetch users by shop';
       })
       
       // Toggle User Active Status
@@ -1095,6 +1186,24 @@ const userSlice = createSlice({
         state.error = action.payload?.error || 'Failed to toggle user status';
       })
       
+      // Get Users By Role
+      .addCase(getUsersByRole.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getUsersByRole.fulfilled, (state, action) => {
+        state.loading = false;
+        const role = action.meta.arg; // Get the role from the thunk argument
+        state.usersByRole[role] = action.payload.data.map(user => ({
+          ...user,
+          is_first_login: user.ft_password && !user.password ? true : (user.is_first_login || false)
+        }));
+      })
+      .addCase(getUsersByRole.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.error || 'Failed to fetch users by role';
+      })
+      
       // Get Users By Brand
       .addCase(getUsersByBrand.pending, (state) => {
         state.loading = true;
@@ -1102,7 +1211,11 @@ const userSlice = createSlice({
       })
       .addCase(getUsersByBrand.fulfilled, (state, action) => {
         state.loading = false;
-        state.users = action.payload.data;
+        state.users = action.payload.data.map(user => ({
+          ...user,
+          is_first_login: user.ft_password && !user.password ? true : (user.is_first_login || false)
+        }));
+        userSlice.caseReducers.updateStatistics(state);
       })
       .addCase(getUsersByBrand.rejected, (state, action) => {
         state.loading = false;
@@ -1116,12 +1229,18 @@ const userSlice = createSlice({
       })
       .addCase(getUsersByDistrict.fulfilled, (state, action) => {
         state.loading = false;
-        state.users = action.payload.data;
+        state.users = action.payload.data.map(user => ({
+          ...user,
+          is_first_login: user.ft_password && !user.password ? true : (user.is_first_login || false)
+        }));
+        userSlice.caseReducers.updateStatistics(state);
       })
       .addCase(getUsersByDistrict.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.error || 'Failed to fetch users by district';
       });
+      
+      // Add other thunk cases as needed...
   },
 });
 
@@ -1155,6 +1274,7 @@ export const {
 // Basic Selectors
 export const selectCurrentUser = (state) => state.user.currentUser;
 export const selectAllUsers = (state) => state.user.users;
+export const selectFilteredUsers = (state) => state.user.filteredUsers || [];
 export const selectUsersByShop = (state) => state.user.usersByShop;
 export const selectUsersByRole = (state) => state.user.usersByRole;
 export const selectUserLoading = (state) => state.user.loading;
@@ -1193,7 +1313,7 @@ export const selectActiveUsers = (state) =>
 export const selectInactiveUsers = (state) => 
   state.user.users.filter(user => !user.is_active);
 
-// Password Status Selectors
+// FIXED: Password Status Selectors
 export const selectUsersWithPassword = (state) =>
   state.user.users.filter(user => user.password && !user.ft_password);
 
@@ -1201,7 +1321,12 @@ export const selectUsersWithFtPassword = (state) =>
   state.user.users.filter(user => user.ft_password && !user.password);
 
 export const selectFirstLoginPendingUsers = (state) =>
-  state.user.users.filter(user => user.ft_password && !user.password && user.is_active);
+  state.user.users.filter(user => 
+    user.ft_password && 
+    !user.password && 
+    user.is_active &&
+    (user.is_first_login === true || user.is_first_login === undefined)
+  );
 
 // Filter Selectors
 export const selectUserById = (userId) => (state) =>
@@ -1213,6 +1338,7 @@ export const selectUsersByRoleName = (role) => (state) =>
 export const selectUsersByBrandId = (brandId) => (state) =>
   state.user.users.filter(user => user.brand_id === brandId);
 
+// FIXED: This selector now uses the state.user.users array which gets populated by getUsersByShopId
 export const selectUsersByShopId = (shopId) => (state) =>
   state.user.users.filter(user => user.shop_id === shopId);
 
@@ -1257,6 +1383,35 @@ export const selectRolesUserCanCreate = (state) => {
   };
   
   return creationHierarchy[currentUserRole] || [];
+};
+
+// FIXED: Check if user is first login
+export const selectIsUserFirstLogin = (userId) => (state) => {
+  const user = state.user.users.find(u => u.id === userId);
+  if (!user) return false;
+  
+  // Check both the flag and the presence of ft_password without regular password
+  return user.is_first_login === true || 
+         (user.ft_password && !user.password && user.is_active) || 
+         false;
+};
+
+// FIXED: Get user password type
+export const selectUserPasswordType = (userId) => (state) => {
+  const user = state.user.users.find(u => u.id === userId);
+  if (!user) return 'none';
+  
+  if (user.password) return 'regular';
+  if (user.ft_password) return 'temporary';
+  return 'none';
+};
+
+// Get brand admins by brand
+export const selectBrandAdmins = (brandId) => (state) => {
+  return state.user.users.filter(user => 
+    user.role === 'brand_admin' && 
+    user.brand_id === brandId
+  );
 };
 
 // OTP Validity Checker

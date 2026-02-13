@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  selectAllUsers,
   getUsersByShopId,
   createUser,
   updateUser,
   toggleUserActiveStatus,
   selectUserLoading,
   selectUserError,
-  selectUserSuccess
+  selectUserSuccess,
+  selectUsersByShopId // ✅ New selector
 } from '../../redux/slice/userSlice';
 import {
-  getShopById, // Changed from getMyShop
-  selectCurrentShop // Changed from selectMyShop
+  getShopById,
+  selectCurrentShop
 } from '../../redux/slice/shopSlice';
 
 // Import SweetAlert for popup notifications
@@ -26,17 +26,25 @@ const Users = () => {
   const shopId = currentUser?.shop_id;
   
   const myShop = useSelector(selectCurrentShop);
-  const shopUsers = useSelector(selectAllUsers) || [];
+  
+  // ✅ Use the correct selector for users by shop
+  const shopUsers = useSelector(state => selectUsersByShopId(shopId)(state)) || [];
+  
   const loading = useSelector(selectUserLoading);
   const error = useSelector(selectUserError);
   const success = useSelector(selectUserSuccess);
   
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // File states
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [profilePicPreview, setProfilePicPreview] = useState(null);
   const [editProfilePicFile, setEditProfilePicFile] = useState(null);
   const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
+  
+  // Form states - role is fixed to 'technician'
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -45,6 +53,7 @@ const Users = () => {
     role: 'technician',
     is_active: true
   });
+  
   const [editFormData, setEditFormData] = useState({
     first_name: '',
     last_name: '',
@@ -57,28 +66,70 @@ const Users = () => {
     original_contact_no: '',
     profile_pic: ''
   });
+  
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
+  const [emailExistsError, setEmailExistsError] = useState('');
+
+  // ============================================
+  // HELPER FUNCTIONS
+  // ============================================
+  
+  // Generate random password (10 characters, strong)
+  const generateRandomPassword = () => {
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const special = '!@#$%^&*';
+    
+    let password = '';
+    password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
+    password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
+    password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    password += special.charAt(Math.floor(Math.random() * special.length));
+    
+    const allChars = uppercase + lowercase + numbers + special;
+    for (let i = 0; i < 6; i++) {
+      password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+    }
+    
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
 
   // Phone formatting function for USA numbers
   const formatPhoneNumber = (value) => {
     if (!value) return value;
-    
-    // Remove all non-digits
     const phoneNumber = value.replace(/[^\d]/g, '');
-    
-    // If starting with 1, keep it as country code
     if (phoneNumber.length === 0) return '';
-    
-    // Format: +1 (XXX) XXX-XXXX
     if (phoneNumber.length <= 1) return `+1${phoneNumber}`;
     if (phoneNumber.length <= 4) return `+1 (${phoneNumber.substring(1, 4)}`;
     if (phoneNumber.length <= 7) return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}`;
-    
     return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
   };
+
+  // Check if email already exists
+  const checkEmailExists = (email) => {
+    if (!email) return false;
+    const exists = shopUsers.some(user => user.email?.toLowerCase() === email.toLowerCase());
+    setEmailExistsError(exists ? 'A user with this email already exists. Please use a different email.' : '');
+    return exists;
+  };
+
+  // Get role display name
+  const getRoleDisplay = (role) => {
+    switch(role) {
+      case 'technician': return 'Technician';
+      case 'shop_manager': return 'Shop Manager';
+      case 'district_manager': return 'District Manager';
+      case 'brand_manager': return 'Brand Manager';
+      default: return role?.replace(/_/g, ' ') || 'Unknown';
+    }
+  };
+
+  // ============================================
+  // EFFECTS
+  // ============================================
 
   // Fetch shop data when component mounts
   useEffect(() => {
@@ -87,15 +138,28 @@ const Users = () => {
     }
   }, [dispatch, shopId]);
 
-  // Fetch users when shop is loaded
+  // ✅ Fetch users for this specific shop
   useEffect(() => {
-    if (myShop?.id) {
-      dispatch(getUsersByShopId(myShop.id));
+    if (shopId) {
+      dispatch(getUsersByShopId(shopId))
+        .unwrap()
+        .catch(error => {
+          console.error('Failed to fetch shop users:', error);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Failed to load technicians. Please try again.',
+            confirmButtonColor: '#d33'
+          });
+        });
     }
-  }, [dispatch, myShop]);
+  }, [dispatch, shopId]);
 
-  // Filter users to only show those belonging to this shop
-  const filteredShopUsers = shopUsers?.filter(user => user.shop_id === myShop?.id) || [];
+  // ✅ Filter users to only show those belonging to this shop (already filtered by selector)
+  // But we can add additional filtering if needed
+  const filteredShopUsers = shopUsers.filter(user => 
+    user.role === 'technician' // Additional role filter for safety
+  );
 
   useEffect(() => {
     if (success) {
@@ -106,13 +170,17 @@ const Users = () => {
         if (showEditModal) setShowEditModal(null);
       }, 2000);
     }
-  }, [success]);
+  }, [success, showCreateForm, showEditModal]);
 
   useEffect(() => {
     if (error) {
       setFormError(error);
     }
   }, [error]);
+
+  // ============================================
+  // HANDLERS
+  // ============================================
 
   const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
@@ -128,31 +196,77 @@ const Users = () => {
     }
   };
 
+  // ============================================
+  // CREATE USER - ONLY TECHNICIAN
+  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
+    setIsSubmitting(true);
 
     if (!myShop) {
       setFormError('Shop information not available');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validate required fields
+    if (!formData.first_name) {
+      setFormError('First name is required');
+      setIsSubmitting(false);
+      return;
+    }
+    
+    if (!formData.last_name) {
+      setFormError('Last name is required');
+      setIsSubmitting(false);
+      return;
+    }
+    
+    if (!formData.email) {
+      setFormError('Email is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Check if email already exists
+    if (checkEmailExists(formData.email)) {
+      setFormError('Email already exists. Please use a different email.');
+      Swal.fire({
+        icon: 'error',
+        title: 'Email Already Exists',
+        text: 'This email is already registered. Please use a different email address.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      setIsSubmitting(false);
       return;
     }
 
     try {
+      // Generate random password for first-time login
+      const randomPassword = generateRandomPassword();
+      
       const userFormData = new FormData();
       userFormData.append('first_name', formData.first_name);
       userFormData.append('last_name', formData.last_name);
       userFormData.append('email', formData.email);
       
-      // Format phone number before saving
       const formattedPhone = formatPhoneNumber(formData.contact_no);
       userFormData.append('contact_no', formattedPhone || '');
       
-      userFormData.append('role', formData.role);
+      // ✅ Always set role to 'technician'
+      userFormData.append('role', 'technician');
       userFormData.append('shop_id', myShop.id);
       userFormData.append('brand_id', myShop.brand_id);
       userFormData.append('district_id', myShop.district_id || null);
       userFormData.append('is_active', formData.is_active);
+      
+      // Add ft_password and password_type
+      userFormData.append('ft_password', randomPassword);
+      userFormData.append('password_type', 'ft_password');
+      userFormData.append('is_first_login', 'true');
       
       if (profilePicFile) {
         userFormData.append('profile_pic', profilePicFile);
@@ -161,47 +275,58 @@ const Users = () => {
       const userResult = await dispatch(createUser(userFormData)).unwrap();
       
       if (userResult.success) {
-        // Show success popup with SweetAlert
         Swal.fire({
           icon: 'success',
-          title: 'User Created Successfully!',
+          title: 'Technician Created Successfully!',
           html: `
             <div style="text-align: left;">
               <p><strong>Name:</strong> ${formData.first_name} ${formData.last_name}</p>
               <p><strong>Email:</strong> ${formData.email}</p>
-              <p><strong>Role:</strong> ${getRoleDisplay(formData.role)}</p>
+              <p><strong>Role:</strong> Technician</p>
               <p><strong>Contact:</strong> ${formData.contact_no || 'Not provided'}</p>
               <br>
-              <p style="color: #4CAF50; font-weight: bold;">
-                A random password has been sent to ${formData.email}
-              </p>
-              <p style="font-size: 14px; color: #666;">
-                The user can use this password for first-time login and will be prompted to create a new password.
+              <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
+                <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
+                <p style="color: #0d47a1; margin: 5px 0 0 0; font-size: 14px;">
+                  A temporary password has been sent to <strong>${formData.email}</strong>
+                </p>
+              </div>
+              <p style="font-size: 14px; color: #666; margin-top: 15px;">
+                The technician will use this password for first-time login and will be prompted to create a new password.
               </p>
             </div>
           `,
           confirmButtonText: 'OK',
           confirmButtonColor: '#4CAF50',
-          width: '500px'
+          width: '550px'
         });
         
         resetForm();
+        // ✅ Refresh the users list for this shop
         dispatch(getUsersByShopId(myShop.id));
+        setTimeout(() => {
+          setShowCreateForm(false);
+        }, 100);
       }
       
     } catch (err) {
-      setFormError(err?.error || 'Failed to create user. Please try again.');
-      // Show error popup
+      console.error('User creation failed:', err);
+      setFormError(err?.error || 'Failed to create technician. Please try again.');
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: err?.error || 'Failed to create user. Please try again.',
+        text: err?.error || 'Failed to create technician. Please try again.',
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // ============================================
+  // EDIT USER - ONLY PROFILE INFO, NOT ROLE
+  // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -209,58 +334,75 @@ const Users = () => {
 
     try {
       const userFormData = new FormData();
+      let hasChanges = false;
       
-      // Update name if changed
       if (editFormData.first_name !== editFormData.original_first_name) {
         userFormData.append('first_name', editFormData.first_name);
+        hasChanges = true;
       }
       if (editFormData.last_name !== editFormData.original_last_name) {
         userFormData.append('last_name', editFormData.last_name);
+        hasChanges = true;
       }
       
-      // Format phone number before updating
       if (editFormData.contact_no !== editFormData.original_contact_no) {
         const formattedPhone = formatPhoneNumber(editFormData.contact_no);
         userFormData.append('contact_no', formattedPhone);
+        hasChanges = true;
       }
       
       if (editProfilePicFile) {
         userFormData.append('profile_pic', editProfilePicFile);
+        hasChanges = true;
       }
 
       // Only update if there are changes
-      if (Array.from(userFormData.entries()).length > 0) {
+      if (hasChanges) {
         await dispatch(updateUser({
           id: showEditModal,
           data: userFormData
         })).unwrap();
+        
+        // ✅ Refresh the users list for this shop
         dispatch(getUsersByShopId(myShop.id));
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Success!',
+          text: 'Technician updated successfully!',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#4CAF50',
+          timer: 2000
+        });
+      } else {
+        Swal.fire({
+          icon: 'info',
+          title: 'No Changes',
+          text: 'No changes were made to the technician profile.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#4CAF50',
+          timer: 2000
+        });
       }
-
-      // Show success popup
-      Swal.fire({
-        icon: 'success',
-        title: 'Success!',
-        text: 'User updated successfully!',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50',
-        timer: 2000
-      });
 
       resetEditForm();
       
     } catch (err) {
-      setFormError(err?.error || 'Failed to update user. Please try again.');
-      // Show error popup
+      console.error('User update failed:', err);
+      setFormError(err?.error || 'Failed to update technician. Please try again.');
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: err?.error || 'Failed to update user. Please try again.',
+        text: err?.error || 'Failed to update technician. Please try again.',
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
     }
   };
+
+  // ============================================
+  // FORM HANDLERS
+  // ============================================
 
   const resetForm = () => {
     setFormData({
@@ -273,6 +415,7 @@ const Users = () => {
     });
     setProfilePicFile(null);
     setProfilePicPreview(null);
+    setEmailExistsError('');
   };
 
   const resetEditForm = () => {
@@ -297,12 +440,17 @@ const Users = () => {
     const { name, value, type, checked } = e.target;
     
     if (name === 'contact_no') {
-      // Format phone number as user types
       const formattedValue = formatPhoneNumber(value);
       setFormData(prev => ({
         ...prev,
         [name]: formattedValue
       }));
+    } else if (name === 'email') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      checkEmailExists(value);
     } else {
       setFormData(prev => ({
         ...prev,
@@ -315,7 +463,6 @@ const Users = () => {
     const { name, value, type, checked } = e.target;
     
     if (name === 'contact_no') {
-      // Format phone number as user types
       const formattedValue = formatPhoneNumber(value);
       setEditFormData(prev => ({
         ...prev,
@@ -353,12 +500,14 @@ const Users = () => {
         userId,
         is_active: !currentStatus
       })).unwrap();
+      
+      // ✅ Refresh the users list for this shop
       dispatch(getUsersByShopId(myShop.id));
       
       Swal.fire({
         icon: 'success',
         title: 'Status Updated',
-        text: `User ${!currentStatus ? 'activated' : 'deactivated'} successfully!`,
+        text: `Technician ${!currentStatus ? 'activated' : 'deactivated'} successfully!`,
         confirmButtonText: 'OK',
         confirmButtonColor: '#4CAF50',
         timer: 2000
@@ -368,12 +517,16 @@ const Users = () => {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Failed to update user status.',
+        text: 'Failed to update technician status.',
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
     }
   };
+
+  // ============================================
+  // FILTERS AND UTILITIES
+  // ============================================
 
   const filteredUsers = filteredShopUsers?.filter(user => {
     let matches = true;
@@ -388,69 +541,64 @@ const Users = () => {
       }
     }
     
-    if (roleFilter !== 'all' && user.role !== roleFilter) {
-      matches = false;
-    }
-    
-    return matches;
+    return matches; // ✅ No role filter needed - already filtered to technicians
   });
-
-  const getRoleDisplay = (role) => {
-    switch(role) {
-      case 'technician': return 'Technician';
-      case 'shop_manager': return 'Shop Manager';
-      case 'supervisor': return 'Supervisor';
-      default: return role?.replace(/_/g, ' ') || 'Unknown';
-    }
-  };
 
   // Get user counts
   const getUserCounts = () => {
-    if (!filteredShopUsers) return { total: 0, active: 0, technicians: 0, supervisors: 0 };
+    if (!filteredShopUsers) return { total: 0, active: 0, technicians: 0 };
     
     return {
       total: filteredShopUsers.length,
       active: filteredShopUsers.filter(u => u.is_active).length,
-      technicians: filteredShopUsers.filter(u => u.role === 'technician').length,
-      supervisors: filteredShopUsers.filter(u => u.role === 'supervisor').length,
+      technicians: filteredShopUsers.length, // All are technicians
     };
   };
 
   const userCounts = getUserCounts();
 
+  // ============================================
+  // RENDER
+  // ============================================
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Shop Users Management</h1>
-        <p className="text-gray-600">Manage users for {myShop?.name || 'your shop'}</p>
-      </div>
-
-      {/* Create User Button and Stats */}
+      {/* Create Technician Button and Stats */}
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-bold text-gray-800">All Users</h2>
+          <h2 className="text-xl font-bold text-gray-800">
+            {myShop?.shop_name || 'Shop'} - Technicians
+          </h2>
           <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-            {userCounts.total} Users
+            {userCounts.total} Technicians
           </span>
         </div>
         
         <div className="flex space-x-2">
+          <span className="text-sm text-gray-600 flex items-center mr-4">
+            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+            {userCounts.active} Active
+          </span>
           <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
+            onClick={() => {
+              setShowCreateForm(!showCreateForm);
+              setFormError('');
+              setEmailExistsError('');
+            }}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            {showCreateForm ? 'Cancel' : 'New User'}
+            {showCreateForm ? 'Cancel' : 'New Technician'}
           </button>
         </div>
       </div>
 
-      {/* Create User Form */}
+      {/* Create Technician Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New User</h2>
+          <h2 className="text-xl font-bold text-blue-600 mb-4">Add New Technician</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -471,11 +619,11 @@ const Users = () => {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Profile Picture</h3>
                   
-                  {/* Add information about auto-generated password */}
+                  {/* Information about auto-generated password */}
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>Note:</strong> A random password will be auto-generated and sent to the user's email.
-                      The user will use this password for first-time login and will be prompted to create a new password.
+                      <strong>Note:</strong> A random password will be auto-generated and sent to the technician's email.
+                      They will use this password for first-time login and will be prompted to create a new password.
                     </p>
                   </div>
                   
@@ -517,21 +665,22 @@ const Users = () => {
                         accept="image/*"
                         onChange={(e) => handleFileChange(e, false)}
                         className="hidden"
+                        name="profile_pic"
                       />
                     </label>
                   </div>
                 </div>
               </div>
 
-              {/* Right Column: User Info */}
+              {/* Right Column: Technician Info */}
               <div className="space-y-6">
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">User Information</h3>
+                  <h3 className="font-semibold text-gray-700">Technician Information</h3>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name *
+                        First Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -546,7 +695,7 @@ const Users = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name *
+                        Last Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -562,17 +711,22 @@ const Users = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email *
+                      Email <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="user@example.com"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="technician@example.com"
                       required
                     />
+                    {emailExistsError && (
+                      <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
+                    )}
                   </div>
 
                   <div>
@@ -586,29 +740,14 @@ const Users = () => {
                       onChange={handleInputChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="+1 (XXX) XXX-XXXX"
-                      pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
-                      title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Format: +1 (XXX) XXX-XXXX
                     </p>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Role *
-                    </label>
-                    <select
-                      name="role"
-                      value={formData.role}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="technician">Technician</option>
-                      <option value="supervisor">Supervisor</option>
-                    </select>
-                  </div>
+                  {/* ✅ Role is fixed to Technician - hidden field */}
+                  <input type="hidden" name="role" value="technician" />
 
                   <label className="flex items-center space-x-2">
                     <input
@@ -627,20 +766,25 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                disabled={!!emailExistsError || isSubmitting}
+                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                  emailExistsError || isSubmitting
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
-                Create User
+                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Add Technician'}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Filters */}
+      {/* Search Filter */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search Users</label>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Search Technicians</label>
             <input
               type="text"
               placeholder="Search by name or email"
@@ -650,45 +794,27 @@ const Users = () => {
             />
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Role Filter</label>
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Roles</option>
-              <option value="technician">Technician</option>
-              <option value="supervisor">Supervisor</option>
-              <option value="shop_manager">Shop Manager</option>
-            </select>
-          </div>
-
           <div className="flex items-end">
             <div className="flex space-x-4 w-full">
-              <div className="text-center">
-                <div className="text-lg font-bold text-blue-600">{userCounts.active}</div>
-                <div className="text-sm text-gray-500">Active</div>
+              <div className="text-center flex-1">
+                <div className="text-2xl font-bold text-blue-600">{userCounts.total}</div>
+                <div className="text-xs text-gray-500">Total</div>
               </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-green-600">{userCounts.technicians}</div>
-                <div className="text-sm text-gray-500">Technicians</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-purple-600">{userCounts.supervisors}</div>
-                <div className="text-sm text-gray-500">Supervisors</div>
+              <div className="text-center flex-1">
+                <div className="text-2xl font-bold text-green-600">{userCounts.active}</div>
+                <div className="text-xs text-gray-500">Active</div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Users Table */}
+      {/* Technicians Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Loading users...</p>
+            <p className="mt-4 text-gray-600">Loading technicians...</p>
           </div>
         ) : filteredUsers && filteredUsers.length > 0 ? (
           <div className="overflow-x-auto">
@@ -696,19 +822,16 @@ const Users = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User Details
+                    Technician Details
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact Information
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
+                    Contact
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
+                    Joined
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -718,6 +841,8 @@ const Users = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.map((user) => {
                   const profilePic = user.profile_pic_url || DEFAULT_PROFILE_PIC;
+                  const isFirstLogin = user.is_first_login || (user.ft_password && !user.password);
+                  
                   return (
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -737,18 +862,19 @@ const Users = () => {
                               {user.first_name} {user.last_name}
                             </div>
                             <div className="text-sm text-gray-500">{user.email}</div>
+                            {isFirstLogin && (
+                              <span className="inline-flex items-center mt-1 text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-1.5"></span>
+                                First login pending
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {user.contact_no || 'No contact number'}
+                        <div className="text-sm text-gray-900">
+                          {user.contact_no || '—'}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {getRoleDisplay(user.role)}
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -760,19 +886,23 @@ const Users = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                        {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        }) : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEdit(user)}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
+                            className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-sm font-medium transition-colors"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleToggleStatus(user.id, user.is_active)}
-                            className={`px-3 py-1 rounded text-sm ${
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                               user.is_active 
                                 ? 'bg-red-100 text-red-700 hover:bg-red-200' 
                                 : 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -790,35 +920,42 @@ const Users = () => {
           </div>
         ) : (
           <div className="py-12 text-center">
-            <img 
-              src={DEFAULT_PROFILE_PIC}
-              alt="No users" 
-              className="w-16 h-16 mx-auto mb-4 opacity-50"
-            />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Users Found</h3>
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Technicians Found</h3>
             <p className="text-gray-500 mb-4">
-              {searchTerm || roleFilter !== 'all' 
-                ? 'Try changing your search filters' 
-                : 'Create your first user to get started'}
+              {searchTerm 
+                ? 'Try adjusting your search' 
+                : 'Add your first technician to get started'}
             </p>
             {!showCreateForm && (
               <button
-                onClick={() => setShowCreateForm(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                onClick={() => {
+                  setShowCreateForm(true);
+                  setFormError('');
+                  setEmailExistsError('');
+                }}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
-                Create First User
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Technician
               </button>
             )}
           </div>
         )}
       </div>
 
-      {/* Edit User Modal */}
+      {/* Edit Technician Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit User</h2>
+              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Technician</h2>
               
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -838,11 +975,10 @@ const Users = () => {
                   <div className="space-y-4">
                     <h3 className="font-semibold text-gray-700">Profile Picture</h3>
                     
-                    {/* Note about password management */}
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Password management is handled by users themselves.
-                        Users can reset their password using the "Forgot Password" feature.
+                        <strong>Note:</strong> Password management is handled by technicians themselves.
+                        They can reset their password using the "Forgot Password" feature.
                       </p>
                     </div>
                     
@@ -884,14 +1020,15 @@ const Users = () => {
                           accept="image/*"
                           onChange={(e) => handleFileChange(e, true)}
                           className="hidden"
+                          name="profile_pic"
                         />
                       </label>
                     </div>
                   </div>
 
-                  {/* User Information */}
+                  {/* Technician Information */}
                   <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-700">User Information</h3>
+                    <h3 className="font-semibold text-gray-700">Technician Information</h3>
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -904,7 +1041,6 @@ const Users = () => {
                           value={editFormData.first_name}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="First name"
                         />
                       </div>
 
@@ -918,7 +1054,6 @@ const Users = () => {
                           value={editFormData.last_name}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Last name"
                         />
                       </div>
                     </div>
@@ -933,16 +1068,10 @@ const Users = () => {
                         value={editFormData.contact_no}
                         onChange={handleEditInputChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="+1 (XXX) XXX-XXXX"
-                        pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
-                        title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Format: +1 (XXX) XXX-XXXX
-                      </p>
                     </div>
 
-                    {/* Email and Role (Read-only) */}
+                    {/* Email (Read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Email
@@ -955,13 +1084,14 @@ const Users = () => {
                       />
                     </div>
 
+                    {/* Role (Read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Role
                       </label>
                       <input
                         type="text"
-                        value={getRoleDisplay(editFormData.role)}
+                        value="Technician"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
                         readOnly
                       />
@@ -992,7 +1122,7 @@ const Users = () => {
                     type="submit"
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
                   >
-                    Update User
+                    Update Technician
                   </button>
                 </div>
               </form>

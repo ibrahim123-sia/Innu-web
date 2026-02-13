@@ -1,3 +1,4 @@
+// src/components/Districts.jsx
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
@@ -6,7 +7,7 @@ import {
   selectDistrictError,
   getDistrictsByBrand,
   createDistrict,
-  updateDistrict // Removed toggleDistrictStatus - using updateDistrict instead
+  updateDistrict
 } from '../../redux/slice/districtSlice';
 import {
   createUser,
@@ -16,7 +17,7 @@ import {
 } from '../../redux/slice/userSlice';
 import {
   getShopsByBrand,
-  selectShopsByBrand
+  selectShopsForBrand  // ✅ Import the correct selector
 } from '../../redux/slice/shopSlice';
 
 // Import SweetAlert for popup notifications
@@ -26,19 +27,31 @@ const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.p
 
 const Districts = () => {
   const dispatch = useDispatch();
-  const user = useSelector(state => state.user.currentUser);
+  const user = useSelector(state => state.user?.currentUser);
   
-  // Correct selectors
+  // Correct selectors with fallbacks
   const districtsByBrand = useSelector(selectDistrictsByBrand) || [];
-  const users = useSelector(selectAllUsers);
+  const users = useSelector(selectAllUsers) || [];
   const loading = useSelector(selectDistrictLoading);
   const error = useSelector(selectDistrictError);
-  const shops = useSelector(selectShopsByBrand) || [];
+  
+  // ✅ Use the correct shop selector - pass the brand_id to get shops array
+  const shops = useSelector(
+    user?.brand_id ? selectShopsForBrand(user.brand_id) : () => []
+  ) || [];
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('Districts from Redux:', districtsByBrand);
+    console.log('Current user:', user);
+    console.log('Shops for brand:', shops);
+  }, [districtsByBrand, user, shops]);
   
   // Modal and form states
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [expandedDistrict, setExpandedDistrict] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // File states for create form
   const [managerProfilePicFile, setManagerProfilePicFile] = useState(null);
@@ -62,6 +75,36 @@ const Districts = () => {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [districtManagers, setDistrictManagers] = useState({});
+  const [emailExistsError, setEmailExistsError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // ============================================
+  // HELPER FUNCTIONS
+  // ============================================
+  
+  // Generate random password (10 characters, strong)
+  const generateRandomPassword = () => {
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const special = '!@#$%^&*';
+    
+    // Ensure at least one of each type
+    let password = '';
+    password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
+    password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
+    password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    password += special.charAt(Math.floor(Math.random() * special.length));
+    
+    // Add 6 more random characters
+    const allChars = uppercase + lowercase + numbers + special;
+    for (let i = 0; i < 6; i++) {
+      password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+    }
+    
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
 
   // Phone formatting function for USA numbers
   const formatPhoneNumber = (value) => {
@@ -81,19 +124,33 @@ const Districts = () => {
     return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
   };
 
+  // Check if email already exists
+  const checkEmailExists = (email) => {
+    if (!email) return false;
+    const exists = users.some(user => user.email?.toLowerCase() === email.toLowerCase());
+    setEmailExistsError(exists ? 'A user with this email already exists. Please use a different email.' : '');
+    return exists;
+  };
+
+  // ============================================
+  // EFFECTS
+  // ============================================
+
   // Fetch districts, users, and shops on component mount
   useEffect(() => {
-    console.log('Districts Component Debug:');
-    console.log('User:', user);
-    console.log('User brand_id:', user?.brand_id);
-    
     if (user?.brand_id) {
-      console.log(`Fetching data for brand: ${user.brand_id}`);
-      dispatch(getDistrictsByBrand(user.brand_id));
+      dispatch(getDistrictsByBrand(user.brand_id))
+        .unwrap()
+        .then((result) => {
+          console.log('Districts fetched successfully:', result);
+          setRefreshKey(prev => prev + 1);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch districts:', err);
+        });
+      
       dispatch(getAllUsers());
       dispatch(getShopsByBrand(user.brand_id));
-    } else {
-      console.error('User has no brand_id!');
     }
   }, [dispatch, user?.brand_id]);
 
@@ -109,14 +166,23 @@ const Districts = () => {
           last_name: user.last_name,
           contact_no: user.contact_no,
           profile_pic_url: user.profile_pic_url,
-          is_active: user.is_active
+          is_active: user.is_active,
+          is_first_login: user.is_first_login,
+          password_type: user.password_type
         };
       }
     });
     setDistrictManagers(managersMap);
   }, [users]);
 
-  // Helper function to get manager profile pic with fallback
+  // ============================================
+  // HELPER FUNCTIONS FOR DATA
+  // ============================================
+
+  const getManagerForDistrict = (districtId) => {
+    return districtManagers[districtId] || null;
+  };
+
   const getManagerProfilePic = (districtId) => {
     const manager = getManagerForDistrict(districtId);
     if (!manager) return DEFAULT_PROFILE_PIC;
@@ -127,18 +193,15 @@ const Districts = () => {
     return DEFAULT_PROFILE_PIC;
   };
 
-  // Get manager for a specific district
-  const getManagerForDistrict = (districtId) => {
-    return districtManagers[districtId] || null;
-  };
-
-  // Get shops for a specific district
   const getShopsForDistrict = (districtId) => {
     if (!shops || !Array.isArray(shops)) return [];
     return shops.filter(shop => shop.district_id === districtId);
   };
 
-  // Handle viewing shops for a district (dropdown toggle)
+  // ============================================
+  // HANDLERS
+  // ============================================
+
   const handleViewShops = (districtId) => {
     if (expandedDistrict === districtId) {
       setExpandedDistrict(null);
@@ -147,7 +210,6 @@ const Districts = () => {
     }
   };
 
-  // Handle file change for profile pictures
   const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
     if (file) {
@@ -165,14 +227,38 @@ const Districts = () => {
     }
   };
 
-  // Create district
+  // ============================================
+  // CREATE DISTRICT
+  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
+    setIsSubmitting(true);
+
+    // Validate required fields
+    if (!formData.name) {
+      setFormError('District name is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Check if email exists when manager is being created
+    if (formData.manager_email && checkEmailExists(formData.manager_email)) {
+      setFormError('Email already exists. Please use a different email for the district manager.');
+      Swal.fire({
+        icon: 'error',
+        title: 'Email Already Exists',
+        text: 'This email is already registered. Please use a different email address for the district manager.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
-      // Create district
+      // Step 1: Create district
       const districtData = {
         ...formData,
         brand_id: user.brand_id
@@ -181,14 +267,16 @@ const Districts = () => {
       const districtResult = await dispatch(createDistrict(districtData)).unwrap();
       
       if (districtResult.success) {
-        // Create district manager user if email is provided
+        // Step 2: Create district manager user if email is provided
         if (formData.manager_email) {
+          // Generate random password for first-time login
+          const randomPassword = generateRandomPassword();
+          
           const userFormData = new FormData();
           userFormData.append('email', formData.manager_email);
           userFormData.append('first_name', formData.manager_first_name);
           userFormData.append('last_name', formData.manager_last_name);
           
-          // Format phone number before saving
           const formattedPhone = formatPhoneNumber(formData.manager_contact);
           userFormData.append('contact_no', formattedPhone || '');
           
@@ -197,6 +285,11 @@ const Districts = () => {
           userFormData.append('district_id', districtResult.data.id);
           userFormData.append('is_active', true);
           
+          // Add ft_password and password_type
+          userFormData.append('ft_password', randomPassword);
+          userFormData.append('password_type', 'ft_password');
+          userFormData.append('is_first_login', 'true');
+          
           if (managerProfilePicFile) {
             userFormData.append('profile_pic', managerProfilePicFile);
           }
@@ -204,7 +297,6 @@ const Districts = () => {
           const userResult = await dispatch(createUser(userFormData)).unwrap();
           
           if (userResult.success) {
-            // Show success popup with SweetAlert
             Swal.fire({
               icon: 'success',
               title: 'District Created Successfully!',
@@ -215,21 +307,23 @@ const Districts = () => {
                   <p><strong>Manager Email:</strong> ${formData.manager_email}</p>
                   <p><strong>Contact:</strong> ${formData.manager_contact || 'Not provided'}</p>
                   <br>
-                  <p style="color: #4CAF50; font-weight: bold;">
-                    A random password has been sent to ${formData.manager_email}
-                  </p>
-                  <p style="font-size: 14px; color: #666;">
-                    The manager can use this password for first-time login and will be prompted to create a new password.
+                  <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
+                    <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
+                    <p style="color: #0d47a1; margin: 5px 0 0 0; font-size: 14px;">
+                      A temporary password has been sent to <strong>${formData.manager_email}</strong>
+                    </p>
+                  </div>
+                  <p style="font-size: 14px; color: #666; margin-top: 15px;">
+                    The manager will use this password for first-time login and will be prompted to create a new password.
                   </p>
                 </div>
               `,
               confirmButtonText: 'OK',
               confirmButtonColor: '#4CAF50',
-              width: '500px'
+              width: '550px'
             });
           }
         } else {
-          // Show success popup without manager
           Swal.fire({
             icon: 'success',
             title: 'District Created Successfully!',
@@ -250,6 +344,7 @@ const Districts = () => {
         }
 
         resetForm();
+        // Refresh data
         dispatch(getDistrictsByBrand(user.brand_id));
         dispatch(getAllUsers());
         setTimeout(() => {
@@ -257,8 +352,8 @@ const Districts = () => {
         }, 100);
       }
     } catch (err) {
+      console.error('District creation failed:', err);
       setFormError(err?.error || 'Failed to create district. Please try again.');
-      // Show error popup
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -266,10 +361,14 @@ const Districts = () => {
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Edit district
+  // ============================================
+  // EDIT DISTRICT
+  // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -286,27 +385,29 @@ const Districts = () => {
       const manager = getManagerForDistrict(showEditModal);
       if (manager) {
         const managerFormData = new FormData();
+        let hasChanges = false;
         
-        // Update name if changed
         if (editFormData.manager_first_name !== editFormData.original_manager_first_name) {
           managerFormData.append('first_name', editFormData.manager_first_name);
+          hasChanges = true;
         }
         if (editFormData.manager_last_name !== editFormData.original_manager_last_name) {
           managerFormData.append('last_name', editFormData.manager_last_name);
+          hasChanges = true;
         }
         
-        // Format phone number before updating
         if (editFormData.manager_contact !== editFormData.original_manager_contact) {
           const formattedPhone = formatPhoneNumber(editFormData.manager_contact);
           managerFormData.append('contact_no', formattedPhone);
+          hasChanges = true;
         }
         
         if (editManagerProfilePicFile) {
           managerFormData.append('profile_pic', editManagerProfilePicFile);
+          hasChanges = true;
         }
 
-        // Only update if there are changes
-        if (Array.from(managerFormData.entries()).length > 0) {
+        if (hasChanges) {
           await dispatch(updateUser({
             id: manager.id,
             data: managerFormData
@@ -315,13 +416,13 @@ const Districts = () => {
         }
       }
 
-      // Show success popup
       Swal.fire({
         icon: 'success',
         title: 'Success!',
         text: 'District updated successfully!',
         confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50'
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
       });
       
       resetEditForm();
@@ -331,8 +432,8 @@ const Districts = () => {
       }, 100);
       
     } catch (err) {
+      console.error('District update failed:', err);
       setFormError(err?.error || 'Failed to update district. Please try again.');
-      // Show error popup
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -343,10 +444,9 @@ const Districts = () => {
     }
   };
 
-  // NEW: Toggle district status using updateDistrict
+  // Toggle district status
   const handleToggleStatus = async (district) => {
     try {
-      // Create update data with toggled status
       const updateData = {
         ...district,
         is_active: !district.is_active
@@ -402,7 +502,10 @@ const Districts = () => {
     setEditManagerProfilePicFile(null);
   };
 
-  // Reset forms
+  // ============================================
+  // FORM HANDLERS
+  // ============================================
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -415,6 +518,7 @@ const Districts = () => {
     });
     setManagerProfilePicFile(null);
     setManagerProfilePicPreview(null);
+    setEmailExistsError('');
   };
 
   const resetEditForm = () => {
@@ -423,17 +527,21 @@ const Districts = () => {
     setEditManagerProfilePicPreview(null);
   };
 
-  // Handle input changes with phone formatting
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
     if (name === 'manager_contact') {
-      // Format phone number as user types
       const formattedValue = formatPhoneNumber(value);
       setFormData(prev => ({
         ...prev,
         [name]: formattedValue
       }));
+    } else if (name === 'manager_email') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      checkEmailExists(value);
     } else {
       setFormData(prev => ({
         ...prev,
@@ -446,7 +554,6 @@ const Districts = () => {
     const { name, value, type, checked } = e.target;
     
     if (name === 'manager_contact') {
-      // Format phone number as user types
       const formattedValue = formatPhoneNumber(value);
       setEditFormData(prev => ({
         ...prev,
@@ -460,11 +567,15 @@ const Districts = () => {
     }
   };
 
-  // Prepare districts for display
-  const displayDistricts = districtsByBrand || [];
+  // ============================================
+  // RENDER
+  // ============================================
+
+  // Ensure districtsByBrand is an array
+  const displayDistricts = Array.isArray(districtsByBrand) ? districtsByBrand : [];
 
   return (
-    <div>
+    <div key={refreshKey}>
       {/* Create District Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
@@ -474,7 +585,11 @@ const Districts = () => {
           </span>
         </div>
         <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
+          onClick={() => {
+            setShowCreateForm(!showCreateForm);
+            setFormError('');
+            setEmailExistsError('');
+          }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -505,11 +620,9 @@ const Districts = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Left Column: District Manager Profile Picture */}
               <div className="space-y-8">
-                {/* District Manager Profile Picture Upload */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">District Manager Profile Picture</h3>
                   
-                  {/* Add information about auto-generated password */}
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
                       <strong>Note:</strong> If you assign a manager, a random password will be auto-generated and sent to their email.
@@ -570,7 +683,7 @@ const Districts = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      District Name *
+                      District Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -652,9 +765,14 @@ const Districts = () => {
                       name="manager_email"
                       value={formData.manager_email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="manager@example.com"
                     />
+                    {emailExistsError && (
+                      <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
+                    )}
                   </div>
 
                   <div>
@@ -682,9 +800,14 @@ const Districts = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                disabled={!!emailExistsError || isSubmitting}
+                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                  emailExistsError || isSubmitting
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
-                Create District
+                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Create District'}
               </button>
             </div>
           </form>
@@ -701,6 +824,12 @@ const Districts = () => {
         ) : error ? (
           <div className="py-12 text-center">
             <p className="text-red-600">{error}</p>
+            <button
+              onClick={() => dispatch(getDistrictsByBrand(user?.brand_id))}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Retry
+            </button>
           </div>
         ) : displayDistricts.length > 0 ? (
           <div className="overflow-x-auto">
@@ -747,7 +876,9 @@ const Districts = () => {
                             </div>
                             <div>
                               <div className="font-medium text-gray-900">{district.name}</div>
-                              <div className="text-xs text-gray-500">ID: {district.id.slice(0, 8)}...</div>
+                              {manager?.is_first_login && (
+                                <span className="text-xs text-orange-600">🔄 First login pending</span>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -970,7 +1101,6 @@ const Districts = () => {
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-700">District Manager Profile Picture</h3>
                       
-                      {/* Note about password management */}
                       <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-sm text-blue-800">
                           <strong>Note:</strong> Password management is handled by users themselves.
@@ -1031,7 +1161,7 @@ const Districts = () => {
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          District Name *
+                          District Name <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"

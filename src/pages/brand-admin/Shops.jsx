@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  getShopsByBrand, // Changed from getBrandShops to getShopsByBrand
-  selectShopsByBrand, // Changed from selectAllShops to selectShopsByBrand
+  getShopsByBrand,
+  selectShopsForBrand,
   selectShopLoading,
   selectShopError,
   createShop,
-  updateShop, // Removed toggleShopStatus - using updateShop instead
-  deleteShop // Add deleteShop if needed
+  updateShop,
+  deleteShop
 } from '../../redux/slice/shopSlice';
 import {
   selectAllDistricts,
+  selectDistrictsByBrand,  // ✅ Add this import
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
 import {
@@ -30,16 +31,19 @@ const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.p
 const Shops = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
+  const brandId = user?.brand_id;
   
   // Correct selectors
-  const shops = useSelector(selectShopsByBrand) || []; // This will get shops filtered by brand
-  const districts = useSelector(selectAllDistricts);
+  const shops = useSelector(selectShopsForBrand(brandId));
+  // ✅ Fix: Use selectDistrictsByBrand to get ONLY districts for current brand
+  const districts = useSelector(selectDistrictsByBrand) || [];  // Changed from selectAllDistricts
   const users = useSelector(selectAllUsers);
   const loading = useSelector(selectShopLoading);
   const error = useSelector(selectShopError);
   
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // File states for create form
   const [managerProfilePicFile, setManagerProfilePicFile] = useState(null);
@@ -70,18 +74,43 @@ const Shops = () => {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [shopManagers, setShopManagers] = useState({});
+  const [emailExistsError, setEmailExistsError] = useState('');
+
+  // ============================================
+  // HELPER FUNCTIONS
+  // ============================================
+  
+  // Generate random password (10 characters, strong)
+  const generateRandomPassword = () => {
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const special = '!@#$%^&*';
+    
+    // Ensure at least one of each type
+    let password = '';
+    password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
+    password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
+    password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    password += special.charAt(Math.floor(Math.random() * special.length));
+    
+    // Add 6 more random characters
+    const allChars = uppercase + lowercase + numbers + special;
+    for (let i = 0; i < 6; i++) {
+      password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+    }
+    
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
 
   // Phone formatting function for USA numbers
   const formatPhoneNumber = (value) => {
     if (!value) return value;
     
-    // Remove all non-digits
     const phoneNumber = value.replace(/[^\d]/g, '');
     
-    // If starting with 1, keep it as country code
     if (phoneNumber.length === 0) return '';
-    
-    // Format: +1 (XXX) XXX-XXXX
     if (phoneNumber.length <= 1) return `+1${phoneNumber}`;
     if (phoneNumber.length <= 4) return `+1 (${phoneNumber.substring(1, 4)}`;
     if (phoneNumber.length <= 7) return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}`;
@@ -89,10 +118,22 @@ const Shops = () => {
     return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
   };
 
+  // Check if email already exists
+  const checkEmailExists = (email) => {
+    if (!email) return false;
+    const exists = users.some(user => user.email.toLowerCase() === email.toLowerCase());
+    setEmailExistsError(exists ? 'A user with this email already exists. Please use a different email.' : '');
+    return exists;
+  };
+
+  // ============================================
+  // EFFECTS
+  // ============================================
+
   useEffect(() => {
     if (user?.brand_id) {
-      dispatch(getShopsByBrand(user.brand_id)); // Changed from getBrandShops
-      dispatch(getDistrictsByBrand(user.brand_id));
+      dispatch(getShopsByBrand(user.brand_id));
+      dispatch(getDistrictsByBrand(user.brand_id));  // ✅ Fetch districts for this brand
       dispatch(getAllUsers());
     }
   }, [dispatch, user?.brand_id]);
@@ -109,12 +150,25 @@ const Shops = () => {
           last_name: user.last_name,
           contact_no: user.contact_no,
           profile_pic_url: user.profile_pic_url,
-          is_active: user.is_active
+          is_active: user.is_active,
+          is_first_login: user.is_first_login,
+          password_type: user.password_type
         };
       }
     });
     setShopManagers(managersMap);
   }, [users]);
+
+  // Debug: Log districts to verify
+  useEffect(() => {
+    console.log('Brand ID:', brandId);
+    console.log('Districts for brand:', districts);
+    console.log('Districts count:', districts?.length);
+  }, [districts, brandId]);
+
+  // ============================================
+  // HELPER FUNCTIONS FOR DATA
+  // ============================================
 
   const getManagerForShop = (shopId) => {
     return shopManagers[shopId] || null;
@@ -129,6 +183,22 @@ const Shops = () => {
     }
     return DEFAULT_PROFILE_PIC;
   };
+
+  const getDistrictName = (districtId) => {
+    if (!districtId) return 'None';
+    // ✅ districts is already filtered by brand from selectDistrictsByBrand
+    const district = districts.find(d => d.id === districtId);
+    return district ? district.name : 'Unknown District';
+  };
+
+  // ✅ No need for this function anymore since districts are already filtered
+  // const getFilteredDistricts = () => {
+  //   return districts.filter(district => district.brand_id === user?.brand_id);
+  // };
+
+  // ============================================
+  // HANDLERS
+  // ============================================
 
   const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
@@ -147,19 +217,44 @@ const Shops = () => {
     }
   };
 
+  // ============================================
+  // CREATE SHOP - WITH FT_PASSWORD
+  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
+    setIsSubmitting(true);
 
-    // Validate Tekmetric Shop ID - Required Field
+    // Validate required fields
+    if (!formData.name) {
+      setFormError('Shop name is required');
+      setIsSubmitting(false);
+      return;
+    }
+
     if (!formData.tekmetric_shop_id || formData.tekmetric_shop_id.trim() === '') {
       setFormError('Tekmetric Shop ID is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Check if email exists when manager is being created
+    if (formData.manager_email && checkEmailExists(formData.manager_email)) {
+      setFormError('Email already exists. Please use a different email for the shop manager.');
+      Swal.fire({
+        icon: 'error',
+        title: 'Email Already Exists',
+        text: 'This email is already registered. Please use a different email address for the shop manager.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      setIsSubmitting(false);
       return;
     }
 
     try {
-      // Create shop
+      // Step 1: Create shop
       const shopData = {
         ...formData,
         brand_id: user.brand_id
@@ -168,14 +263,16 @@ const Shops = () => {
       const shopResult = await dispatch(createShop(shopData)).unwrap();
       
       if (shopResult.success) {
-        // Create shop manager user if email is provided
+        // Step 2: Create shop manager user if email is provided
         if (formData.manager_email) {
+          // Generate random password for first-time login
+          const randomPassword = generateRandomPassword();
+          
           const userFormData = new FormData();
           userFormData.append('email', formData.manager_email);
           userFormData.append('first_name', formData.manager_first_name);
           userFormData.append('last_name', formData.manager_last_name);
           
-          // Format phone number before saving
           const formattedPhone = formatPhoneNumber(formData.manager_contact);
           userFormData.append('contact_no', formattedPhone || '');
           
@@ -185,6 +282,11 @@ const Shops = () => {
           userFormData.append('district_id', formData.district_id || null);
           userFormData.append('is_active', true);
           
+          // Add ft_password and password_type
+          userFormData.append('ft_password', randomPassword);
+          userFormData.append('password_type', 'ft_password');
+          userFormData.append('is_first_login', 'true');
+          
           if (managerProfilePicFile) {
             userFormData.append('profile_pic', managerProfilePicFile);
           }
@@ -192,7 +294,7 @@ const Shops = () => {
           const userResult = await dispatch(createUser(userFormData)).unwrap();
           
           if (userResult.success) {
-            // Show success popup with SweetAlert
+            // Show success popup - WITHOUT showing the password
             Swal.fire({
               icon: 'success',
               title: 'Shop Created Successfully!',
@@ -205,17 +307,20 @@ const Shops = () => {
                   <p><strong>Manager Email:</strong> ${formData.manager_email}</p>
                   <p><strong>Contact:</strong> ${formData.manager_contact || 'Not provided'}</p>
                   <br>
-                  <p style="color: #4CAF50; font-weight: bold;">
-                    A random password has been sent to ${formData.manager_email}
-                  </p>
-                  <p style="font-size: 14px; color: #666;">
-                    The manager can use this password for first-time login and will be prompted to create a new password.
+                  <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
+                    <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
+                    <p style="color: #0d47a1; margin: 5px 0 0 0; font-size: 14px;">
+                      A temporary password has been sent to <strong>${formData.manager_email}</strong>
+                    </p>
+                  </div>
+                  <p style="font-size: 14px; color: #666; margin-top: 15px;">
+                    The manager will use this password for first-time login and will be prompted to create a new password.
                   </p>
                 </div>
               `,
               confirmButtonText: 'OK',
               confirmButtonColor: '#4CAF50',
-              width: '500px'
+              width: '550px'
             });
           }
         } else {
@@ -242,15 +347,15 @@ const Shops = () => {
         }
 
         resetForm();
-        dispatch(getShopsByBrand(user.brand_id)); // Changed from getBrandShops
+        dispatch(getShopsByBrand(user.brand_id));
         dispatch(getAllUsers());
         setTimeout(() => {
           setShowCreateForm(false);
         }, 100);
       }
     } catch (err) {
+      console.error('Shop creation failed:', err);
       setFormError(err?.error || 'Failed to create shop. Please try again.');
-      // Show error popup
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -258,9 +363,14 @@ const Shops = () => {
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // ============================================
+  // EDIT SHOP
+  // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -283,27 +393,29 @@ const Shops = () => {
       const manager = getManagerForShop(showEditModal);
       if (manager) {
         const managerFormData = new FormData();
+        let hasChanges = false;
         
-        // Update name if changed
         if (editFormData.manager_first_name !== editFormData.original_manager_first_name) {
           managerFormData.append('first_name', editFormData.manager_first_name);
+          hasChanges = true;
         }
         if (editFormData.manager_last_name !== editFormData.original_manager_last_name) {
           managerFormData.append('last_name', editFormData.manager_last_name);
+          hasChanges = true;
         }
         
-        // Format phone number before updating
         if (editFormData.manager_contact !== editFormData.original_manager_contact) {
           const formattedPhone = formatPhoneNumber(editFormData.manager_contact);
           managerFormData.append('contact_no', formattedPhone);
+          hasChanges = true;
         }
         
         if (editManagerProfilePicFile) {
           managerFormData.append('profile_pic', editManagerProfilePicFile);
+          hasChanges = true;
         }
 
-        // Only update if there are changes
-        if (Array.from(managerFormData.entries()).length > 0) {
+        if (hasChanges) {
           await dispatch(updateUser({
             id: manager.id,
             data: managerFormData
@@ -312,24 +424,24 @@ const Shops = () => {
         }
       }
 
-      // Show success popup
       Swal.fire({
         icon: 'success',
         title: 'Success!',
         text: 'Shop updated successfully!',
         confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50'
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
       });
       
       resetEditForm();
-      dispatch(getShopsByBrand(user.brand_id)); // Changed from getBrandShops
+      dispatch(getShopsByBrand(user.brand_id));
       setTimeout(() => {
         setShowEditModal(null);
       }, 100);
       
     } catch (err) {
+      console.error('Shop update failed:', err);
       setFormError(err?.error || 'Failed to update shop. Please try again.');
-      // Show error popup
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -340,10 +452,9 @@ const Shops = () => {
     }
   };
 
-  // NEW: Handle toggle status using updateShop
+  // Toggle shop status
   const handleToggleStatus = async (shop) => {
     try {
-      // Create update data with toggled status
       const updateData = {
         ...shop,
         is_active: !shop.is_active
@@ -376,6 +487,10 @@ const Shops = () => {
     }
   };
 
+  // ============================================
+  // FORM HANDLERS
+  // ============================================
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -395,6 +510,7 @@ const Shops = () => {
     });
     setManagerProfilePicFile(null);
     setManagerProfilePicPreview(null);
+    setEmailExistsError('');
   };
 
   const resetEditForm = () => {
@@ -406,13 +522,18 @@ const Shops = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    // Format phone numbers
     if (name === 'phone' || name === 'manager_contact') {
       const formattedValue = formatPhoneNumber(value);
       setFormData(prev => ({
         ...prev,
         [name]: formattedValue
       }));
+    } else if (name === 'manager_email') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      checkEmailExists(value);
     } else {
       setFormData(prev => ({
         ...prev,
@@ -424,7 +545,6 @@ const Shops = () => {
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    // Format phone numbers
     if (name === 'phone' || name === 'manager_contact') {
       const formattedValue = formatPhoneNumber(value);
       setEditFormData(prev => ({
@@ -468,26 +588,9 @@ const Shops = () => {
     setEditManagerProfilePicFile(null);
   };
 
-  const getDistrictName = (districtId) => {
-    if (!districtId) return 'None';
-    const district = districts.find(d => d.id === districtId);
-    return district ? district.name : 'Unknown District';
-  };
-
-  // Filter districts to only show those from the current brand
-  const getFilteredDistricts = () => {
-    return districts.filter(district => district.brand_id === user?.brand_id);
-  };
-
-  // Fix color classes for Tailwind
-  const colorClasses = {
-    primaryBlue: 'blue-600',
-    primaryBlueHover: 'blue-700',
-    primaryBlueBg: 'blue-100',
-    primaryRed: 'red-600',
-    primaryRedHover: 'red-700',
-    primaryRedBg: 'red-100'
-  };
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <div>
@@ -500,7 +603,11 @@ const Shops = () => {
           </span>
         </div>
         <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
+          onClick={() => {
+            setShowCreateForm(!showCreateForm);
+            setFormError('');
+            setEmailExistsError('');
+          }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -534,7 +641,7 @@ const Shops = () => {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Shop Manager Profile Picture</h3>
                   
-                  {/* Add information about auto-generated password */}
+                  {/* Information about auto-generated password */}
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
                       <strong>Note:</strong> If you assign a manager, a random password will be auto-generated and sent to their email.
@@ -589,14 +696,14 @@ const Shops = () => {
 
               {/* Right Column: Shop & Manager Info */}
               <div className="space-y-6">
-                {/* Shop Information */}
+                {/* Shop Information - ALL FIELDS REQUIRED EXCEPT ADDRESS DETAILS */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Shop Information</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Shop Name *
+                        Shop Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -620,14 +727,15 @@ const Shops = () => {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">None (Shop without district)</option>
-                        {getFilteredDistricts().map(district => (
+                        {/* ✅ districts is already filtered by brand from selectDistrictsByBrand */}
+                        {districts.map(district => (
                           <option key={district.id} value={district.id}>
                             {district.name}
                           </option>
                         ))}
                       </select>
                       <p className="text-xs text-gray-500 mt-1">
-                        Select "None" to create a shop without a district
+                        District is optional for shops
                       </p>
                     </div>
                   </div>
@@ -755,7 +863,7 @@ const Shops = () => {
                   </label>
                 </div>
 
-                {/* Shop Manager Information */}
+                {/* Shop Manager Information - ALL FIELDS REQUIRED IF MANAGER EMAIL IS PROVIDED */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Shop Manager (Optional)</h3>
                   
@@ -799,9 +907,14 @@ const Shops = () => {
                         name="manager_email"
                         value={formData.manager_email}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="manager@example.com"
                       />
+                      {emailExistsError && (
+                        <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
+                      )}
                     </div>
 
                     <div>
@@ -830,9 +943,14 @@ const Shops = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                disabled={!!emailExistsError || isSubmitting}
+                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                  emailExistsError || isSubmitting
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
-                Create Shop
+                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Create Shop'}
               </button>
             </div>
           </form>
@@ -898,6 +1016,9 @@ const Shops = () => {
                             </div>
                             {shop.phone && (
                               <div className="text-xs text-gray-400">{shop.phone}</div>
+                            )}
+                            {manager?.is_first_login && (
+                              <span className="text-xs text-orange-600">🔄 First login pending</span>
                             )}
                           </div>
                         </div>
@@ -1078,7 +1199,7 @@ const Shops = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Shop Name *
+                            Shop Name <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
@@ -1102,14 +1223,15 @@ const Shops = () => {
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             <option value="">None (Shop without district)</option>
-                            {getFilteredDistricts().map(district => (
+                            {/* ✅ districts is already filtered by brand from selectDistrictsByBrand */}
+                            {districts.map(district => (
                               <option key={district.id} value={district.id}>
                                 {district.name}
                               </option>
                             ))}
                           </select>
                           <p className="text-xs text-gray-500 mt-1">
-                            Select "None" to remove district assignment
+                            District is optional for shops
                           </p>
                         </div>
                       </div>

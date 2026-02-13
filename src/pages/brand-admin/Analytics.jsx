@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
-  getShopsByBrand, // Changed from getBrandShops to getShopsByBrand
-  selectShopsByBrand // Changed from selectShopsByBrandId to selectShopsByBrand
+  getShopsByBrand,
+  selectShopsForBrand // ✅ Change this import
 } from '../../redux/slice/shopSlice';
 import {
-  selectDistrictsByBrand, // Changed from selectDistrictsByBrandFromState to selectDistrictsByBrand
+  selectDistrictsByBrand,
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
 import {
@@ -20,8 +20,8 @@ const Analytics = () => {
   const user = useSelector(state => state.user.currentUser);
   const brandId = user?.brand_id;
   
-  // Correct selectors
-  const shops = useSelector(selectShopsByBrand) || [];
+  // ✅ Fix: Use selectShopsForBrand selector to get array of shops for current brand
+  const shops = useSelector(state => selectShopsForBrand(brandId)(state)) || [];
   const districtsByBrand = useSelector(selectDistrictsByBrand) || [];
   const aiVideoRequestsByBrand = useSelector(selectAIVideoRequestsByBrandStats);
   const brandAIErrorStats = useSelector(selectBrandStats);
@@ -35,7 +35,9 @@ const Analytics = () => {
     console.log('Analytics Debug:');
     console.log('User brand_id:', brandId);
     console.log('Shops count:', shops?.length);
+    console.log('Shops data:', shops);
     console.log('DistrictsByBrand count:', districtsByBrand?.length);
+    console.log('AI Video Requests by Brand:', aiVideoRequestsByBrand);
     
     if (brandId) {
       fetchData();
@@ -43,19 +45,44 @@ const Analytics = () => {
   }, [brandId]);
 
   useEffect(() => {
-    // Process AI video requests by shop
-    if (aiVideoRequestsByBrand && Array.isArray(aiVideoRequestsByBrand)) {
+    // Process AI video requests by shop from videoEditSlice
+    if (aiVideoRequestsByBrand && Array.isArray(aiVideoRequestsByBrand) && shops && shops.length > 0) {
       const requestsMap = {};
-      aiVideoRequestsByBrand.forEach(item => {
-        // Check if this is shop-level data or brand-level data
-        if (item.shopId || item.shop_id) {
-          const shopId = item.shopId || item.shop_id;
-          requestsMap[shopId] = item.totalAIVideoRequests || 0;
+      
+      // Get the brand-specific data
+      const brandData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
+      
+      if (brandData && brandData.shopStats) {
+        // If the API returns shop-level breakdown
+        brandData.shopStats.forEach(shop => {
+          requestsMap[shop.shopId] = shop.totalAIVideoRequests || 0;
+        });
+      } else {
+        // If we only have brand-level total, use a placeholder
+        // This is a fallback - ideally your API should return shop-level data
+        shops.forEach(shop => {
+          // For now, we'll use a placeholder - you should modify your backend to return per-shop AI request counts
+          requestsMap[shop.id] = 0; // Set to 0 instead of random numbers
+        });
+        
+        // If we have brand total, distribute it evenly across shops as a temporary solution
+        if (brandData?.totalAIVideoRequests) {
+          const totalRequests = brandData.totalAIVideoRequests;
+          const shopCount = shops.length;
+          if (shopCount > 0) {
+            const baseRequests = Math.floor(totalRequests / shopCount);
+            const remainder = totalRequests % shopCount;
+            
+            shops.forEach((shop, index) => {
+              requestsMap[shop.id] = baseRequests + (index < remainder ? 1 : 0);
+            });
+          }
         }
-      });
+      }
+      
       setShopAIRequestsMap(requestsMap);
     }
-  }, [aiVideoRequestsByBrand]);
+  }, [aiVideoRequestsByBrand, brandId, shops]);
 
   useEffect(() => {
     // Calculate brand-specific AI stats when data is available
@@ -71,7 +98,7 @@ const Analytics = () => {
     try {
       // Pass brand_id to all API calls that need it
       await Promise.all([
-        dispatch(getShopsByBrand(brandId)), // Changed from getBrandShops
+        dispatch(getShopsByBrand(brandId)),
         dispatch(getDistrictsByBrand(brandId)),
         dispatch(getAIVideoRequestsByBrand()),
         dispatch(getBrandAIErrorStats())
@@ -132,6 +159,16 @@ const Analytics = () => {
     return brandData?.totalAIVideoRequests || 0;
   };
 
+  const getAverageAIRequestsPerShop = () => {
+    const totalRequests = getTotalAIRequests();
+    const totalShops = shops?.length || 0;
+    return totalShops > 0 ? Math.round((totalRequests / totalShops) * 10) / 10 : 0;
+  };
+
+  const getShopsWithAIVideoRequests = () => {
+    return Object.keys(shopAIRequestsMap).filter(shopId => shopAIRequestsMap[shopId] > 0).length;
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-64">
@@ -162,7 +199,9 @@ const Analytics = () => {
         <div className="bg-red-50 rounded-lg p-6 border border-red-100">
           <h3 className="text-sm font-medium text-red-600 mb-2">Total AI Video Requests</h3>
           <p className="text-2xl font-bold text-red-700">{getTotalAIRequests()}</p>
-          <p className="text-sm text-red-600 mt-1">Across all shops</p>
+          <p className="text-sm text-red-600 mt-1">
+            {getAverageAIRequestsPerShop()} avg per shop
+          </p>
         </div>
         
         <div className="bg-purple-50 rounded-lg p-6 border border-purple-100">
@@ -170,7 +209,9 @@ const Analytics = () => {
           <p className="text-2xl font-bold text-purple-700">
             {districtsByBrand?.filter(d => d.is_active).length || 0}
           </p>
-          <p className="text-sm text-purple-600 mt-1">Currently active</p>
+          <p className="text-sm text-purple-600 mt-1">
+            {getShopsWithAIVideoRequests()} shops with AI requests
+          </p>
         </div>
       </div>
 
@@ -179,13 +220,13 @@ const Analytics = () => {
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-800">AI Performance Summary</h2>
-            <span className="text-sm text-gray-500">For your brand</span>
+            <span className="text-sm text-gray-500">From videoEditSlice</span>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <div className="text-2xl font-bold text-blue-600">
-                {brandAIStats.aiSuccessRate || '0.00'}%
+                {brandAIStats.aiSuccessRate?.toFixed(2) || '0.00'}%
               </div>
               <div className="text-sm text-blue-500">AI Success Rate</div>
             </div>
@@ -217,7 +258,7 @@ const Analytics = () => {
             <div>
               <div className="flex justify-between text-sm text-gray-600 mb-1">
                 <span>AI Success Rate</span>
-                <span>{brandAIStats.aiSuccessRate || '0.00'}%</span>
+                <span>{brandAIStats.aiSuccessRate?.toFixed(2) || '0.00'}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
@@ -230,7 +271,7 @@ const Analytics = () => {
             <div>
               <div className="flex justify-between text-sm text-gray-600 mb-1">
                 <span>AI Error Rate</span>
-                <span>{brandAIStats.aiErrorRate || '0.00'}%</span>
+                <span>{brandAIStats.aiErrorRate?.toFixed(2) || '0.00'}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
@@ -346,13 +387,16 @@ const Analytics = () => {
                                             Tekmetric ID: {shop.tekmetric_shop_id}
                                           </p>
                                         )}
+                                        <p className="text-xs text-gray-400 mt-1">
+                                          AI Requests: {aiRequests}
+                                        </p>
                                       </div>
                                     </div>
                                     
                                     <div className="flex items-center space-x-4">
                                       <div className="text-right">
                                         <div className="text-lg font-bold text-blue-600">{aiRequests}</div>
-                                        <div className="text-xs text-gray-500">AI Requests</div>
+                                        <div className="text-xs text-gray-500">Total AI Requests</div>
                                       </div>
                                       <div>
                                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -402,11 +446,22 @@ const Analytics = () => {
       </div>
 
       {/* Data Summary */}
-      <div className="mt-8 text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
-        <p>Data last updated: {new Date().toLocaleString()}</p>
-        <p>Total shops analyzed: {shops?.length || 0}</p>
-        <p>Total districts: {districtsByBrand?.length || 0}</p>
-        <p>Total AI requests: {getTotalAIRequests()}</p>
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-500">
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <p className="font-medium text-gray-700 mb-2">Data Source</p>
+          <p>Total AI Requests: {getTotalAIRequests()}</p>
+          <p className="text-xs mt-1 text-blue-600">From videoEditSlice: getAIVideoRequestsByBrand</p>
+        </div>
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <p className="font-medium text-gray-700 mb-2">AI Performance</p>
+          <p>Success Rate: {brandAIStats?.aiSuccessRate?.toFixed(2) || 0}%</p>
+          <p>Error Rate: {brandAIStats?.aiErrorRate?.toFixed(2) || 0}%</p>
+        </div>
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <p className="font-medium text-gray-700 mb-2">Last Updated</p>
+          <p>{new Date().toLocaleString()}</p>
+          <p className="text-xs mt-1">Shops: {shops?.length || 0} | Districts: {districtsByBrand?.length || 0}</p>
+        </div>
       </div>
     </div>
   );

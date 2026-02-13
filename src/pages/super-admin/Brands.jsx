@@ -6,7 +6,7 @@ import {
   selectBrandError,
   getAllBrands,
   createBrand,
-  updateBrand  // Changed from toggleBrandStatus to updateBrand
+  updateBrand
 } from '../../redux/slice/brandSlice';
 import { 
   createUser,
@@ -20,8 +20,8 @@ import BrandDetailModal from '../../components/super-admin/BrandDetailModal';
 import Swal from 'sweetalert2';
 
 // Default images
-const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png'; // Building icon
-const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png'; // User icon
+const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 const Brands = () => {
   const dispatch = useDispatch();
@@ -61,6 +61,15 @@ const Brands = () => {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [brandAdmins, setBrandAdmins] = useState({});
+  const [emailExistsError, setEmailExistsError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState({
+    name: false,
+    admin_email: false,
+    admin_first_name: false,
+    admin_last_name: false,
+    admin_contact: false
+  });
 
   useEffect(() => {
     dispatch(getAllBrands());
@@ -79,7 +88,9 @@ const Brands = () => {
           last_name: user.last_name,
           contact_no: user.contact_no,
           profile_pic_url: user.profile_pic_url,
-          is_active: user.is_active
+          is_active: user.is_active,
+          is_first_login: user.is_first_login,
+          password_type: user.password_type
         };
       }
     });
@@ -109,18 +120,22 @@ const Brands = () => {
   const formatPhoneNumber = (value) => {
     if (!value) return value;
     
-    // Remove all non-digits
     const phoneNumber = value.replace(/[^\d]/g, '');
     
-    // If starting with 1, keep it as country code
     if (phoneNumber.length === 0) return '';
-    
-    // Format: +1 (XXX) XXX-XXXX
     if (phoneNumber.length <= 1) return `+1${phoneNumber}`;
     if (phoneNumber.length <= 4) return `+1 (${phoneNumber.substring(1, 4)}`;
     if (phoneNumber.length <= 7) return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}`;
     
     return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
+  };
+
+  // Check if email already exists
+  const checkEmailExists = (email) => {
+    if (!email) return false;
+    const exists = users.some(user => user.email.toLowerCase() === email.toLowerCase());
+    setEmailExistsError(exists ? 'A user with this email already exists. Please use a different email.' : '');
+    return exists;
   };
 
   const handleFileChange = (e) => {
@@ -138,13 +153,89 @@ const Brands = () => {
     }
   };
 
+  // Generate random password (10 characters, strong)
+  const generateRandomPassword = () => {
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const special = '!@#$%^&*';
+    
+    // Ensure at least one of each type
+    let password = '';
+    password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
+    password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
+    password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    password += special.charAt(Math.floor(Math.random() * special.length));
+    
+    // Add 6 more random characters
+    const allChars = uppercase + lowercase + numbers + special;
+    for (let i = 0; i < 6; i++) {
+      password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+    }
+    
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
+
+  // Validate form fields
+  const validateForm = () => {
+    const errors = {
+      name: !formData.name.trim(),
+      admin_email: !formData.admin_email.trim(),
+      admin_first_name: !formData.admin_first_name.trim(),
+      admin_last_name: !formData.admin_last_name.trim(),
+      admin_contact: !formData.admin_contact.trim()
+    };
+    
+    setFormErrors(errors);
+    
+    // Check if any field is empty
+    const hasErrors = Object.values(errors).some(error => error === true);
+    
+    if (hasErrors) {
+      setFormError('Please fill in all required fields');
+      Swal.fire({
+        icon: 'error',
+        title: 'Required Fields Missing',
+        text: 'Please fill in all required fields (Brand Name, Admin Email, First Name, Last Name, and Contact Number)',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
+    
+    // Validate all required fields
+    if (!validateForm()) {
+      setIsSubmitting(false);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    // Check if email already exists before proceeding
+    if (checkEmailExists(formData.admin_email)) {
+      setFormError('Email already exists. Please use a different email for the brand admin.');
+      Swal.fire({
+        icon: 'error',
+        title: 'Email Already Exists',
+        text: 'This email is already registered. Please use a different email address for the brand admin.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
-      // Create brand
+      // Step 1: Create brand
       const brandFormData = new FormData();
       brandFormData.append('name', formData.name);
       brandFormData.append('is_active', formData.is_active);
@@ -156,19 +247,26 @@ const Brands = () => {
       const brandResult = await dispatch(createBrand(brandFormData)).unwrap();
       
       if (brandResult.success) {
-        // Create brand admin user WITHOUT password field
+        // Generate random password for first-time login
+        const randomPassword = generateRandomPassword();
+        
+        // Step 2: Create brand admin user with ft_password
         const userFormData = new FormData();
         userFormData.append('email', formData.admin_email);
         userFormData.append('first_name', formData.admin_first_name);
         userFormData.append('last_name', formData.admin_last_name);
         
-        // Format phone number before saving
         const formattedPhone = formatPhoneNumber(formData.admin_contact);
         userFormData.append('contact_no', formattedPhone || '');
         
         userFormData.append('role', 'brand_admin');
         userFormData.append('brand_id', brandResult.data.id);
         userFormData.append('is_active', true);
+        
+        // Add ft_password and password_type
+        userFormData.append('ft_password', randomPassword);
+        userFormData.append('password_type', 'ft_password');
+        userFormData.append('is_first_login', 'true');
         
         if (adminProfilePicFile) {
           userFormData.append('profile_pic', adminProfilePicFile);
@@ -177,7 +275,7 @@ const Brands = () => {
         const userResult = await dispatch(createUser(userFormData)).unwrap();
         
         if (userResult.success) {
-          // Show success popup with SweetAlert
+          // Success popup WITHOUT displaying password
           Swal.fire({
             icon: 'success',
             title: 'Brand Created Successfully!',
@@ -186,19 +284,18 @@ const Brands = () => {
                 <p><strong>Brand:</strong> ${formData.name}</p>
                 <p><strong>Brand Admin:</strong> ${formData.admin_first_name} ${formData.admin_last_name}</p>
                 <p><strong>Admin Email:</strong> ${formData.admin_email}</p>
+                <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #2196F3;">
+                  <p style="margin: 0; font-weight: bold;">📧 Welcome Email Sent</p>
+                  <p style="margin: 5px 0 0 0; color: #555;">
+                    An email with instructions to set up their password has been sent to ${formData.admin_email}
+                  </p>
+                </div>
                 <p><strong>Contact:</strong> ${formData.admin_contact || 'Not provided'}</p>
-                <br>
-                <p style="color: #4CAF50; font-weight: bold;">
-                  A random password has been sent to ${formData.admin_email}
-                </p>
-                <p style="font-size: 14px; color: #666;">
-                  The admin can use this password for first-time login and will be prompted to create a new password.
-                </p>
               </div>
             `,
             confirmButtonText: 'OK',
             confirmButtonColor: '#4CAF50',
-            width: '500px'
+            width: '550px'
           });
           
           resetForm();
@@ -210,8 +307,8 @@ const Brands = () => {
         }
       }
     } catch (err) {
+      console.error('Brand creation failed:', err);
       setFormError(err?.error || 'Failed to create brand. Please try again.');
-      // Show error popup
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -219,13 +316,36 @@ const Brands = () => {
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  // Validate edit form fields
+  const validateEditForm = () => {
+    if (!editFormData.name.trim()) {
+      setFormError('Brand name is required');
+      Swal.fire({
+        icon: 'error',
+        title: 'Required Field Missing',
+        text: 'Brand name is required',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+    return true;
   };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
+    
+    // Validate required fields
+    if (!validateEditForm()) {
+      return;
+    }
 
     try {
       // Update brand
@@ -244,31 +364,32 @@ const Brands = () => {
         data: brandFormData
       })).unwrap();
 
-      // Update brand admin user (NO PASSWORD HANDLING)
+      // Update brand admin if there are changes
       if (editFormData.admin_id) {
         const adminFormData = new FormData();
+        let hasChanges = false;
         
-        // Update name if changed
         if (editFormData.admin_first_name !== editFormData.original_admin_first_name) {
           adminFormData.append('first_name', editFormData.admin_first_name);
+          hasChanges = true;
         }
         if (editFormData.admin_last_name !== editFormData.original_admin_last_name) {
           adminFormData.append('last_name', editFormData.admin_last_name);
+          hasChanges = true;
         }
         
-        // Format phone number before updating
         if (editFormData.admin_contact !== editFormData.original_admin_contact) {
           const formattedPhone = formatPhoneNumber(editFormData.admin_contact);
           adminFormData.append('contact_no', formattedPhone);
+          hasChanges = true;
         }
         
-        // NO PASSWORD FIELD - Users manage their own passwords
         if (adminProfilePicFile) {
           adminFormData.append('profile_pic', adminProfilePicFile);
+          hasChanges = true;
         }
 
-        // Only update if there are changes
-        if (Array.from(adminFormData.entries()).length > 0) {
+        if (hasChanges) {
           await dispatch(updateUser({
             id: editFormData.admin_id,
             data: adminFormData
@@ -277,13 +398,13 @@ const Brands = () => {
         }
       }
 
-      // Show success popup
       Swal.fire({
         icon: 'success',
         title: 'Success!',
         text: 'Brand and admin updated successfully!',
         confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50'
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
       });
       
       resetEditForm();
@@ -294,7 +415,6 @@ const Brands = () => {
       
     } catch (err) {
       setFormError(err?.error || 'Failed to update brand. Please try again.');
-      // Show error popup
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -314,10 +434,18 @@ const Brands = () => {
       admin_contact: '',
       is_active: true
     });
+    setFormErrors({
+      name: false,
+      admin_email: false,
+      admin_first_name: false,
+      admin_last_name: false,
+      admin_contact: false
+    });
     setLogoFile(null);
     setLogoPreview(null);
     setAdminProfilePicFile(null);
     setAdminProfilePicPreview(null);
+    setEmailExistsError('');
   };
 
   const resetEditForm = () => {
@@ -344,12 +472,29 @@ const Brands = () => {
     const { name, value, type, checked } = e.target;
     
     if (name === 'admin_contact') {
-      // Format phone number as user types
       const formattedValue = formatPhoneNumber(value);
       setFormData(prev => ({
         ...prev,
         [name]: formattedValue
       }));
+      // Clear error for this field
+      setFormErrors(prev => ({ ...prev, [name]: false }));
+    } else if (name === 'admin_email') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      // Clear error for this field
+      setFormErrors(prev => ({ ...prev, [name]: false }));
+      // Check email as user types
+      checkEmailExists(value);
+    } else if (name === 'name' || name === 'admin_first_name' || name === 'admin_last_name') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      // Clear error for this field
+      setFormErrors(prev => ({ ...prev, [name]: false }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -362,7 +507,6 @@ const Brands = () => {
     const { name, value, type, checked } = e.target;
     
     if (name === 'admin_contact') {
-      // Format phone number as user types
       const formattedValue = formatPhoneNumber(value);
       setEditFormData(prev => ({
         ...prev,
@@ -381,7 +525,6 @@ const Brands = () => {
   };
 
   const handleEdit = (brand) => {
-    // Find brand admin user
     const brandAdmin = brandAdmins[brand.id] || {};
     const brandLogo = getBrandLogo(brand);
     const adminProfilePic = getAdminProfilePic(brand.id);
@@ -407,14 +550,25 @@ const Brands = () => {
     setAdminProfilePicFile(null);
   };
 
-  // NEW: Handle toggle status using updateBrand
   const handleToggleStatus = async (brand) => {
+    // Check if brand has an admin
+    const admin = brandAdmins[brand.id];
+    if (!admin) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Admin Assigned',
+        text: 'This brand does not have an admin assigned. Please assign an admin first.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#FFA500'
+      });
+      return;
+    }
+
     try {
       const brandFormData = new FormData();
       brandFormData.append('name', brand.name);
-      brandFormData.append('is_active', !brand.is_active); // Toggle the status
+      brandFormData.append('is_active', !brand.is_active);
       
-      // Preserve existing logo if no new one is uploaded
       if (brand.logo_url) {
         brandFormData.append('logo_url', brand.logo_url);
       }
@@ -424,7 +578,6 @@ const Brands = () => {
         data: brandFormData
       })).unwrap();
 
-      // Show success message
       Swal.fire({
         icon: 'success',
         title: 'Status Updated',
@@ -447,9 +600,29 @@ const Brands = () => {
     }
   };
 
-  // Get admin for a specific brand
+  const handleResendWelcomeEmail = async (brandId, adminEmail) => {
+    try {
+      // This would need a new API endpoint to resend welcome email
+      Swal.fire({
+        icon: 'info',
+        title: 'Coming Soon',
+        text: 'Resend welcome email feature will be available soon.',
+        confirmButtonText: 'OK'
+      });
+    } catch (err) {
+      console.error('Failed to resend email:', err);
+    }
+  };
+
   const getAdminForBrand = (brandId) => {
     return brandAdmins[brandId] || null;
+  };
+
+  // Validate that brand has admin before allowing activation
+  const canActivateBrand = (brand) => {
+    if (brand.is_active) return true; // Already active
+    const admin = brandAdmins[brand.id];
+    return !!admin; // Can only activate if admin exists
   };
 
   return (
@@ -463,7 +636,18 @@ const Brands = () => {
           </span>
         </div>
         <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
+          onClick={() => {
+            setShowCreateForm(!showCreateForm);
+            setFormError('');
+            setEmailExistsError('');
+            setFormErrors({
+              name: false,
+              admin_email: false,
+              admin_first_name: false,
+              admin_last_name: false,
+              admin_contact: false
+            });
+          }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -490,7 +674,7 @@ const Brands = () => {
             </div>
           )}
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Left Column: Brand Logo & Admin Profile Picture */}
               <div className="space-y-8">
@@ -523,7 +707,7 @@ const Brands = () => {
                           alt="Default brand logo" 
                           className="max-h-48 mx-auto rounded-lg object-contain opacity-50"
                         />
-                        <p className="text-sm text-gray-500">Default logo will be used if not uploaded</p>
+                        <p className="text-sm text-gray-500">Optional - Default logo will be used if not uploaded</p>
                       </div>
                     )}
                     <label className="block mt-4">
@@ -570,7 +754,7 @@ const Brands = () => {
                           alt="Default profile" 
                           className="w-32 h-32 rounded-full mx-auto object-cover opacity-50"
                         />
-                        <p className="text-sm text-gray-500">Default profile picture will be used if not uploaded</p>
+                        <p className="text-sm text-gray-500">Optional - Default profile picture will be used if not uploaded</p>
                       </div>
                     )}
                     <label className="block mt-4">
@@ -589,101 +773,129 @@ const Brands = () => {
                 </div>
               </div>
 
-              {/* Right Column: Brand & Admin Info */}
+              {/* Right Column: Brand & Admin Info - ALL FIELDS REQUIRED */}
               <div className="space-y-6">
                 {/* Brand Info */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Brand Information</h3>
                   
-                  {/* Add information about auto-generated password */}
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>Note:</strong> A random password will be auto-generated and sent to the admin's email.
-                      The admin will use this password for first-time login and will be prompted to create a new password.
+                      <strong>Note:</strong> All fields marked with * are required. 
+                      A temporary password will be generated and sent to the admin's email.
                     </p>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Brand Name *
+                      Brand Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Enter brand name"
                       required
                     />
+                    {formErrors.name && (
+                      <p className="mt-1 text-xs text-red-600">Brand name is required</p>
+                    )}
                   </div>
                 </div>
 
-                {/* Admin Info */}
+                {/* Admin Info - ALL FIELDS REQUIRED */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Admin Account</h3>
+                  <h3 className="font-semibold text-gray-700">Brand Admin Account <span className="text-red-500">*</span></h3>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Admin Email *
+                      Admin Email <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
                       name="admin_email"
                       value={formData.admin_email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.admin_email || emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="admin@example.com"
                       required
                     />
+                    {formErrors.admin_email && (
+                      <p className="mt-1 text-xs text-red-600">Admin email is required</p>
+                    )}
+                    {emailExistsError && (
+                      <p className="mt-1 text-xs text-red-600">{emailExistsError}</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name *
+                        First Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         name="admin_first_name"
                         value={formData.admin_first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.admin_first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="First name"
                         required
                       />
+                      {formErrors.admin_first_name && (
+                        <p className="mt-1 text-xs text-red-600">First name is required</p>
+                      )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name *
+                        Last Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         name="admin_last_name"
                         value={formData.admin_last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.admin_last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Last name"
                         required
                       />
+                      {formErrors.admin_last_name && (
+                        <p className="mt-1 text-xs text-red-600">Last name is required</p>
+                      )}
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Contact Number
+                      Contact Number <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
                       name="admin_contact"
                       value={formData.admin_contact}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.admin_contact ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="+1 (XXX) XXX-XXXX"
                       pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                       title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
+                      required
                     />
+                    {formErrors.admin_contact && (
+                      <p className="mt-1 text-xs text-red-600">Contact number is required</p>
+                    )}
                     <p className="text-xs text-gray-500 mt-1">
                       Format: +1 (XXX) XXX-XXXX
                     </p>
@@ -695,9 +907,14 @@ const Brands = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                disabled={!!emailExistsError || isSubmitting}
+                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                  emailExistsError || isSubmitting
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
-                Create Brand & Admin Account
+                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Create Brand & Admin Account'}
               </button>
             </div>
           </form>
@@ -742,6 +959,7 @@ const Brands = () => {
                   const admin = getAdminForBrand(brand.id);
                   const brandLogo = getBrandLogo(brand);
                   const adminProfilePic = getAdminProfilePic(brand.id);
+                  const canActivate = canActivateBrand(brand);
                   
                   return (
                     <tr key={brand.id} className="hover:bg-gray-50">
@@ -759,6 +977,12 @@ const Brands = () => {
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{brand.name}</div>
+                            {!admin && (
+                              <span className="text-xs text-red-600">⚠️ No admin assigned</span>
+                            )}
+                            {admin?.is_first_login && (
+                              <span className="text-xs text-orange-600">🔄 First login pending</span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -814,7 +1038,7 @@ const Brands = () => {
                             onClick={() => handleViewDetails(brand.id)}
                             className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm"
                           >
-                            View Details
+                            View
                           </button>
                           <button
                             onClick={() => handleEdit(brand)}
@@ -823,12 +1047,16 @@ const Brands = () => {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleToggleStatus(brand)} // Pass the entire brand object
+                            onClick={() => handleToggleStatus(brand)}
+                            disabled={!brand.is_active && !admin}
                             className={`px-3 py-1 rounded text-sm ${
-                              brand.is_active 
-                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                              !brand.is_active && !admin
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : brand.is_active 
+                                  ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
                             }`}
+                            title={!brand.is_active && !admin ? 'Cannot activate: No admin assigned' : ''}
                           >
                             {brand.is_active ? 'Deactivate' : 'Activate'}
                           </button>
@@ -992,7 +1220,7 @@ const Brands = () => {
                       <h3 className="font-semibold text-gray-700">Brand Information</h3>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Brand Name *
+                          Brand Name <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1071,7 +1299,6 @@ const Brands = () => {
                           </p>
                         </div>
 
-                        {/* Note about password management */}
                         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                           <p className="text-sm text-blue-800">
                             <strong>Note:</strong> Password management is handled by users themselves.
@@ -1079,10 +1306,9 @@ const Brands = () => {
                           </p>
                         </div>
 
-                        {/* Admin Email (Read-only) */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Admin Email
+                            Admin Email (Read-only)
                           </label>
                           <input
                             type="email"
