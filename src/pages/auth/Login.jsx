@@ -1,42 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { 
-  login, 
-  requestPasswordReset, 
-  validateOTP, 
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  login,
+  requestPasswordReset,
+  validateOTP,
   resetPasswordWithOTP,
   updateFirstTimePassword,
   selectIsFirstLogin,
-  selectCurrentUser
-} from '../../redux/slice/userSlice';
+  selectCurrentUser,
+} from "../../redux/slice/userSlice";
 
 const Login = () => {
   // All login states
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  
+
   // First-time password update states
   const [isFirstLoginDetected, setIsFirstLoginDetected] = useState(false);
-  const [showFirstTimePasswordForm, setShowFirstTimePasswordForm] = useState(false);
-  const [currentTempPassword, setCurrentTempPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  
+  const [showFirstTimePasswordForm, setShowFirstTimePasswordForm] =
+    useState(false);
+  const [currentTempPassword, setCurrentTempPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+
   // Password reset states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [resetPassword, setResetPassword] = useState('');
-  const [confirmResetPassword, setConfirmResetPassword] = useState('');
+  const [resetEmail, setResetEmail] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [resetPassword, setResetPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
   const [resetStep, setResetStep] = useState(1); // 1: Email, 2: OTP, 3: New password
-  const [resetError, setResetError] = useState('');
-  const [resetSuccess, setResetSuccess] = useState('');
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
-  
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const isFirstLogin = useSelector(selectIsFirstLogin);
@@ -65,7 +66,7 @@ const Login = () => {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   // ============================================
@@ -73,18 +74,18 @@ const Login = () => {
   // ============================================
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoginError('');
+    setLoginError("");
     setLoginLoading(true);
 
     try {
       const result = await dispatch(login({ email, password })).unwrap();
-      
+
       if (result.success) {
         const userRole = result.data?.user?.role;
         const isFirstLogin = result.data?.is_first_login;
-        
-        console.log('Login result:', result);
-        
+
+        console.log("Login result:", result);
+
         // Check if this is first login (user has ft_password but no password)
         if (isFirstLogin) {
           // Show first-time password update form immediately
@@ -93,13 +94,15 @@ const Login = () => {
           setCurrentTempPassword(password); // Store the temp password they just entered
           return;
         }
-        
+
         // Regular login - redirect based on role
         redirectByRole(userRole);
       }
     } catch (err) {
-      console.error('Login error:', err);
-      setLoginError(err?.error || 'Login failed. Please check your credentials.');
+      console.error("Login error:", err);
+      setLoginError(
+        err?.error || "Login failed. Please check your credentials.",
+      );
     } finally {
       setLoginLoading(false);
     }
@@ -110,69 +113,81 @@ const Login = () => {
   // ============================================
   const handleFirstTimePasswordUpdate = async (e) => {
     e.preventDefault();
-    setLoginError('');
+    setLoginError("");
 
     // Validation
     if (newPassword !== confirmNewPassword) {
-      setLoginError('New passwords do not match');
+      setLoginError("New passwords do not match");
       return;
     }
 
     if (newPassword.length < 8) {
-      setLoginError('Password must be at least 8 characters long');
+      setLoginError("Password must be at least 8 characters long");
       return;
     }
 
     // Check if they entered the correct temporary password
     if (currentTempPassword !== password) {
-      setLoginError('Current password is incorrect. Please use the temporary password provided by administrator.');
+      setLoginError(
+        "Current password is incorrect. Please use the temporary password provided by administrator.",
+      );
       return;
     }
 
     setLoginLoading(true);
 
     try {
-      const result = await dispatch(updateFirstTimePassword({
-        currentPassword: currentTempPassword,
-        newPassword
-      })).unwrap();
+      const result = await dispatch(
+        updateFirstTimePassword({
+          currentPassword: currentTempPassword,
+          newPassword,
+        }),
+      ).unwrap();
 
       if (result.success) {
         // Clear forms
-        setPassword('');
-        setNewPassword('');
-        setConfirmNewPassword('');
-        setCurrentTempPassword('');
-        
+        setPassword("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+        setCurrentTempPassword("");
+
         // Show success message
-        setLoginError('');
-        setResetSuccess('Password updated successfully! You can now login with your new password.');
-        
+        setLoginError("");
+        setResetSuccess(
+          "Password updated successfully! You can now login with your new password.",
+        );
+
         // Auto-login with new credentials after 2 seconds
         setTimeout(async () => {
           try {
-            const loginResult = await dispatch(login({ 
-              email, 
-              password: newPassword 
-            })).unwrap();
-            
+            const loginResult = await dispatch(
+              login({
+                email,
+                password: newPassword,
+              }),
+            ).unwrap();
+
             if (loginResult.success) {
               const userRole = loginResult.data?.user?.role;
               redirectByRole(userRole);
             }
           } catch (loginErr) {
-            console.error('Auto-login failed:', loginErr);
+            console.error("Auto-login failed:", loginErr);
             // Let user manually login
             setShowFirstTimePasswordForm(false);
             setIsFirstLoginDetected(false);
-            setResetSuccess('');
-            setLoginError('Password updated! Please login with your new password.');
+            setResetSuccess("");
+            setLoginError(
+              "Password updated! Please login with your new password.",
+            );
           }
         }, 2000);
       }
     } catch (err) {
-      console.error('Update password error:', err);
-      setLoginError(err?.error || 'Failed to update password. Please try again.');
+      console.error("Update password error:", err);
+      setLoginError(
+        err?.error || "Failed to update password. Please try again.",
+      );
     } finally {
       setLoginLoading(false);
     }
@@ -183,7 +198,7 @@ const Login = () => {
   // ============================================
   const handleOtpChange = (index, value) => {
     if (!/^\d?$/.test(value)) return;
-    
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
@@ -194,7 +209,7 @@ const Login = () => {
   };
 
   const handleOtpKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
       document.getElementById(`otp-${index - 1}`)?.focus();
     }
   };
@@ -202,20 +217,22 @@ const Login = () => {
   // Step 1: Request password reset
   const handleRequestReset = async (e) => {
     e.preventDefault();
-    setResetError('');
+    setResetError("");
     setResetLoading(true);
 
     try {
       const result = await dispatch(requestPasswordReset(resetEmail)).unwrap();
-      
+
       if (result.success) {
-        setResetSuccess('OTP sent to your email!');
+        setResetSuccess("OTP sent to your email!");
         setResetStep(2);
         setTimeLeft(600);
       }
     } catch (err) {
-      console.error('Password reset request error:', err);
-      setResetError(err?.error || 'Failed to send reset instructions. Please try again.');
+      console.error("Password reset request error:", err);
+      setResetError(
+        err?.error || "Failed to send reset instructions. Please try again.",
+      );
     } finally {
       setResetLoading(false);
     }
@@ -224,26 +241,30 @@ const Login = () => {
   // Step 2: Verify OTP
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    setResetError('');
-    const otpString = otp.join('');
-    
+    setResetError("");
+    const otpString = otp.join("");
+
     if (otpString.length !== 6) {
-      setResetError('Please enter all 6 digits of the OTP');
+      setResetError("Please enter all 6 digits of the OTP");
       return;
     }
 
     setResetLoading(true);
 
     try {
-      const result = await dispatch(validateOTP({ email: resetEmail, otp: otpString })).unwrap();
-      
+      const result = await dispatch(
+        validateOTP({ email: resetEmail, otp: otpString }),
+      ).unwrap();
+
       if (result.success) {
-        setResetSuccess('OTP verified successfully! Now set your new password.');
+        setResetSuccess(
+          "OTP verified successfully! Now set your new password.",
+        );
         setResetStep(3);
       }
     } catch (err) {
-      console.error('OTP verification error:', err);
-      setResetError(err?.error || 'Invalid or expired OTP. Please try again.');
+      console.error("OTP verification error:", err);
+      setResetError(err?.error || "Invalid or expired OTP. Please try again.");
     } finally {
       setResetLoading(false);
     }
@@ -252,49 +273,55 @@ const Login = () => {
   // Step 3: Reset password with OTP
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    setResetError('');
+    setResetError("");
 
     if (resetPassword !== confirmResetPassword) {
-      setResetError('Passwords do not match');
+      setResetError("Passwords do not match");
       return;
     }
 
     if (resetPassword.length < 8) {
-      setResetError('Password must be at least 8 characters long');
+      setResetError("Password must be at least 8 characters long");
       return;
     }
 
     setResetLoading(true);
-    const otpString = otp.join('');
+    const otpString = otp.join("");
 
     try {
-      const result = await dispatch(resetPasswordWithOTP({
-        email: resetEmail,
-        otp: otpString,
-        newPassword: resetPassword
-      })).unwrap();
+      const result = await dispatch(
+        resetPasswordWithOTP({
+          email: resetEmail,
+          otp: otpString,
+          newPassword: resetPassword,
+        }),
+      ).unwrap();
 
       if (result.success) {
-        setResetSuccess('Password reset successfully! You can now login with your new password.');
-        
+        setResetSuccess(
+          "Password reset successfully! You can now login with your new password.",
+        );
+
         // Auto-switch back to login after 3 seconds
         setTimeout(() => {
           setShowForgotPassword(false);
           setResetStep(1);
-          setResetEmail('');
-          setOtp(['', '', '', '', '', '']);
-          setResetPassword('');
-          setConfirmResetPassword('');
-          setResetSuccess('');
-          setResetError('');
-          
+          setResetEmail("");
+          setOtp(["", "", "", "", "", ""]);
+          setResetPassword("");
+          setConfirmResetPassword("");
+          setResetSuccess("");
+          setResetError("");
+
           // Pre-fill the email in login form
           setEmail(resetEmail);
         }, 3000);
       }
     } catch (err) {
-      console.error('Reset password error:', err);
-      setResetError(err?.error || 'Failed to reset password. Please try again.');
+      console.error("Reset password error:", err);
+      setResetError(
+        err?.error || "Failed to reset password. Please try again.",
+      );
     } finally {
       setResetLoading(false);
     }
@@ -304,24 +331,24 @@ const Login = () => {
   // HELPER FUNCTIONS
   // ============================================
   const redirectByRole = (userRole) => {
-    switch(userRole) {
-      case 'super_admin':
-        navigate('/super-admin');
+    switch (userRole) {
+      case "super_admin":
+        navigate("/super-admin");
         break;
-      case 'brand_admin':
-        navigate('/brand-admin');
+      case "brand_admin":
+        navigate("/brand-admin");
         break;
-      case 'district_manager':
-        navigate('/district-manager');
+      case "district_manager":
+        navigate("/district-manager");
         break;
-      case 'shop_manager':
-        navigate('/shop-manager');
+      case "shop_manager":
+        navigate("/shop-manager");
         break;
-      case 'technician':
-        navigate('/technician');
+      case "technician":
+        navigate("/technician");
         break;
       default:
-        navigate('/login');
+        navigate("/login");
     }
   };
 
@@ -337,42 +364,42 @@ const Login = () => {
 
   const getStrengthColor = () => {
     const strength = calculatePasswordStrength(newPassword || resetPassword);
-    if (strength <= 2) return 'bg-red-500';
-    if (strength === 3) return 'bg-yellow-500';
-    return 'bg-green-500';
+    if (strength <= 2) return "bg-red-500";
+    if (strength === 3) return "bg-yellow-500";
+    return "bg-green-500";
   };
 
   const getStrengthText = () => {
     const strength = calculatePasswordStrength(newPassword || resetPassword);
-    if (strength <= 2) return 'Weak';
-    if (strength === 3) return 'Good';
-    return 'Strong';
+    if (strength <= 2) return "Weak";
+    if (strength === 3) return "Good";
+    return "Strong";
   };
 
   const handleBackToLogin = () => {
     if (showFirstTimePasswordForm) {
       setShowFirstTimePasswordForm(false);
       setIsFirstLoginDetected(false);
-      setNewPassword('');
-      setConfirmNewPassword('');
-      setCurrentTempPassword('');
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setCurrentTempPassword("");
     } else if (showForgotPassword) {
       setShowForgotPassword(false);
       setResetStep(1);
-      setResetEmail('');
-      setOtp(['', '', '', '', '', '']);
-      setResetPassword('');
-      setConfirmResetPassword('');
-      setResetError('');
-      setResetSuccess('');
+      setResetEmail("");
+      setOtp(["", "", "", "", "", ""]);
+      setResetPassword("");
+      setConfirmResetPassword("");
+      setResetError("");
+      setResetSuccess("");
     }
   };
 
   const handleResendOtp = () => {
     setTimeLeft(600);
-    setOtp(['', '', '', '', '', '']);
-    setResetError('');
-    setResetSuccess('New OTP has been sent to your email.');
+    setOtp(["", "", "", "", "", ""]);
+    setResetError("");
+    setResetSuccess("New OTP has been sent to your email.");
   };
 
   // Pre-fill reset email from login email
@@ -387,20 +414,26 @@ const Login = () => {
   // ============================================
   const renderFirstTimePasswordForm = () => (
     <div className="animate-fadeIn">
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome! Set Your Password</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-2">
+        Welcome! Set Your Password
+      </h2>
       <p className="text-gray-600 mb-6">
-        This is your first login. Please create a secure password for your account.
+        This is your first login. Please create a secure password for your
+        account.
       </p>
-      
+
       <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-blue-700 text-sm">
-          <strong>Note:</strong> You just logged in with your temporary password. Now create your permanent password.
+          <strong>Note:</strong> You just logged in with your temporary
+          password. Now create your permanent password.
         </p>
       </div>
-      
+
       <form onSubmit={handleFirstTimePasswordUpdate}>
         <div className="mb-5">
-          <label className="block text-gray-700 mb-2 font-medium">New Password</label>
+          <label className="block text-gray-700 mb-2 font-medium">
+            New Password
+          </label>
           <input
             type="password"
             value={newPassword}
@@ -409,27 +442,33 @@ const Login = () => {
             placeholder="Create a new password"
             required
           />
-          
+
           {newPassword && (
             <div className="mt-2">
               <div className="flex justify-between mb-1">
                 <span className="text-sm text-gray-600">Strength:</span>
-                <span className={`text-sm font-medium ${getStrengthColor().replace('bg-', 'text-')}`}>
+                <span
+                  className={`text-sm font-medium ${getStrengthColor().replace("bg-", "text-")}`}
+                >
                   {getStrengthText()}
                 </span>
               </div>
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
+                <div
                   className={`h-full ${getStrengthColor()} transition-all duration-300`}
-                  style={{ width: `${(calculatePasswordStrength(newPassword) / 5) * 100}%` }}
+                  style={{
+                    width: `${(calculatePasswordStrength(newPassword) / 5) * 100}%`,
+                  }}
                 ></div>
               </div>
             </div>
           )}
         </div>
-        
+
         <div className="mb-6">
-          <label className="block text-gray-700 mb-2 font-medium">Confirm New Password</label>
+          <label className="block text-gray-700 mb-2 font-medium">
+            Confirm New Password
+          </label>
           <input
             type="password"
             value={confirmNewPassword}
@@ -439,19 +478,19 @@ const Login = () => {
             required
           />
         </div>
-        
+
         {loginError && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
             {loginError}
           </div>
         )}
-        
+
         {resetSuccess && (
           <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-600 rounded-lg">
             {resetSuccess}
           </div>
         )}
-        
+
         <div className="flex space-x-3">
           <button
             type="button"
@@ -460,12 +499,12 @@ const Login = () => {
           >
             Cancel
           </button>
-          <button 
-            type="submit" 
-            className={`flex-1 py-3 rounded-lg font-medium ${loginLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white transition`}
+          <button
+            type="submit"
+            className={`flex-1 py-3 rounded-lg font-medium ${loginLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"} text-white transition`}
             disabled={loginLoading}
           >
-            {loginLoading ? 'Updating...' : 'Set Password'}
+            {loginLoading ? "Updating..." : "Set Password"}
           </button>
         </div>
       </form>
@@ -477,14 +516,19 @@ const Login = () => {
     if (resetStep === 1) {
       return (
         <>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Reset Password</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Reset Password
+          </h2>
           <p className="text-gray-600 mb-6">
-            Enter your email address and we will send you an OTP to reset your password.
+            Enter your email address and we will send you an OTP to reset your
+            password.
           </p>
-          
+
           <form onSubmit={handleRequestReset}>
             <div className="mb-6">
-              <label className="block text-gray-700 mb-2 font-medium">Email Address</label>
+              <label className="block text-gray-700 mb-2 font-medium">
+                Email Address
+              </label>
               <input
                 type="email"
                 value={resetEmail}
@@ -494,19 +538,19 @@ const Login = () => {
                 required
               />
             </div>
-            
+
             {resetError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
                 {resetError}
               </div>
             )}
-            
+
             {resetSuccess && (
               <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-600 rounded-lg">
                 {resetSuccess}
               </div>
             )}
-            
+
             <div className="flex space-x-3">
               <button
                 type="button"
@@ -515,25 +559,25 @@ const Login = () => {
               >
                 Back to Login
               </button>
-              <button 
-                type="submit" 
-                className={`flex-1 py-3 px-4 rounded-lg font-medium ${resetLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white transition`}
+              <button
+                type="submit"
+                className={`flex-1 py-3 px-4 rounded-lg font-medium ${resetLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"} text-white transition`}
                 disabled={resetLoading}
               >
-                {resetLoading ? 'Sending...' : 'Send OTP'}
+                {resetLoading ? "Sending..." : "Send OTP"}
               </button>
             </div>
           </form>
         </>
       );
     }
-    
+
     // Step 2: OTP Verification
     if (resetStep === 2) {
       return (
         <>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Verify OTP</h2>
-          
+
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-blue-700 text-sm">
               Enter the 6-digit OTP sent to <strong>{resetEmail}</strong>
@@ -547,7 +591,9 @@ const Login = () => {
 
           <form onSubmit={handleVerifyOtp}>
             <div className="mb-6">
-              <label className="block text-gray-700 mb-3 font-medium">Enter OTP</label>
+              <label className="block text-gray-700 mb-3 font-medium">
+                Enter OTP
+              </label>
               <div className="flex justify-between space-x-2">
                 {otp.map((digit, index) => (
                   <input
@@ -577,12 +623,12 @@ const Login = () => {
               </div>
             )}
 
-            <button 
-              type="submit" 
-              className={`w-full py-3 rounded-lg font-medium ${resetLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white transition mb-4`}
+            <button
+              type="submit"
+              className={`w-full py-3 rounded-lg font-medium ${resetLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"} text-white transition mb-4`}
               disabled={resetLoading}
             >
-              {resetLoading ? 'Verifying...' : 'Verify OTP'}
+              {resetLoading ? "Verifying..." : "Verify OTP"}
             </button>
           </form>
 
@@ -612,13 +658,15 @@ const Login = () => {
         </>
       );
     }
-    
+
     // Step 3: New Password
     if (resetStep === 3) {
       return (
         <>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Set New Password</h2>
-          
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Set New Password
+          </h2>
+
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-blue-700 text-sm">
               Create a new secure password for your account.
@@ -627,7 +675,9 @@ const Login = () => {
 
           <form onSubmit={handleResetPassword}>
             <div className="mb-5">
-              <label className="block text-gray-700 mb-2 font-medium">New Password</label>
+              <label className="block text-gray-700 mb-2 font-medium">
+                New Password
+              </label>
               <input
                 type="password"
                 value={resetPassword}
@@ -636,19 +686,23 @@ const Login = () => {
                 placeholder="Create a new password"
                 required
               />
-              
+
               {resetPassword && (
                 <div className="mt-2">
                   <div className="flex justify-between mb-1">
                     <span className="text-sm text-gray-600">Strength:</span>
-                    <span className={`text-sm font-medium ${getStrengthColor().replace('bg-', 'text-')}`}>
+                    <span
+                      className={`text-sm font-medium ${getStrengthColor().replace("bg-", "text-")}`}
+                    >
                       {getStrengthText()}
                     </span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className={`h-full ${getStrengthColor()} transition-all duration-300`}
-                      style={{ width: `${(calculatePasswordStrength(resetPassword) / 5) * 100}%` }}
+                      style={{
+                        width: `${(calculatePasswordStrength(resetPassword) / 5) * 100}%`,
+                      }}
                     ></div>
                   </div>
                 </div>
@@ -656,7 +710,9 @@ const Login = () => {
             </div>
 
             <div className="mb-6">
-              <label className="block text-gray-700 mb-2 font-medium">Confirm Password</label>
+              <label className="block text-gray-700 mb-2 font-medium">
+                Confirm Password
+              </label>
               <input
                 type="password"
                 value={confirmResetPassword}
@@ -687,12 +743,12 @@ const Login = () => {
               >
                 Back
               </button>
-              <button 
-                type="submit" 
-                className={`flex-1 py-3 rounded-lg font-medium ${resetLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white transition`}
+              <button
+                type="submit"
+                className={`flex-1 py-3 rounded-lg font-medium ${resetLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"} text-white transition`}
                 disabled={resetLoading}
               >
-                {resetLoading ? 'Resetting...' : 'Reset Password'}
+                {resetLoading ? "Resetting..." : "Reset Password"}
               </button>
             </div>
           </form>
@@ -703,8 +759,10 @@ const Login = () => {
 
   const renderLoginForm = () => (
     <div className="animate-fadeIn">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Welcome Back</h2>
-      
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+        Welcome Back
+      </h2>
+
       <form onSubmit={handleLogin}>
         <div className="mb-5">
           <label className="block text-gray-700 mb-2 font-medium">Email</label>
@@ -717,7 +775,7 @@ const Login = () => {
             required
           />
         </div>
-        
+
         <div className="mb-2">
           <div className="flex justify-between items-center mb-2">
             <label className="block text-gray-700 font-medium">Password</label>
@@ -738,58 +796,69 @@ const Login = () => {
             required
           />
         </div>
-        
+
         <div className="mb-4">
           <p className="text-gray-600 text-sm">
-            First time user? Use the temporary password provided by your administrator.
+            First time user? Use the temporary password provided by your
+            administrator through Email.
           </p>
         </div>
-        
+
         {loginError && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
             <div className="flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
               </svg>
               {loginError}
             </div>
           </div>
         )}
-        
-        <button 
-          type="submit" 
-          className={`w-full py-3 rounded-lg font-medium ${loginLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white transition flex items-center justify-center`}
+
+        <button
+          type="submit"
+          className={`w-full py-3 rounded-lg font-medium ${loginLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"} text-white transition flex items-center justify-center`}
           disabled={loginLoading}
         >
           {loginLoading ? (
             <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <svg
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
               </svg>
               Signing in...
             </>
-          ) : 'Sign In'}
+          ) : (
+            "Sign In"
+          )}
         </button>
       </form>
-      
-      <div className="mt-8 pt-8 border-t border-gray-200">
-        <div className="space-y-3">
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <h3 className="font-medium text-blue-800 mb-1">First-time Users</h3>
-            <p className="text-blue-700 text-sm">
-              Use the temporary password provided by your administrator. You'll be asked to create a new password on first login.
-            </p>
-          </div>
-          
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <h3 className="font-medium text-gray-800 mb-1">Need Help?</h3>
-            <p className="text-gray-600 text-sm">
-              Contact your administrator if you're having trouble logging in.
-            </p>
-          </div>
-        </div>
-      </div>
+
+     
     </div>
   );
 
@@ -801,30 +870,15 @@ const Login = () => {
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-3">
-            <span className="text-white text-2xl font-bold">I</span>
-          </div>
           <h1 className="text-3xl font-bold text-gray-800">Innu</h1>
-          <p className="text-gray-600 mt-1">Your Business Management System</p>
         </div>
 
         {/* Conditional Rendering */}
-        {showFirstTimePasswordForm 
+        {showFirstTimePasswordForm
           ? renderFirstTimePasswordForm()
           : showForgotPassword
-          ? renderForgotPasswordForm()
-          : renderLoginForm()
-        }
-        
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-gray-500 text-sm">
-            © {new Date().getFullYear()} Innu. All rights reserved.
-          </p>
-          <p className="text-gray-500 text-xs mt-1">
-            Version 2.0 • Enhanced Security
-          </p>
-        </div>
+            ? renderForgotPasswordForm()
+            : renderLoginForm()}
       </div>
     </div>
   );

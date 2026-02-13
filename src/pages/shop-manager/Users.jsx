@@ -8,7 +8,7 @@ import {
   selectUserLoading,
   selectUserError,
   selectUserSuccess,
-  selectUsersByShopId // ✅ New selector
+  selectUsersByShopId
 } from '../../redux/slice/userSlice';
 import {
   getShopById,
@@ -20,6 +20,82 @@ import Swal from 'sweetalert2';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
+// Skeleton Loader Components
+const StatsSkeleton = () => (
+  <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+    <div className="flex items-center space-x-4">
+      <div className="h-8 bg-gray-200 rounded animate-pulse w-48"></div>
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-24"></div>
+    </div>
+    <div className="flex space-x-4">
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-24"></div>
+      <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
+    </div>
+  </div>
+);
+
+const SearchSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="md:col-span-2">
+        <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+        <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+      </div>
+      <div className="flex items-end">
+        <div className="flex space-x-4 w-full">
+          <div className="text-center flex-1">
+            <div className="h-8 bg-gray-200 rounded animate-pulse w-16 mx-auto mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-12 mx-auto"></div>
+          </div>
+          <div className="text-center flex-1">
+            <div className="h-8 bg-gray-200 rounded animate-pulse w-16 mx-auto mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-12 mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <th key={i} className="px-6 py-3 text-left">
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {[1, 2, 3, 4].map((row) => (
+            <tr key={row} className="hover:bg-gray-50">
+              {[1, 2, 3, 4, 5].map((col) => (
+                <td key={col} className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    {col === 1 && (
+                      <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse mr-3"></div>
+                    )}
+                    <div>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+                      {col === 1 && (
+                        <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
 const Users = () => {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.user.currentUser);
@@ -27,13 +103,14 @@ const Users = () => {
   
   const myShop = useSelector(selectCurrentShop);
   
-  // ✅ Use the correct selector for users by shop
   const shopUsers = useSelector(state => selectUsersByShopId(shopId)(state)) || [];
   
   const loading = useSelector(selectUserLoading);
   const error = useSelector(selectUserError);
   const success = useSelector(selectUserSuccess);
   
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,15 +211,20 @@ const Users = () => {
   // Fetch shop data when component mounts
   useEffect(() => {
     if (shopId) {
-      dispatch(getShopById(shopId));
+      Promise.all([dispatch(getShopById(shopId))]).then(() => {
+        setTimeout(() => setIsInitialLoad(false), 300);
+      });
     }
   }, [dispatch, shopId]);
 
-  // ✅ Fetch users for this specific shop
+  // Fetch users for this specific shop
   useEffect(() => {
-    if (shopId) {
+    if (shopId && myShop?.id) {
       dispatch(getUsersByShopId(shopId))
         .unwrap()
+        .then(() => {
+          setIsDataReady(true);
+        })
         .catch(error => {
           console.error('Failed to fetch shop users:', error);
           Swal.fire({
@@ -153,10 +235,9 @@ const Users = () => {
           });
         });
     }
-  }, [dispatch, shopId]);
+  }, [dispatch, shopId, myShop]);
 
-  // ✅ Filter users to only show those belonging to this shop (already filtered by selector)
-  // But we can add additional filtering if needed
+  // Filter users to only show those belonging to this shop
   const filteredShopUsers = shopUsers.filter(user => 
     user.role === 'technician' // Additional role filter for safety
   );
@@ -256,7 +337,7 @@ const Users = () => {
       const formattedPhone = formatPhoneNumber(formData.contact_no);
       userFormData.append('contact_no', formattedPhone || '');
       
-      // ✅ Always set role to 'technician'
+      // Always set role to 'technician'
       userFormData.append('role', 'technician');
       userFormData.append('shop_id', myShop.id);
       userFormData.append('brand_id', myShop.brand_id);
@@ -302,7 +383,7 @@ const Users = () => {
         });
         
         resetForm();
-        // ✅ Refresh the users list for this shop
+        // Refresh the users list for this shop
         dispatch(getUsersByShopId(myShop.id));
         setTimeout(() => {
           setShowCreateForm(false);
@@ -363,7 +444,7 @@ const Users = () => {
           data: userFormData
         })).unwrap();
         
-        // ✅ Refresh the users list for this shop
+        // Refresh the users list for this shop
         dispatch(getUsersByShopId(myShop.id));
         
         Swal.fire({
@@ -501,7 +582,7 @@ const Users = () => {
         is_active: !currentStatus
       })).unwrap();
       
-      // ✅ Refresh the users list for this shop
+      // Refresh the users list for this shop
       dispatch(getUsersByShopId(myShop.id));
       
       Swal.fire({
@@ -541,7 +622,7 @@ const Users = () => {
       }
     }
     
-    return matches; // ✅ No role filter needed - already filtered to technicians
+    return matches;
   });
 
   // Get user counts
@@ -551,18 +632,29 @@ const Users = () => {
     return {
       total: filteredShopUsers.length,
       active: filteredShopUsers.filter(u => u.is_active).length,
-      technicians: filteredShopUsers.length, // All are technicians
+      technicians: filteredShopUsers.length,
     };
   };
 
   const userCounts = getUserCounts();
+
+  // Show skeleton during initial load
+  if (isInitialLoad || (loading && !isDataReady)) {
+    return (
+      <div className="transition-opacity duration-300 ease-in-out">
+        <StatsSkeleton />
+        <SearchSkeleton />
+        <TableSkeleton />
+      </div>
+    );
+  }
 
   // ============================================
   // RENDER
   // ============================================
 
   return (
-    <div>
+    <div className="transition-opacity duration-300 ease-in-out">
       {/* Create Technician Button and Stats */}
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div className="flex items-center space-x-4">
@@ -585,7 +677,7 @@ const Users = () => {
               setFormError('');
               setEmailExistsError('');
             }}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors duration-200"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -597,7 +689,7 @@ const Users = () => {
 
       {/* Create Technician Form */}
       {showCreateForm && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300 ease-in-out">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Add New Technician</h2>
           
           {formError && (
@@ -657,7 +749,7 @@ const Users = () => {
                       </div>
                     )}
                     <label className="block mt-4">
-                      <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block transition-colors duration-200">
                         Choose Photo
                       </span>
                       <input
@@ -687,7 +779,7 @@ const Users = () => {
                         name="first_name"
                         value={formData.first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                         placeholder="First name"
                         required
                       />
@@ -702,7 +794,7 @@ const Users = () => {
                         name="last_name"
                         value={formData.last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                         placeholder="Last name"
                         required
                       />
@@ -718,7 +810,7 @@ const Users = () => {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
                         emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="technician@example.com"
@@ -738,7 +830,7 @@ const Users = () => {
                       name="contact_no"
                       value={formData.contact_no}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                       placeholder="+1 (XXX) XXX-XXXX"
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -746,7 +838,7 @@ const Users = () => {
                     </p>
                   </div>
 
-                  {/* ✅ Role is fixed to Technician - hidden field */}
+                  {/* Role is fixed to Technician - hidden field */}
                   <input type="hidden" name="role" value="technician" />
 
                   <label className="flex items-center space-x-2">
@@ -767,7 +859,7 @@ const Users = () => {
               <button
                 type="submit"
                 disabled={!!emailExistsError || isSubmitting}
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
                   emailExistsError || isSubmitting
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -781,7 +873,7 @@ const Users = () => {
       )}
 
       {/* Search Filter */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      <div className="bg-white rounded-lg shadow-md p-4 mb-6 hover:shadow-lg transition-shadow duration-200">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">Search Technicians</label>
@@ -790,7 +882,7 @@ const Users = () => {
               placeholder="Search by name or email"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
             />
           </div>
           
@@ -810,8 +902,8 @@ const Users = () => {
       </div>
 
       {/* Technicians Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {loading ? (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
+        {loading && !isDataReady ? (
           <div className="py-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading technicians...</p>
@@ -844,7 +936,7 @@ const Users = () => {
                   const isFirstLogin = user.is_first_login || (user.ft_password && !user.password);
                   
                   return (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                    <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-10 h-10 rounded-full overflow-hidden mr-3 border bg-gray-100">
@@ -896,13 +988,13 @@ const Users = () => {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEdit(user)}
-                            className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-sm font-medium transition-colors"
+                            className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-sm font-medium transition-colors duration-200"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleToggleStatus(user.id, user.is_active)}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-200 ${
                               user.is_active 
                                 ? 'bg-red-100 text-red-700 hover:bg-red-200' 
                                 : 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -938,7 +1030,7 @@ const Users = () => {
                   setFormError('');
                   setEmailExistsError('');
                 }}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -952,8 +1044,8 @@ const Users = () => {
 
       {/* Edit Technician Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 transition-opacity duration-300">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto transform transition-all duration-300 scale-100">
             <div className="p-6">
               <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Technician</h2>
               
@@ -996,7 +1088,7 @@ const Users = () => {
                               setEditProfilePicFile(null);
                               setEditProfilePicPreview(editFormData.profile_pic);
                             }}
-                            className="text-sm text-red-600 hover:text-red-700"
+                            className="text-sm text-red-600 hover:text-red-700 transition-colors duration-200"
                           >
                             Remove
                           </button>
@@ -1012,7 +1104,7 @@ const Users = () => {
                         </div>
                       )}
                       <label className="block mt-4">
-                        <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                        <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block transition-colors duration-200">
                           Change Photo
                         </span>
                         <input
@@ -1040,7 +1132,7 @@ const Users = () => {
                           name="first_name"
                           value={editFormData.first_name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                         />
                       </div>
 
@@ -1053,7 +1145,7 @@ const Users = () => {
                           name="last_name"
                           value={editFormData.last_name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                         />
                       </div>
                     </div>
@@ -1067,7 +1159,7 @@ const Users = () => {
                         name="contact_no"
                         value={editFormData.contact_no}
                         onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                       />
                     </div>
 
@@ -1114,13 +1206,13 @@ const Users = () => {
                   <button
                     type="button"
                     onClick={() => setShowEditModal(null)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
                   >
                     Update Technician
                   </button>

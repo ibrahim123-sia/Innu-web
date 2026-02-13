@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  getShopById, // Changed from getMyShop
-  selectCurrentShop // Changed from selectMyShop
+  getShopById,
+  selectCurrentShop
 } from '../../redux/slice/shopSlice';
 import {
   getOrdersByShop,
@@ -15,10 +15,112 @@ import {
 import {
   getAllVideos,
   selectVideos,
-  getVideosByOrderId
 } from '../../redux/slice/videoSlice';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+// Skeleton Loader Components - using neutral gray colors like Overview
+const StatsSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    {[1, 2, 3, 4].map((i) => (
+      <div key={i} className="bg-white p-6 rounded-lg shadow-md border-l-4 border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-8 bg-gray-300 rounded animate-pulse w-16 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+          </div>
+          <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const VideoStatsSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+    <div className="flex items-center justify-between mb-6">
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="text-center p-4 bg-gray-50 rounded-lg">
+          <div className="h-8 bg-gray-200 rounded animate-pulse w-16 mx-auto mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-20 mx-auto"></div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+    <div className="p-6 border-b">
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-64 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-48"></div>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <th key={i} className="px-6 py-3 text-left">
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {[1, 2, 3, 4].map((row) => (
+            <tr key={row} className="hover:bg-gray-50">
+              {[1, 2, 3, 4, 5].map((col) => (
+                <td key={col} className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    {col === 1 && (
+                      <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse mr-3"></div>
+                    )}
+                    <div>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+                      {col === 1 && (
+                        <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const OrderStatsSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+    <div className="h-6 bg-gray-200 rounded animate-pulse w-48 mb-6"></div>
+    <div className="space-y-6">
+      <div>
+        <div className="flex justify-between mb-2">
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-3">
+          <div className="bg-gray-300 h-3 rounded-full w-3/4"></div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-gray-50 p-4 rounded-lg">
+            <div className="h-8 bg-gray-200 rounded animate-pulse w-16 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 const Analytics = () => {
   const dispatch = useDispatch();
@@ -31,6 +133,8 @@ const Analytics = () => {
   const videos = useSelector(selectVideos) || [];
   
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userVideos, setUserVideos] = useState([]);
   const [videoStats, setVideoStats] = useState(null);
@@ -38,12 +142,26 @@ const Analytics = () => {
 
   useEffect(() => {
     if (shopId) {
-      fetchData();
+      Promise.all([dispatch(getShopById(shopId))]).then(() => {
+        setTimeout(() => setIsInitialLoad(false), 300);
+      });
     }
-  }, [shopId]);
+  }, [dispatch, shopId]);
 
   useEffect(() => {
-    // Filter users to only show those belonging to this shop
+    if (myShop?.id) {
+      Promise.all([
+        dispatch(getOrdersByShop(shopId)),
+        dispatch(getUsersByShopId(shopId)),
+        dispatch(getAllVideos())
+      ]).then(() => {
+        setIsDataReady(true);
+        setLoading(false);
+      });
+    }
+  }, [dispatch, myShop, shopId]);
+
+  useEffect(() => {
     if (shopUsers && shopId) {
       const filtered = shopUsers.filter(user => user.shop_id === shopId);
       setFilteredShopUsers(filtered);
@@ -54,7 +172,7 @@ const Analytics = () => {
     if (videos && myShop) {
       calculateVideoStats();
     }
-  }, [videos, myShop]);
+  }, [videos, myShop, filteredShopUsers]);
 
   const fetchData = async () => {
     if (!shopId) return;
@@ -62,7 +180,7 @@ const Analytics = () => {
     setLoading(true);
     try {
       await Promise.all([
-        dispatch(getShopById(shopId)), // Changed from getMyShop
+        dispatch(getShopById(shopId)),
         dispatch(getOrdersByShop(shopId)),
         dispatch(getUsersByShopId(shopId)),
         dispatch(getAllVideos())
@@ -71,6 +189,7 @@ const Analytics = () => {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+      setIsDataReady(true);
     }
   };
 
@@ -161,59 +280,96 @@ const Analytics = () => {
   const orderStats = getOrderStats();
   const userStats = getUserVideoStats();
 
-  if (loading) {
+  // Show skeleton during initial load
+  if (isInitialLoad || (loading && !isDataReady)) {
     return (
-      <div className="flex flex-col justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        <p className="mt-4 text-gray-600">Loading analytics data...</p>
+      <div className="p-6 transition-opacity duration-300 ease-in-out">
+        <div className="mb-8">
+          <div className="h-8 bg-gray-200 rounded animate-pulse w-64 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-96"></div>
+        </div>
+        <StatsSkeleton />
+        <VideoStatsSkeleton />
+        <TableSkeleton />
+        <OrderStatsSkeleton />
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Shop Analytics Dashboard</h1>
-        <p className="text-gray-600">Performance metrics for {myShop?.name || 'your shop'}</p>
-      </div>
+    <div className="p-6 transition-opacity duration-300 ease-in-out">
+     
 
       {/* Overall Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
-          <h3 className="text-sm font-medium text-blue-600 mb-2">Total Orders</h3>
-          <p className="text-2xl font-bold text-blue-700">{orderStats?.total || 0}</p>
-          <p className="text-sm text-blue-600 mt-1">
-            {orderStats?.completedPercentage || '0'}% completed
-          </p>
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm text-gray-500">Total Orders</h3>
+              <p className="text-3xl font-bold text-blue-600 mt-2">{orderStats?.total || 0}</p>
+              <p className="text-xs text-gray-400 mt-1">{orderStats?.completedPercentage || '0'}% completed</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+              </svg>
+            </div>
+          </div>
         </div>
         
-        <div className="bg-green-50 rounded-lg p-6 border border-green-100">
-          <h3 className="text-sm font-medium text-green-600 mb-2">AI Video Requests</h3>
-          <p className="text-2xl font-bold text-green-700">{videoStats?.total || 0}</p>
-          <p className="text-sm text-green-600 mt-1">Total videos processed by AI</p>
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600 hover:shadow-lg transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm text-gray-500">AI Video Requests</h3>
+              <p className="text-3xl font-bold text-green-600 mt-2">{videoStats?.total || 0}</p>
+              <p className="text-xs text-gray-400 mt-1">Total videos processed by AI</p>
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
         </div>
         
-        <div className="bg-purple-50 rounded-lg p-6 border border-purple-100">
-          <h3 className="text-sm font-medium text-purple-600 mb-2">Total Technicians</h3>
-          <p className="text-2xl font-bold text-purple-700">
-            {filteredShopUsers?.filter(u => u.role === 'technician').length || 0}
-          </p>
-          <p className="text-sm text-purple-600 mt-1">Active technicians</p>
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600 hover:shadow-lg transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm text-gray-500">Total Technicians</h3>
+              <p className="text-3xl font-bold text-purple-600 mt-2">
+                {filteredShopUsers?.filter(u => u.role === 'technician').length || 0}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">Active technicians</p>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+              </svg>
+            </div>
+          </div>
         </div>
         
-        <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-100">
-          <h3 className="text-sm font-medium text-yellow-600 mb-2">Total Employees</h3>
-          <p className="text-2xl font-bold text-yellow-700">
-            {filteredShopUsers?.filter(u => u.is_active).length || 0}
-          </p>
-          <p className="text-sm text-yellow-600 mt-1">Active employees</p>
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-yellow-600 hover:shadow-lg transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm text-gray-500">Total Employees</h3>
+              <p className="text-3xl font-bold text-yellow-600 mt-2">
+                {filteredShopUsers?.filter(u => u.is_active).length || 0}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">Active employees</p>
+            </div>
+            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Video Statistics */}
       {videoStats && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-800">AI Video Statistics</h2>
             <span className="text-sm text-gray-500">Video processing status</span>
@@ -244,7 +400,7 @@ const Analytics = () => {
       )}
 
       {/* Users with AI Video Requests */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="p-6 border-b">
           <h2 className="text-xl font-bold text-gray-800">Technician AI Video Performance</h2>
           <p className="text-gray-600">AI video requests by technician</p>
@@ -267,9 +423,7 @@ const Analytics = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -279,7 +433,7 @@ const Analytics = () => {
                     : 0;
                   
                   return (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                    <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-10 h-10 rounded-full overflow-hidden mr-3 border bg-gray-100">
@@ -318,7 +472,7 @@ const Analytics = () => {
                         <div className="space-y-2">
                           <div className="w-32 bg-gray-200 rounded-full h-2">
                             <div 
-                              className="bg-green-500 h-2 rounded-full"
+                              className="bg-green-500 h-2 rounded-full transition-all duration-500"
                               style={{ width: `${completionRate}%` }}
                             ></div>
                           </div>
@@ -336,14 +490,7 @@ const Analytics = () => {
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => handleViewUserVideos(user)}
-                          className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm"
-                        >
-                          View Videos
-                        </button>
-                      </td>
+                      
                     </tr>
                   );
                 })}
@@ -363,7 +510,7 @@ const Analytics = () => {
 
       {/* Order Statistics */}
       {orderStats && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
           <h2 className="text-xl font-bold text-gray-800 mb-6">Order Statistics</h2>
           
           <div className="space-y-6">
@@ -374,7 +521,7 @@ const Analytics = () => {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div 
-                  className="bg-green-500 h-3 rounded-full"
+                  className="bg-green-500 h-3 rounded-full transition-all duration-500"
                   style={{ width: `${orderStats.completedPercentage}%` }}
                 ></div>
               </div>
@@ -405,125 +552,9 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* User Videos Modal */}
-      {selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
-              <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden border bg-gray-100">
-                  <img 
-                    src={selectedUser.profilePic}
-                    alt={selectedUser.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = DEFAULT_PROFILE_PIC;
-                    }}
-                  />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">{selectedUser.name}</h2>
-                  <p className="text-gray-600">AI Video Request Details</p>
-                  <div className="mt-1 text-sm text-gray-500">
-                    Total Videos: {selectedUser.totalVideos} | Completed: {selectedUser.completedVideos}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedUser(null);
-                  setUserVideos([]);
-                }}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      
 
-            <div className="p-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Video Requests</h3>
-              
-              {userVideos.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Video ID</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {userVideos.map((video) => (
-                        <tr key={video.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            {video.id?.slice(0, 8) || 'N/A'}...
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            #{video.order_id?.slice(0, 8) || 'N/A'}...
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              video.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              video.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
-                              video.status === 'uploaded' ? 'bg-blue-100 text-blue-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {video.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'N/A'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {video.duration ? `${Math.round(video.duration)}s` : 'N/A'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-gray-500">No video requests found for this technician</p>
-                </div>
-              )}
-            </div>
-
-            <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setSelectedUser(null);
-                  setUserVideos([]);
-                }}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Refresh Button */}
-      <div className="mt-8 flex justify-end">
-        <button
-          onClick={fetchData}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh Data
-        </button>
-      </div>
+     
     </div>
   );
 };

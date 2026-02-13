@@ -10,6 +10,9 @@ import {
   selectVideos
 } from '../../redux/slice/videoSlice';
 
+// GCS Base URL
+const GCS_BASE_URL = 'https://storage.googleapis.com/innu-video-app';
+
 const OrderDetailModal = ({ order, videos, onClose }) => {
   const dispatch = useDispatch();
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -18,38 +21,13 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
   const [uploadPreview, setUploadPreview] = useState(null);
   const [isUploadingToGCS, setIsUploadingToGCS] = useState(false);
   const [videoError, setVideoError] = useState(null);
-  const [thumbnails, setThumbnails] = useState({});
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   
   const isUploading = useSelector(selectIsUploading);
   const uploadData = useSelector(selectUploadData);
-  const videoRefs = useRef({});
-
-  // Generate thumbnail from video
-  const generateThumbnail = (video, videoElement) => {
-    if (!videoElement || thumbnails[video.id]) return;
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 180;
-    const ctx = canvas.getContext('2d');
-    
-    try {
-      // Seek to 1 second or 25% of video
-      videoElement.currentTime = Math.min(1, videoElement.duration * 0.25);
-      
-      setTimeout(() => {
-        try {
-          ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-          const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8);
-          setThumbnails(prev => ({ ...prev, [video.id]: thumbnailUrl }));
-        } catch (e) {
-          console.error('Failed to generate thumbnail:', e);
-        }
-      }, 200);
-    } catch (e) {
-      console.error('Failed to generate thumbnail:', e);
-    }
-  };
+  const fileInputRef = useRef(null);
+  const uploadTimeoutRef = useRef(null);
 
   // Debug: Log order object
   useEffect(() => {
@@ -57,6 +35,29 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
     console.log('Order ID:', order?.id);
     console.log('Videos received:', videos);
   }, [order, videos]);
+
+  // Auto-hide success message after 3 seconds
+  useEffect(() => {
+    if (uploadSuccess) {
+      uploadTimeoutRef.current = setTimeout(() => {
+        setUploadSuccess(false);
+      }, 3000);
+    }
+    return () => {
+      if (uploadTimeoutRef.current) {
+        clearTimeout(uploadTimeoutRef.current);
+      }
+    };
+  }, [uploadSuccess]);
+
+  // Clean up object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (uploadPreview) {
+        URL.revokeObjectURL(uploadPreview);
+      }
+    };
+  }, [uploadPreview]);
 
   if (!order) return null;
 
@@ -111,9 +112,28 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
     };
   };
 
+  // Get full video URL
+  const getFullVideoUrl = (video) => {
+    const videoUrl = video.stitched_video_url || video.processed_video_url || video.raw_video_url;
+    if (!videoUrl) return null;
+    
+    return videoUrl.startsWith('http') 
+      ? videoUrl 
+      : `${GCS_BASE_URL}/${videoUrl}`;
+  };
+
+  // Get full thumbnail URL
+  const getThumbnailUrl = (video) => {
+    if (!video.thumbnail_url) return null;
+    
+    return video.thumbnail_url.startsWith('http') 
+      ? video.thumbnail_url 
+      : `${GCS_BASE_URL}/${video.thumbnail_url}`;
+  };
+
   const handlePlayVideo = (video) => {
     setVideoError(null);
-    const videoUrl = video.processed_video_url || video.raw_video_url;
+    const videoUrl = getFullVideoUrl(video);
     if (videoUrl) {
       setSelectedVideo(video);
       setVideoPreview(videoUrl);
@@ -126,6 +146,55 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
     setSelectedVideo(null);
     setVideoPreview(null);
     setVideoError(null);
+  };
+
+  // Download video function
+  const handleDownloadVideo = async (video) => {
+    const videoUrl = getFullVideoUrl(video);
+    if (!videoUrl) {
+      alert('Video URL not available');
+      return;
+    }
+
+    try {
+      setDownloading(true);
+      
+      // Fetch the video
+      const response = await fetch(videoUrl, {
+        mode: 'cors',
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      });
+      
+      if (!response.ok) throw new Error('Download failed');
+      
+      // Get the video blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Extract filename from URL or use default
+      const filename = video.stitched_video_url?.split('/').pop() || 
+                      `video-${video.id}.mp4`;
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Failed to download video. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleFileSelect = (e) => {
@@ -141,9 +210,14 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
         return;
       }
       
+      if (uploadPreview) {
+        URL.revokeObjectURL(uploadPreview);
+      }
+      
       setUploadFile(file);
       const previewUrl = URL.createObjectURL(file);
       setUploadPreview(previewUrl);
+      setUploadSuccess(false);
     }
   };
 
@@ -153,6 +227,11 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
     }
     setUploadFile(null);
     setUploadPreview(null);
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    
     dispatch(clearUploadData());
   };
 
@@ -166,6 +245,7 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
     try {
       setIsUploadingToGCS(true);
       setVideoError(null);
+      setUploadSuccess(false);
       
       console.log('Uploading video for order ID:', orderId);
       
@@ -183,11 +263,13 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
         throw new Error('No video ID received from server');
       }
       
+      const blob = new Blob([uploadFile], { type: uploadFile.type });
+      
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
-        body: uploadFile,
+        body: blob,
         headers: {
-          'Content-Type': uploadFile.type,
+          'Content-Type': uploadFile.type || 'video/mp4',
         },
         mode: 'cors'
       });
@@ -199,7 +281,9 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
       await dispatch(confirmUpload({ videoId })).unwrap();
       
       handleUploadCancel();
-      dispatch(getVideosByOrderId(orderId));
+      await dispatch(getVideosByOrderId(orderId));
+      
+      setUploadSuccess(true);
       
     } catch (error) {
       console.error('Upload failed:', error);
@@ -209,16 +293,6 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
     }
   };
 
-  // Clean up object URLs on unmount
-  useEffect(() => {
-    return () => {
-      if (uploadPreview) {
-        URL.revokeObjectURL(uploadPreview);
-      }
-    };
-  }, [uploadPreview]);
-
-  // Status badge component
   const StatusBadge = ({ status }) => {
     const statusConfig = {
       completed: { bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500', label: 'Completed' },
@@ -276,6 +350,19 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
             </svg>
           </button>
         </div>
+
+        {/* Success Message */}
+        {uploadSuccess && (
+          <div className="mx-6 mt-4 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3 animate-fade-in">
+            <svg className="w-5 h-5 text-green-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-green-800">Upload Successful!</p>
+              <p className="text-sm text-green-700">Video has been uploaded and is now processing.</p>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {videoError && (
@@ -404,6 +491,7 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
               {/* Upload Button */}
               <div className="relative">
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept="video/*"
                   onChange={handleFileSelect}
@@ -449,11 +537,21 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
                     </svg>
                   </button>
                 </div>
+                
                 <video
+                  key={uploadPreview}
                   src={uploadPreview}
                   className="w-full max-h-48 rounded-xl bg-black"
                   controls
-                />
+                >
+                  <source src={uploadPreview} type={uploadFile?.type || 'video/mp4'} />
+                  Your browser does not support the video tag.
+                </video>
+                
+                <div className="mt-3 text-xs text-gray-500">
+                  <span className="font-medium">File:</span> {uploadFile?.name} ({(uploadFile?.size / (1024 * 1024)).toFixed(2)} MB)
+                </div>
+                
                 <button
                   onClick={handleUploadVideo}
                   disabled={isUploadingToGCS || isUploading || !orderId}
@@ -483,7 +581,8 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {videos.map((video, index) => {
                   const details = getVideoDetails(video);
-                  const hasVideoUrl = video.raw_video_url || video.processed_video_url;
+                  const hasVideoUrl = video.stitched_video_url || video.processed_video_url || video.raw_video_url;
+                  const thumbnailUrl = getThumbnailUrl(video);
                   
                   return (
                     <div key={video.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-200">
@@ -491,27 +590,14 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
                       <div className="relative aspect-video bg-black group">
                         {hasVideoUrl ? (
                           <>
-                            {/* Hidden video element for thumbnail generation */}
-                            <video
-                              ref={el => {
-                                if (el && !thumbnails[video.id]) {
-                                  videoRefs.current[video.id] = el;
-                                  el.addEventListener('loadeddata', () => generateThumbnail(video, el));
-                                  el.addEventListener('loadedmetadata', () => generateThumbnail(video, el));
-                                }
-                              }}
-                              src={video.processed_video_url || video.raw_video_url}
-                              className="hidden"
-                              preload="metadata"
-                              crossOrigin="anonymous"
-                            />
-                            
-                            {/* Thumbnail */}
-                            {thumbnails[video.id] ? (
+                            {thumbnailUrl ? (
                               <img 
-                                src={thumbnails[video.id]} 
+                                src={thumbnailUrl} 
                                 alt={`Video thumbnail ${index + 1}`}
                                 className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.src = 'https://via.placeholder.com/320x180?text=Video+Thumbnail';
+                                }}
                               />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
@@ -519,7 +605,7 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
                                   <svg className="w-12 h-12 text-gray-600 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M4 4a2 2 0 012-2h12a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
                                   </svg>
-                                  <p className="text-xs text-gray-500">Loading thumbnail...</p>
+                                  <p className="text-xs text-gray-500">No thumbnail</p>
                                 </div>
                               </div>
                             )}
@@ -589,22 +675,53 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
                           </div>
                         </div>
                         
-                        {/* Action Buttons */}
+                        {/* Action Buttons - Play, Download, Edit */}
                         <div className="mt-4 flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                           {hasVideoUrl && (
-                            <button
-                              onClick={() => handlePlayVideo(video)}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
-                            >
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                              Play
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handlePlayVideo(video)}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
+                                title="Play video"
+                              >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z" />
+                                </svg>
+                                Play
+                              </button>
+                              
+                              <button
+                                onClick={() => handleDownloadVideo(video)}
+                                disabled={downloading}
+                                className={`px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow ${
+                                  downloading ? 'opacity-50 cursor-not-allowed' : ''
+                                }`}
+                                title="Download video"
+                              >
+                                {downloading ? (
+                                  <>
+                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    <span>Downloading...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    Download
+                                  </>
+                                )}
+                              </button>
+                            </>
                           )}
+                          
                           <button
                             onClick={() => alert('Edit functionality coming soon')}
                             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                            title="Edit video"
                           >
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -651,57 +768,74 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
         </div>
       </div>
 
-      {/* Video Player Modal */}
+      {/* Video Player Modal - Clean Popup with Close Button */}
       {selectedVideo && videoPreview && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-[70] backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-[70] backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden">
+            {/* Modal Header with Close Button */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-white">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <h3 className="text-lg font-semibold text-gray-900">Now Playing</h3>
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                   Video #{videos?.findIndex(v => v.id === selectedVideo.id) + 1}
                 </span>
+                {selectedVideo.duration && (
+                  <span className="text-sm text-gray-500">
+                    {Math.round(selectedVideo.duration)}s
+                  </span>
+                )}
               </div>
               <button
                 onClick={handleCloseVideo}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Close"
               >
                 <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
+            
+            {/* Video Player */}
             <div className="p-6 bg-black">
               <video
                 key={videoPreview}
                 src={videoPreview}
-                className="w-full rounded-xl shadow-2xl"
+                className="w-full max-h-[60vh] rounded-xl shadow-2xl mx-auto"
                 controls
                 autoPlay
                 controlsList="nodownload"
                 onError={() => setVideoError('Failed to load video')}
-              />
-            </div>
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-              <div className="text-sm text-gray-600">
-                {selectedVideo.detected_keywords && (
-                  <span className="flex items-center gap-2">
-                    <span className="font-medium">Problem:</span>
-                    {getVideoDetails(selectedVideo).problem}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={handleCloseVideo}
-                className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors font-medium text-sm"
               >
-                Close Player
-              </button>
+                <source src={videoPreview} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
             </div>
+            
+            {/* Video Details */}
+            {selectedVideo.transcription_text && (
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium text-gray-900">Transcript:</span>{' '}
+                  {selectedVideo.transcription_text}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* Add this CSS to your global styles or in a style tag */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
