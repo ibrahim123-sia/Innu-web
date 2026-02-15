@@ -779,12 +779,7 @@ const Brands = () => {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Brand Information</h3>
                   
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800">
-                      <strong>Note:</strong> All fields marked with * are required. 
-                      A temporary password will be generated and sent to the admin's email.
-                    </p>
-                  </div>
+                
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -981,7 +976,7 @@ const Brands = () => {
                               <span className="text-xs text-red-600">⚠️ No admin assigned</span>
                             )}
                             {admin?.is_first_login && (
-                              <span className="text-xs text-orange-600">🔄 First login pending</span>
+                              <span className="text-xs text-orange-800">First login pending</span>
                             )}
                           </div>
                         </div>

@@ -10,8 +10,7 @@ import {
   deleteShop
 } from '../../redux/slice/shopSlice';
 import {
-  selectAllDistricts,
-  selectDistrictsByBrand,  // ✅ Add this import
+  selectDistrictsByBrand,
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
 import {
@@ -35,8 +34,7 @@ const Shops = () => {
   
   // Correct selectors
   const shops = useSelector(selectShopsForBrand(brandId));
-  // ✅ Fix: Use selectDistrictsByBrand to get ONLY districts for current brand
-  const districts = useSelector(selectDistrictsByBrand) || [];  // Changed from selectAllDistricts
+  const districts = useSelector(selectDistrictsByBrand) || [];
   const users = useSelector(selectAllUsers);
   const loading = useSelector(selectShopLoading);
   const error = useSelector(selectShopError);
@@ -53,17 +51,17 @@ const Shops = () => {
   const [editManagerProfilePicFile, setEditManagerProfilePicFile] = useState(null);
   const [editManagerProfilePicPreview, setEditManagerProfilePicPreview] = useState(null);
   
+  // Updated formData to match backend requirements
   const [formData, setFormData] = useState({
     name: '',
-    address: '',
+    street_address: '',
     city: '',
     state: '',
-    zip_code: '',
-    phone: '',
-    email: '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     tekmetric_shop_id: '',
     district_id: '',
     is_active: true,
+    // Manager fields - now REQUIRED
     manager_first_name: '',
     manager_last_name: '',
     manager_email: '',
@@ -75,6 +73,25 @@ const Shops = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [shopManagers, setShopManagers] = useState({});
   const [emailExistsError, setEmailExistsError] = useState('');
+
+  // Common US timezones for dropdown
+  const timezones = [
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Phoenix',
+    'America/Los_Angeles',
+    'America/Anchorage',
+    'America/Honolulu',
+    'America/Puerto_Rico',
+    'America/Juneau',
+    'America/Boise',
+    'America/Indiana/Indianapolis',
+    'America/Detroit',
+    'America/Menominee',
+    'America/North_Dakota/Center',
+    'America/Kentucky/Louisville'
+  ];
 
   // ============================================
   // HELPER FUNCTIONS
@@ -133,7 +150,7 @@ const Shops = () => {
   useEffect(() => {
     if (user?.brand_id) {
       dispatch(getShopsByBrand(user.brand_id));
-      dispatch(getDistrictsByBrand(user.brand_id));  // ✅ Fetch districts for this brand
+      dispatch(getDistrictsByBrand(user.brand_id));
       dispatch(getAllUsers());
     }
   }, [dispatch, user?.brand_id]);
@@ -159,13 +176,6 @@ const Shops = () => {
     setShopManagers(managersMap);
   }, [users]);
 
-  // Debug: Log districts to verify
-  useEffect(() => {
-    console.log('Brand ID:', brandId);
-    console.log('Districts for brand:', districts);
-    console.log('Districts count:', districts?.length);
-  }, [districts, brandId]);
-
   // ============================================
   // HELPER FUNCTIONS FOR DATA
   // ============================================
@@ -186,15 +196,9 @@ const Shops = () => {
 
   const getDistrictName = (districtId) => {
     if (!districtId) return 'None';
-    // ✅ districts is already filtered by brand from selectDistrictsByBrand
     const district = districts.find(d => d.id === districtId);
     return district ? district.name : 'Unknown District';
   };
-
-  // ✅ No need for this function anymore since districts are already filtered
-  // const getFilteredDistricts = () => {
-  //   return districts.filter(district => district.brand_id === user?.brand_id);
-  // };
 
   // ============================================
   // HANDLERS
@@ -226,9 +230,33 @@ const Shops = () => {
     setFormSuccess('');
     setIsSubmitting(true);
 
-    // Validate required fields
+    // Validate required fields according to backend
     if (!formData.name) {
       setFormError('Shop name is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.street_address) {
+      setFormError('Street address is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.city) {
+      setFormError('City is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.state) {
+      setFormError('State is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.timezone) {
+      setFormError('Timezone is required');
       setIsSubmitting(false);
       return;
     }
@@ -239,8 +267,33 @@ const Shops = () => {
       return;
     }
 
-    // Check if email exists when manager is being created
-    if (formData.manager_email && checkEmailExists(formData.manager_email)) {
+    // Validate manager fields - ALL REQUIRED
+    if (!formData.manager_first_name) {
+      setFormError('Manager first name is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.manager_last_name) {
+      setFormError('Manager last name is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.manager_email) {
+      setFormError('Manager email is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.manager_contact) {
+      setFormError('Manager contact number is required');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Check if email already exists
+    if (checkEmailExists(formData.manager_email)) {
       setFormError('Email already exists. Please use a different email for the shop manager.');
       Swal.fire({
         icon: 'error',
@@ -254,77 +307,58 @@ const Shops = () => {
     }
 
     try {
-      // Step 1: Create shop
+      // Step 1: Create shop - using correct field names for backend
       const shopData = {
-        ...formData,
-        brand_id: user.brand_id
+        name: formData.name,
+        brand_id: user.brand_id,
+        district_id: formData.district_id || null,
+        tekmetric_shop_id: formData.tekmetric_shop_id,
+        street_address: formData.street_address,
+        city: formData.city,
+        state: formData.state,
+        timezone: formData.timezone,
+        is_active: formData.is_active
       };
 
       const shopResult = await dispatch(createShop(shopData)).unwrap();
       
       if (shopResult.success) {
-        // Step 2: Create shop manager user if email is provided
-        if (formData.manager_email) {
-          // Generate random password for first-time login
-          const randomPassword = generateRandomPassword();
-          
-          const userFormData = new FormData();
-          userFormData.append('email', formData.manager_email);
-          userFormData.append('first_name', formData.manager_first_name);
-          userFormData.append('last_name', formData.manager_last_name);
-          
-          const formattedPhone = formatPhoneNumber(formData.manager_contact);
-          userFormData.append('contact_no', formattedPhone || '');
-          
-          userFormData.append('role', 'shop_manager');
-          userFormData.append('brand_id', user.brand_id);
-          userFormData.append('shop_id', shopResult.data.id);
-          userFormData.append('district_id', formData.district_id || null);
-          userFormData.append('is_active', true);
-          
-          // Add ft_password and password_type
-          userFormData.append('ft_password', randomPassword);
-          userFormData.append('password_type', 'ft_password');
-          userFormData.append('is_first_login', 'true');
-          
-          if (managerProfilePicFile) {
-            userFormData.append('profile_pic', managerProfilePicFile);
-          }
+        // Step 2: Create shop manager user - REQUIRED
+        // Generate random password for first-time login
+        const randomPassword = generateRandomPassword();
+        
+        const userFormData = new FormData();
+        userFormData.append('email', formData.manager_email);
+        userFormData.append('first_name', formData.manager_first_name);
+        userFormData.append('last_name', formData.manager_last_name);
+        
+        const formattedPhone = formatPhoneNumber(formData.manager_contact);
+        userFormData.append('contact_no', formattedPhone || '');
+        
+        userFormData.append('role', 'shop_manager');
+        userFormData.append('brand_id', user.brand_id);
+        userFormData.append('shop_id', shopResult.data.id);
+        
+        // Only append district_id if it has a value
+        if (formData.district_id && formData.district_id !== '') {
+          userFormData.append('district_id', formData.district_id);
+        }
+        
+        userFormData.append('is_active', true);
+        
+        // Add ft_password and password_type
+        userFormData.append('ft_password', randomPassword);
+        userFormData.append('password_type', 'ft_password');
+        userFormData.append('is_first_login', 'true');
+        
+        if (managerProfilePicFile) {
+          userFormData.append('profile_pic', managerProfilePicFile);
+        }
 
-          const userResult = await dispatch(createUser(userFormData)).unwrap();
-          
-          if (userResult.success) {
-            // Show success popup - WITHOUT showing the password
-            Swal.fire({
-              icon: 'success',
-              title: 'Shop Created Successfully!',
-              html: `
-                <div style="text-align: left;">
-                  <p><strong>Shop:</strong> ${formData.name}</p>
-                  <p><strong>Tekmetric ID:</strong> ${formData.tekmetric_shop_id}</p>
-                  <p><strong>District:</strong> ${formData.district_id ? getDistrictName(formData.district_id) : 'None'}</p>
-                  <p><strong>Shop Manager:</strong> ${formData.manager_first_name} ${formData.manager_last_name}</p>
-                  <p><strong>Manager Email:</strong> ${formData.manager_email}</p>
-                  <p><strong>Contact:</strong> ${formData.manager_contact || 'Not provided'}</p>
-                  <br>
-                  <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
-                    <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
-                    <p style="color: #0d47a1; margin: 5px 0 0 0; font-size: 14px;">
-                      A temporary password has been sent to <strong>${formData.manager_email}</strong>
-                    </p>
-                  </div>
-                  <p style="font-size: 14px; color: #666; margin-top: 15px;">
-                    The manager will use this password for first-time login and will be prompted to create a new password.
-                  </p>
-                </div>
-              `,
-              confirmButtonText: 'OK',
-              confirmButtonColor: '#4CAF50',
-              width: '550px'
-            });
-          }
-        } else {
-          // Show success popup without manager
+        const userResult = await dispatch(createUser(userFormData)).unwrap();
+        
+        if (userResult.success) {
+          // Show success popup
           Swal.fire({
             icon: 'success',
             title: 'Shop Created Successfully!',
@@ -332,17 +366,24 @@ const Shops = () => {
               <div style="text-align: left;">
                 <p><strong>Shop:</strong> ${formData.name}</p>
                 <p><strong>Tekmetric ID:</strong> ${formData.tekmetric_shop_id}</p>
+                <p><strong>Location:</strong> ${formData.city}, ${formData.state}</p>
+                <p><strong>Timezone:</strong> ${formData.timezone}</p>
                 <p><strong>District:</strong> ${formData.district_id ? getDistrictName(formData.district_id) : 'None'}</p>
-                <p><strong>Status:</strong> ${formData.is_active ? 'Active' : 'Inactive'}</p>
+                <p><strong>Shop Manager:</strong> ${formData.manager_first_name} ${formData.manager_last_name}</p>
+                <p><strong>Manager Email:</strong> ${formData.manager_email}</p>
+                <p><strong>Manager Contact:</strong> ${formattedPhone}</p>
                 <br>
-                <p style="color: #666;">
-                  No shop manager was assigned. You can assign one later.
-                </p>
+                <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
+                  <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
+                  <p style="color: #0d47a1; margin: 5px 0 0 0; font-size: 14px;">
+                    A temporary password has been sent to <strong>${formData.manager_email}</strong>
+                  </p>
+                </div>
               </div>
             `,
             confirmButtonText: 'OK',
             confirmButtonColor: '#4CAF50',
-            width: '500px'
+            width: '550px'
           });
         }
 
@@ -376,17 +417,48 @@ const Shops = () => {
     setFormError('');
     setFormSuccess('');
 
-    // Validate Tekmetric Shop ID - Required Field
+    // Validate required fields
+    if (!editFormData.street_address) {
+      setFormError('Street address is required');
+      return;
+    }
+
+    if (!editFormData.city) {
+      setFormError('City is required');
+      return;
+    }
+
+    if (!editFormData.state) {
+      setFormError('State is required');
+      return;
+    }
+
+    if (!editFormData.timezone) {
+      setFormError('Timezone is required');
+      return;
+    }
+
     if (!editFormData.tekmetric_shop_id || editFormData.tekmetric_shop_id.trim() === '') {
       setFormError('Tekmetric Shop ID is required');
       return;
     }
 
     try {
-      // Update shop
+      // Update shop - only include fields that exist in backend
+      const updateData = {
+        name: editFormData.name,
+        district_id: editFormData.district_id || null,
+        tekmetric_shop_id: editFormData.tekmetric_shop_id,
+        street_address: editFormData.street_address,
+        city: editFormData.city,
+        state: editFormData.state,
+        timezone: editFormData.timezone,
+        is_active: editFormData.is_active
+      };
+
       await dispatch(updateShop({
         id: showEditModal,
-        data: editFormData
+        data: updateData
       })).unwrap();
 
       // Update shop manager if exists
@@ -456,7 +528,13 @@ const Shops = () => {
   const handleToggleStatus = async (shop) => {
     try {
       const updateData = {
-        ...shop,
+        name: shop.name,
+        district_id: shop.district_id,
+        tekmetric_shop_id: shop.tekmetric_shop_id,
+        street_address: shop.street_address,
+        city: shop.city,
+        state: shop.state,
+        timezone: shop.timezone,
         is_active: !shop.is_active
       };
 
@@ -494,12 +572,10 @@ const Shops = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      address: '',
+      street_address: '',
       city: '',
       state: '',
-      zip_code: '',
-      phone: '',
-      email: '',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       tekmetric_shop_id: '',
       district_id: '',
       is_active: true,
@@ -522,7 +598,7 @@ const Shops = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'phone' || name === 'manager_contact') {
+    if (name === 'manager_contact') {
       const formattedValue = formatPhoneNumber(value);
       setFormData(prev => ({
         ...prev,
@@ -545,7 +621,7 @@ const Shops = () => {
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'phone' || name === 'manager_contact') {
+    if (name === 'manager_contact') {
       const formattedValue = formatPhoneNumber(value);
       setEditFormData(prev => ({
         ...prev,
@@ -566,12 +642,10 @@ const Shops = () => {
     setShowEditModal(shop.id);
     setEditFormData({
       name: shop.name,
-      address: shop.address || '',
+      street_address: shop.street_address || '',
       city: shop.city || '',
       state: shop.state || '',
-      zip_code: shop.zip_code || '',
-      phone: shop.phone || '',
-      email: shop.email || '',
+      timezone: shop.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       tekmetric_shop_id: shop.tekmetric_shop_id || '',
       district_id: shop.district_id || '',
       is_active: shop.is_active,
@@ -644,7 +718,7 @@ const Shops = () => {
                   {/* Information about auto-generated password */}
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>Note:</strong> If you assign a manager, a random password will be auto-generated and sent to their email.
+                      <strong>Note:</strong> A random password will be auto-generated and sent to the manager's email.
                       The manager will use this password for first-time login and will be prompted to create a new password.
                     </p>
                   </div>
@@ -696,7 +770,7 @@ const Shops = () => {
 
               {/* Right Column: Shop & Manager Info */}
               <div className="space-y-6">
-                {/* Shop Information - ALL FIELDS REQUIRED EXCEPT ADDRESS DETAILS */}
+                {/* Shop Information */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Shop Information</h3>
                   
@@ -718,46 +792,39 @@ const Shops = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        District
+                        Tekmetric Shop ID <span className="text-red-500">*</span>
                       </label>
-                      <select
-                        name="district_id"
-                        value={formData.district_id}
+                      <input
+                        type="text"
+                        name="tekmetric_shop_id"
+                        value={formData.tekmetric_shop_id}
                         onChange={handleInputChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">None (Shop without district)</option>
-                        {/* ✅ districts is already filtered by brand from selectDistrictsByBrand */}
-                        {districts.map(district => (
-                          <option key={district.id} value={district.id}>
-                            {district.name}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        District is optional for shops
-                      </p>
+                        placeholder="Enter Tekmetric Shop ID"
+                        required
+                      />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Address
+                      Street Address <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      name="address"
-                      value={formData.address}
+                      name="street_address"
+                      value={formData.street_address}
                       onChange={handleInputChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Street address"
+                      required
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        City
+                        City <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -766,12 +833,13 @@ const Shops = () => {
                         onChange={handleInputChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="City"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        State
+                        State <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -780,74 +848,47 @@ const Shops = () => {
                         onChange={handleInputChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="State"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ZIP Code
-                      </label>
-                      <input
-                        type="text"
-                        name="zip_code"
-                        value={formData.zip_code}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="ZIP Code"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="+1 (XXX) XXX-XXXX"
-                        pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
-                        title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Format: +1 (XXX) XXX-XXXX
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="shop@example.com"
+                        required
                       />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tekmetric Shop ID <span className="text-red-500">*</span>
+                      Timezone <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="tekmetric_shop_id"
-                      value={formData.tekmetric_shop_id}
+                    <select
+                      name="timezone"
+                      value={formData.timezone}
                       onChange={handleInputChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter Tekmetric Shop ID"
                       required
-                    />
+                    >
+                      {timezones.map(tz => (
+                        <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      District
+                    </label>
+                    <select
+                      name="district_id"
+                      value={formData.district_id}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">None (Shop without district)</option>
+                      {districts.map(district => (
+                        <option key={district.id} value={district.id}>
+                          {district.name}
+                        </option>
+                      ))}
+                    </select>
                     <p className="text-xs text-gray-500 mt-1">
-                      This is a required field
+                      District is optional for shops
                     </p>
                   </div>
 
@@ -863,14 +904,15 @@ const Shops = () => {
                   </label>
                 </div>
 
-                {/* Shop Manager Information - ALL FIELDS REQUIRED IF MANAGER EMAIL IS PROVIDED */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Shop Manager (Optional)</h3>
+                {/* Shop Manager Information - ALL FIELDS REQUIRED */}
+                <div className="space-y-4 border-t pt-6">
+                  <h3 className="font-semibold text-gray-700">Shop Manager <span className="text-red-500">*</span></h3>
+                  <p className="text-sm text-gray-500 mb-2">All manager fields are required</p>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name
+                        First Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -879,12 +921,13 @@ const Shops = () => {
                         onChange={handleInputChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="First name"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name
+                        Last Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -893,6 +936,7 @@ const Shops = () => {
                         onChange={handleInputChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Last name"
+                        required
                       />
                     </div>
                   </div>
@@ -900,7 +944,7 @@ const Shops = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
+                        Email <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="email"
@@ -911,6 +955,7 @@ const Shops = () => {
                           emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
                         placeholder="manager@example.com"
+                        required
                       />
                       {emailExistsError && (
                         <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
@@ -919,7 +964,7 @@ const Shops = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Contact Number
+                        Contact Number <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="tel"
@@ -930,6 +975,7 @@ const Shops = () => {
                         placeholder="+1 (XXX) XXX-XXXX"
                         pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                         title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
+                        required
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         Format: +1 (XXX) XXX-XXXX
@@ -950,7 +996,7 @@ const Shops = () => {
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Create Shop'}
+                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Create Shop with Manager'}
               </button>
             </div>
           </form>
@@ -1014,9 +1060,7 @@ const Shops = () => {
                             <div className="text-xs font-medium text-blue-600">
                               Tekmetric ID: {shop.tekmetric_shop_id || 'Not Set'}
                             </div>
-                            {shop.phone && (
-                              <div className="text-xs text-gray-400">{shop.phone}</div>
-                            )}
+                            <div className="text-xs text-gray-400">{shop.timezone}</div>
                             {manager?.is_first_login && (
                               <span className="text-xs text-orange-600">🔄 First login pending</span>
                             )}
@@ -1024,8 +1068,8 @@ const Shops = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{shop.city || 'N/A'}</div>
-                        <div className="text-sm text-gray-500">{shop.state || ''}</div>
+                        <div className="text-sm text-gray-900">{shop.street_address}</div>
+                        <div className="text-sm text-gray-500">{shop.city}, {shop.state}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {getDistrictName(shop.district_id)}
@@ -1054,7 +1098,7 @@ const Shops = () => {
                             </div>
                           </div>
                         ) : (
-                          <div className="text-sm text-gray-500 italic">No manager</div>
+                          <div className="text-sm text-red-500 font-medium">No manager assigned!</div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -1100,7 +1144,7 @@ const Shops = () => {
               className="w-16 h-16 mx-auto mb-4 opacity-50"
             />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Shops Found</h3>
-            <p className="text-gray-500 mb-4">Create your first shop to get started</p>
+            <p className="text-gray-500 mb-4">Create your first shop with a manager to get started</p>
             <button
               onClick={() => setShowCreateForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
@@ -1214,46 +1258,39 @@ const Shops = () => {
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            District
+                            Tekmetric Shop ID <span className="text-red-500">*</span>
                           </label>
-                          <select
-                            name="district_id"
-                            value={editFormData.district_id || ''}
+                          <input
+                            type="text"
+                            name="tekmetric_shop_id"
+                            value={editFormData.tekmetric_shop_id || ''}
                             onChange={handleEditInputChange}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">None (Shop without district)</option>
-                            {/* ✅ districts is already filtered by brand from selectDistrictsByBrand */}
-                            {districts.map(district => (
-                              <option key={district.id} value={district.id}>
-                                {district.name}
-                              </option>
-                            ))}
-                          </select>
-                          <p className="text-xs text-gray-500 mt-1">
-                            District is optional for shops
-                          </p>
+                            placeholder="Enter Tekmetric Shop ID"
+                            required
+                          />
                         </div>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Address
+                          Street Address <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
-                          name="address"
-                          value={editFormData.address || ''}
+                          name="street_address"
+                          value={editFormData.street_address || ''}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="Street address"
+                          required
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            City
+                            City <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
@@ -1262,12 +1299,13 @@ const Shops = () => {
                             onChange={handleEditInputChange}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="City"
+                            required
                           />
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            State
+                            State <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
@@ -1276,75 +1314,45 @@ const Shops = () => {
                             onChange={handleEditInputChange}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="State"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            ZIP Code
-                          </label>
-                          <input
-                            type="text"
-                            name="zip_code"
-                            value={editFormData.zip_code || ''}
-                            onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="ZIP Code"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Phone Number
-                          </label>
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={editFormData.phone || ''}
-                            onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="+1 (XXX) XXX-XXXX"
-                            pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
-                            title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Format: +1 (XXX) XXX-XXXX
-                          </p>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Email
-                          </label>
-                          <input
-                            type="email"
-                            name="email"
-                            value={editFormData.email || ''}
-                            onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="shop@example.com"
+                            required
                           />
                         </div>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Tekmetric Shop ID <span className="text-red-500">*</span>
+                          Timezone <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
-                          name="tekmetric_shop_id"
-                          value={editFormData.tekmetric_shop_id || ''}
+                        <select
+                          name="timezone"
+                          value={editFormData.timezone || ''}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter Tekmetric Shop ID"
                           required
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          This is a required field
-                        </p>
+                        >
+                          {timezones.map(tz => (
+                            <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          District
+                        </label>
+                        <select
+                          name="district_id"
+                          value={editFormData.district_id || ''}
+                          onChange={handleEditInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">None (Shop without district)</option>
+                          {districts.map(district => (
+                            <option key={district.id} value={district.id}>
+                              {district.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <label className="flex items-center space-x-2">
@@ -1352,7 +1360,7 @@ const Shops = () => {
                           type="checkbox"
                           name="is_active"
                           checked={editFormData.is_active || false}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                          onChange={handleEditInputChange}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <span className="text-sm font-medium text-gray-700">Active</span>
@@ -1421,9 +1429,6 @@ const Shops = () => {
                             pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                             title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
                           />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Format: +1 (XXX) XXX-XXXX
-                          </p>
                         </div>
                       </div>
                     </div>

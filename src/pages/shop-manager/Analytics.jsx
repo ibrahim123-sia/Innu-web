@@ -201,7 +201,7 @@ const Analytics = () => {
     const stats = {
       total: shopVideos.length,
       byStatus: {
-        uploaded: shopVideos.filter(v => v.status === 'uploaded').length,
+        uploaded: shopVideos.filter(v => v.status === 'uploading').length,
         processing: shopVideos.filter(v => v.status === 'processing').length,
         completed: shopVideos.filter(v => v.status === 'completed').length,
         failed: shopVideos.filter(v => v.status === 'failed').length,
@@ -378,7 +378,7 @@ const Analytics = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <div className="text-2xl font-bold text-blue-600">{videoStats.byStatus.uploaded}</div>
-              <div className="text-sm text-blue-500">Uploaded</div>
+              <div className="text-sm text-blue-500">Uploading</div>
             </div>
             
             <div className="text-center p-4 bg-yellow-50 rounded-lg">

@@ -1,3 +1,4 @@
+// src/components/DistrictManager/Overview.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
@@ -11,10 +12,13 @@ import {
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
-  selectDashboardSummary,
-  getVideoStats,
+  // ✅ CORRECT SELECTORS FROM VIDEO SLICE
   selectVideos,
-  getAllVideos
+  selectDerivedVideoStats,
+  selectStatusDistribution,
+  selectVideoLoading,
+  getAllVideos,
+  getVideoStats
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
 
@@ -24,10 +28,15 @@ const Overview = () => {
   const districtId = currentUser?.district_id;
   
   // Get data from Redux with correct selectors
-    const shopsByDistrict = useSelector(selectShopsByDistrict);
+  const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
-  const videoDashboardSummary = useSelector(selectDashboardSummary);
-  const allVideos = useSelector(selectVideos);
+  
+  // ✅ FIXED: Use the correct video selectors
+  const allVideos = useSelector(selectVideos) || [];
+  const videoStats = useSelector(selectDerivedVideoStats);
+  const statusDistribution = useSelector(selectStatusDistribution);
+  const videoLoading = useSelector(selectVideoLoading);
+  
   const orderLoading = useSelector(selectOrderLoading);
   
   // Local state
@@ -60,7 +69,7 @@ const Overview = () => {
     return allVideos.filter(video => shopIds.includes(video.shop_id));
   }, [filteredShops, allVideos]);
 
-  // Calculate video stats
+  // Calculate video stats from district videos
   const totalVideos = districtVideos.length;
   const completedVideos = districtVideos.filter(v => v.status === 'completed').length;
   const processingVideos = districtVideos.filter(v => v.status === 'processing').length;
@@ -72,6 +81,30 @@ const Overview = () => {
   // Shop stats
   const totalShops = filteredShops.length;
   const activeShops = filteredShops.filter(shop => shop.is_active).length;
+
+  // Videos created today
+  const videosToday = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return districtVideos.filter(video => {
+      if (!video.created_at) return false;
+      const videoDate = new Date(video.created_at);
+      return videoDate >= today;
+    }).length;
+  }, [districtVideos]);
+
+  // Videos completed today
+  const completedToday = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return districtVideos.filter(video => {
+      if (!video.updated_at) return false;
+      const updatedDate = new Date(video.updated_at);
+      return updatedDate >= today && video.status === 'completed';
+    }).length;
+  }, [districtVideos]);
 
   // Fetch initial data
   useEffect(() => {
@@ -88,8 +121,8 @@ const Overview = () => {
       await Promise.all([
         dispatch(getShopsByDistrict(districtId)),
         dispatch(getOrdersByDistrict(districtId)),
-        dispatch(getAllVideos()),
-        dispatch(getVideoStats())
+        dispatch(getAllVideos()), // ✅ Fetch all videos
+        dispatch(getVideoStats())  // ✅ Fetch video stats
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -98,7 +131,7 @@ const Overview = () => {
     }
   };
 
-  if (loading || orderLoading) {
+  if (loading || orderLoading || videoLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -108,10 +141,7 @@ const Overview = () => {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">District Dashboard</h1>
-        <p className="text-gray-600">Welcome to your district manager dashboard</p>
-      </div>
+     
 
       {/* Stats Grid - All showing DAILY numbers */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -138,7 +168,7 @@ const Overview = () => {
               <h3 className="text-sm text-gray-500">Video Requests</h3>
               <p className="text-3xl font-bold text-red-600 mt-2">{totalVideos}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {completedVideos} completed ({completionRate}%)
+                {videosToday} today
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -248,6 +278,20 @@ const Overview = () => {
               </div>
             </div>
           </div>
+
+          {/* Completion Rate Bar */}
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Completion Rate</span>
+              <span className="text-sm font-bold text-green-600">{completionRate}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-green-600 h-2.5 rounded-full transition-all duration-500" 
+                style={{ width: `${completionRate}%` }}
+              ></div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -293,7 +337,9 @@ const Overview = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-green-600">Active</div>
+                      <div className="text-xl font-bold text-green-600">
+                        {filteredShops[0]?.is_active ? 'Active' : 'Inactive'}
+                      </div>
                       <div className="text-xs text-green-500">Status</div>
                     </div>
                   </div>
@@ -394,8 +440,8 @@ const Overview = () => {
                 <div className="text-xl font-bold text-gray-800">{dailyOrders}</div>
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Active Shops</div>
-                <div className="text-xl font-bold text-gray-800">{activeShops}</div>
+                <div className="text-sm text-gray-500">Videos Today</div>
+                <div className="text-xl font-bold text-gray-800">{videosToday}</div>
               </div>
             </div>
           </div>
@@ -420,14 +466,7 @@ const Overview = () => {
           
           <div className="bg-green-50 p-4 rounded-lg">
             <h3 className="text-sm text-green-600 font-medium">Completed Today</h3>
-            <p className="text-2xl font-bold text-green-700 mt-1">
-              {districtVideos.filter(v => {
-                if (!v.updated_at) return false;
-                const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-                return new Date(v.updated_at) >= yesterday && v.status === 'completed';
-              }).length}
-            </p>
+            <p className="text-2xl font-bold text-green-700 mt-1">{completedToday}</p>
             <p className="text-xs text-green-600">Last 24 hours</p>
           </div>
         </div>

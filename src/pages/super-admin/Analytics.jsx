@@ -22,16 +22,20 @@ import {
 import {
   // Selectors
   selectTotalAIVideoRequests,
-  selectAIVideoRequestsByBrandStats,
+  selectAIVideoRequestsByBrand,
   selectAIErrorStats,
+  selectBrandAIErrorStats,
+  selectVideoAnalyticsStats,
+  selectAIVideoRequestsByBrandStats,
   selectBrandStats,
   selectAIErrorRate,
   selectAISuccessRate,
   selectTotalManualSelections,
   selectManualSelectionRate,
+  selectTotalSegmentsProcessed,
+  selectTotalVideosWithAI,
   selectVideoEditLoading,
   selectVideoEditError,
-  // ❌ REMOVED: selectDashboardStats, selectDashboardSummary
   
   // Thunks
   getTotalAIVideoRequests,
@@ -39,7 +43,7 @@ import {
   getAIErrorStats,
   getBrandAIErrorStats,
   getVideoAnalyticsStats,
-  // ❌ REMOVED: getDashboardStats
+  getAllEditDetails
 } from '../../redux/slice/videoEditSlice';
 
 // Default images
@@ -59,11 +63,13 @@ const Analytics = () => {
   const aiVideoRequestsByBrand = useSelector(selectAIVideoRequestsByBrandStats);
   const aiErrorStats = useSelector(selectAIErrorStats);
   const brandAIErrorStats = useSelector(selectBrandStats);
+  const videoAnalyticsStats = useSelector(selectVideoAnalyticsStats);
   const aiErrorRate = useSelector(selectAIErrorRate);
   const aiSuccessRate = useSelector(selectAISuccessRate);
   const totalManualSelections = useSelector(selectTotalManualSelections);
   const manualSelectionRate = useSelector(selectManualSelectionRate);
-  // ❌ REMOVED: dashboardStats, dashboardSummary
+  const totalSegmentsProcessed = useSelector(selectTotalSegmentsProcessed);
+  const totalVideosWithAI = useSelector(selectTotalVideosWithAI);
   const loading = useSelector(selectVideoEditLoading);
   
   // Local state
@@ -86,18 +92,18 @@ const Analytics = () => {
       
       // ========== FETCH VIDEO SLICE DATA ==========
       await Promise.all([
-        dispatch(getAllVideos()).catch(err => console.log('Videos not available')),
-        dispatch(getVideoStats()).catch(err => console.log('Video stats not available'))
+        dispatch(getAllVideos()).catch(err => console.log('Videos not available', err)),
+        dispatch(getVideoStats()).catch(err => console.log('Video stats not available', err))
       ]);
       
       // ========== FETCH VIDEO EDIT SLICE DATA ==========
       await Promise.all([
-        dispatch(getTotalAIVideoRequests()).catch(err => console.log('Total AI requests not available')),
-        dispatch(getAIVideoRequestsByBrand()).catch(err => console.log('AI requests by brand not available')),
-        dispatch(getAIErrorStats()).catch(err => console.log('AI error stats not available')),
-        dispatch(getBrandAIErrorStats()).catch(err => console.log('Brand AI error stats not available')),
-        // ❌ REMOVED: dispatch(getDashboardStats())
-        dispatch(getVideoAnalyticsStats()).catch(err => console.log('Comprehensive stats not available'))
+        dispatch(getTotalAIVideoRequests()).catch(err => console.log('Total AI requests not available', err)),
+        dispatch(getAIVideoRequestsByBrand()).catch(err => console.log('AI requests by brand not available', err)),
+        dispatch(getAIErrorStats()).catch(err => console.log('AI error stats not available', err)),
+        dispatch(getBrandAIErrorStats()).catch(err => console.log('Brand AI error stats not available', err)),
+        dispatch(getVideoAnalyticsStats()).catch(err => console.log('Comprehensive stats not available', err)),
+        dispatch(getAllEditDetails()).catch(err => console.log('Edit details not available', err))
       ]);
       
     } catch (error) {
@@ -126,7 +132,6 @@ const Analytics = () => {
   const getBrandCombinedStats = (brandId) => {
     // ========== FROM VIDEO SLICE ==========
     const brandVideos = videos?.filter(v => v.brand_id === brandId) || [];
-    const videoRequests = brandVideos.length;
     
     const completedVideos = brandVideos.filter(v => v.status === 'completed').length;
     const processingVideos = brandVideos.filter(v => v.status === 'processing').length;
@@ -145,19 +150,11 @@ const Analytics = () => {
     const brandErrorRate = errorData?.aiErrorRate || 0;
     const brandSuccessRate = errorData?.aiSuccessRate || 0;
     
-    let errorRate = brandErrorRate;
-    let successRate = brandSuccessRate;
-    
-    if (totalSegments > 0 && !brandErrorRate) {
-      errorRate = ((aiErrors / totalSegments) * 100).toFixed(2);
-      successRate = ((aiCorrect / totalSegments) * 100).toFixed(2);
-    }
-    
     return {
       brandId,
       brandName: getBrandName(brandId),
       brandLogo: getBrandLogo(brandId),
-      totalVideos: videoRequests,
+      totalVideos: brandVideos.length,
       aiVideoRequests,
       completedVideos,
       processingVideos,
@@ -166,8 +163,8 @@ const Analytics = () => {
       totalSegments,
       aiErrors,
       aiCorrect,
-      aiErrorRate: parseFloat(errorRate).toFixed(2),
-      aiSuccessRate: parseFloat(successRate).toFixed(2)
+      aiErrorRate: parseFloat(brandErrorRate).toFixed(2),
+      aiSuccessRate: parseFloat(brandSuccessRate).toFixed(2)
     };
   };
 
@@ -192,22 +189,24 @@ const Analytics = () => {
   };
 
   // Calculate totals for display
-  const totalBrandsWithAI = getAllBrandsWithStats().length;
-  const totalRequestsByBrand = aiVideoRequestsByBrand?.reduce((sum, brand) => 
-    sum + (brand.totalAIVideoRequests || 0), 0
-  ) || 0;
+  const brandsWithStats = getAllBrandsWithStats();
+  const totalBrandsWithAI = brandsWithStats.length;
+  
+  const totalRequestsByBrand = brandsWithStats.reduce((sum, brand) => 
+    sum + (brand.aiVideoRequests || 0), 0
+  );
 
-  const totalBrandErrors = brandAIErrorStats?.reduce((sum, brand) => 
+  const totalBrandErrors = brandsWithStats.reduce((sum, brand) => 
     sum + (brand.aiErrors || 0), 0
-  ) || 0;
+  );
 
-  const totalBrandSuccess = brandAIErrorStats?.reduce((sum, brand) => 
+  const totalBrandSuccess = brandsWithStats.reduce((sum, brand) => 
     sum + (brand.aiCorrect || 0), 0
-  ) || 0;
+  );
 
-  const totalBrandSegments = brandAIErrorStats?.reduce((sum, brand) => 
+  const totalBrandSegments = brandsWithStats.reduce((sum, brand) => 
     sum + (brand.totalSegments || 0), 0
-  ) || 0;
+  );
 
   // Video stats totals
   const totalVideos = videos?.length || 0;
@@ -321,7 +320,7 @@ const Analytics = () => {
               <p className="text-gray-600">AI video requests and error rates by brand</p>
             </div>
             
-            {getAllBrandsWithStats().length > 0 ? (
+            {brandsWithStats.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -347,7 +346,7 @@ const Analytics = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {getAllBrandsWithStats().map((brand) => {
+                    {brandsWithStats.map((brand) => {
                       const successRate = parseFloat(brand.aiSuccessRate) || 0;
                       const errorRate = parseFloat(brand.aiErrorRate) || 0;
                       
@@ -465,6 +464,89 @@ const Analytics = () => {
               </div>
             )}
           </div>
+
+          {/* AI Analytics Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">AI Processing Summary</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Videos with AI:</span>
+                  <span className="font-medium">{totalVideosWithAI}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Segments Processed:</span>
+                  <span className="font-medium">{totalSegmentsProcessed}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Manual Selection Rate:</span>
+                  <span className="font-medium">{manualSelectionRate}%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">AI Performance</h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Success Rate</span>
+                    <span className="font-medium text-green-600">{aiSuccessRate}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-green-500 h-2 rounded-full"
+                      style={{ width: `${aiSuccessRate}%` }}
+                    ></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Error Rate</span>
+                    <span className="font-medium text-red-600">{aiErrorRate}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-red-500 h-2 rounded-full"
+                      style={{ width: `${aiErrorRate}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Performing Brand</h3>
+              {brandsWithStats.length > 0 ? (
+                <div>
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100">
+                      <img 
+                        src={brandsWithStats[0].brandLogo}
+                        alt={brandsWithStats[0].brandName}
+                        className="w-full h-full object-cover"
+                        onError={(e) => e.target.src = DEFAULT_BRAND_LOGO}
+                      />
+                    </div>
+                    <div>
+                      <div className="font-medium">{brandsWithStats[0].brandName}</div>
+                      <div className="text-sm text-gray-500">
+                        {brandsWithStats[0].aiVideoRequests} AI requests
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Success Rate:</span>
+                    <span className="font-medium text-green-600">
+                      {brandsWithStats[0].aiSuccessRate}%
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500">No brand data available</p>
+              )}
+            </div>
+          </div>
         </>
       )}
 
@@ -565,10 +647,9 @@ const Analytics = () => {
         </>
       )}
 
-      {/* Brand Analytics Modal - Keep the same */}
+      {/* Brand Analytics Modal */}
       {showBrandAnalyticsModal && brandAnalyticsData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          {/* ... modal JSX remains the same ... */}
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">

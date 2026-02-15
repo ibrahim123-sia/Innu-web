@@ -17,7 +17,7 @@ import {
 } from '../../redux/slice/userSlice';
 import {
   getShopsByBrand,
-  selectShopsForBrand  // ✅ Import the correct selector
+  selectShopsForBrand
 } from '../../redux/slice/shopSlice';
 
 // Import SweetAlert for popup notifications
@@ -35,7 +35,7 @@ const Districts = () => {
   const loading = useSelector(selectDistrictLoading);
   const error = useSelector(selectDistrictError);
   
-  // ✅ Use the correct shop selector - pass the brand_id to get shops array
+  // Get shops for the brand
   const shops = useSelector(
     user?.brand_id ? selectShopsForBrand(user.brand_id) : () => []
   ) || [];
@@ -65,11 +65,7 @@ const Districts = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    is_active: true,
-    manager_first_name: '',
-    manager_last_name: '',
-    manager_email: '',
-    manager_contact: ''
+    is_active: true
   });
   const [editFormData, setEditFormData] = useState({});
   const [formError, setFormError] = useState('');
@@ -77,6 +73,22 @@ const Districts = () => {
   const [districtManagers, setDistrictManagers] = useState({});
   const [emailExistsError, setEmailExistsError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Manager creation states - ALL FIELDS ARE REQUIRED
+  const [managerFormData, setManagerFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    contact_no: ''
+  });
+
+  // Validation errors for manager fields
+  const [managerValidationErrors, setManagerValidationErrors] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    contact_no: ''
+  });
 
   // ============================================
   // HELPER FUNCTIONS
@@ -130,6 +142,57 @@ const Districts = () => {
     const exists = users.some(user => user.email?.toLowerCase() === email.toLowerCase());
     setEmailExistsError(exists ? 'A user with this email already exists. Please use a different email.' : '');
     return exists;
+  };
+
+  // Validate manager fields
+  const validateManagerFields = () => {
+    const errors = {
+      first_name: '',
+      last_name: '',
+      email: '',
+      contact_no: ''
+    };
+    let isValid = true;
+
+    // Validate first name
+    if (!managerFormData.first_name.trim()) {
+      errors.first_name = 'First name is required';
+      isValid = false;
+    }
+
+    // Validate last name
+    if (!managerFormData.last_name.trim()) {
+      errors.last_name = 'Last name is required';
+      isValid = false;
+    }
+
+    // Validate email
+    if (!managerFormData.email.trim()) {
+      errors.email = 'Email is required';
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(managerFormData.email)) {
+      errors.email = 'Email is invalid';
+      isValid = false;
+    } else if (checkEmailExists(managerFormData.email)) {
+      errors.email = 'Email already exists';
+      isValid = false;
+    }
+
+    // Validate contact number
+    if (!managerFormData.contact_no.trim()) {
+      errors.contact_no = 'Contact number is required';
+      isValid = false;
+    } else {
+      // Check if it matches the US phone format
+      const phoneRegex = /^\+1\s\(\d{3}\)\s\d{3}-\d{4}$/;
+      if (!phoneRegex.test(managerFormData.contact_no)) {
+        errors.contact_no = 'Please enter a valid US phone number: +1 (XXX) XXX-XXXX';
+        isValid = false;
+      }
+    }
+
+    setManagerValidationErrors(errors);
+    return isValid;
   };
 
   // ============================================
@@ -215,141 +278,116 @@ const Districts = () => {
     if (file) {
       const previewUrl = URL.createObjectURL(file);
       
-      if (e.target.name === 'manager_profile_pic') {
-        if (isEdit) {
-          setEditManagerProfilePicFile(file);
-          setEditManagerProfilePicPreview(previewUrl);
-        } else {
-          setManagerProfilePicFile(file);
-          setManagerProfilePicPreview(previewUrl);
-        }
+      if (isEdit) {
+        setEditManagerProfilePicFile(file);
+        setEditManagerProfilePicPreview(previewUrl);
+      } else {
+        setManagerProfilePicFile(file);
+        setManagerProfilePicPreview(previewUrl);
       }
     }
   };
 
   // ============================================
-  // CREATE DISTRICT
+  // CREATE DISTRICT (WITH REQUIRED MANAGER)
   // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
-    setIsSubmitting(true);
-
-    // Validate required fields
+    
+    // Validate district name
     if (!formData.name) {
       setFormError('District name is required');
-      setIsSubmitting(false);
       return;
     }
 
-    // Check if email exists when manager is being created
-    if (formData.manager_email && checkEmailExists(formData.manager_email)) {
-      setFormError('Email already exists. Please use a different email for the district manager.');
-      Swal.fire({
-        icon: 'error',
-        title: 'Email Already Exists',
-        text: 'This email is already registered. Please use a different email address for the district manager.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
-      });
-      setIsSubmitting(false);
+    // Validate all manager fields (required)
+    if (!validateManagerFields()) {
+      setFormError('Please fill in all manager information correctly');
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
-      // Step 1: Create district
-      const districtData = {
-        ...formData,
-        brand_id: user.brand_id
-      };
-
-      const districtResult = await dispatch(createDistrict(districtData)).unwrap();
+      // Generate random password for first-time login
+      const randomPassword = generateRandomPassword();
       
-      if (districtResult.success) {
-        // Step 2: Create district manager user if email is provided
-        if (formData.manager_email) {
-          // Generate random password for first-time login
-          const randomPassword = generateRandomPassword();
-          
-          const userFormData = new FormData();
-          userFormData.append('email', formData.manager_email);
-          userFormData.append('first_name', formData.manager_first_name);
-          userFormData.append('last_name', formData.manager_last_name);
-          
-          const formattedPhone = formatPhoneNumber(formData.manager_contact);
-          userFormData.append('contact_no', formattedPhone || '');
-          
-          userFormData.append('role', 'district_manager');
-          userFormData.append('brand_id', user.brand_id);
-          userFormData.append('district_id', districtResult.data.id);
-          userFormData.append('is_active', true);
-          
-          // Add ft_password and password_type
-          userFormData.append('ft_password', randomPassword);
-          userFormData.append('password_type', 'ft_password');
-          userFormData.append('is_first_login', 'true');
-          
-          if (managerProfilePicFile) {
-            userFormData.append('profile_pic', managerProfilePicFile);
-          }
+      // Create district manager user FIRST
+      const userFormData = new FormData();
+      userFormData.append('email', managerFormData.email);
+      userFormData.append('first_name', managerFormData.first_name);
+      userFormData.append('last_name', managerFormData.last_name);
+      
+      const formattedPhone = formatPhoneNumber(managerFormData.contact_no);
+      userFormData.append('contact_no', formattedPhone);
+      
+      userFormData.append('role', 'district_manager');
+      userFormData.append('brand_id', user.brand_id);
+      userFormData.append('is_active', true);
+      
+      // Add ft_password and password_type
+      userFormData.append('ft_password', randomPassword);
+      userFormData.append('password_type', 'ft_password');
+      userFormData.append('is_first_login', 'true');
+      
+      if (managerProfilePicFile) {
+        userFormData.append('profile_pic', managerProfilePicFile);
+      }
 
-          const userResult = await dispatch(createUser(userFormData)).unwrap();
-          
-          if (userResult.success) {
-            Swal.fire({
-              icon: 'success',
-              title: 'District Created Successfully!',
-              html: `
-                <div style="text-align: left;">
-                  <p><strong>District:</strong> ${formData.name}</p>
-                  <p><strong>District Manager:</strong> ${formData.manager_first_name} ${formData.manager_last_name}</p>
-                  <p><strong>Manager Email:</strong> ${formData.manager_email}</p>
-                  <p><strong>Contact:</strong> ${formData.manager_contact || 'Not provided'}</p>
-                  <br>
-                  <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
-                    <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
-                    <p style="color: #0d47a1; margin: 5px 0 0 0; font-size: 14px;">
-                      A temporary password has been sent to <strong>${formData.manager_email}</strong>
-                    </p>
-                  </div>
-                  <p style="font-size: 14px; color: #666; margin-top: 15px;">
-                    The manager will use this password for first-time login and will be prompted to create a new password.
-                  </p>
-                </div>
-              `,
-              confirmButtonText: 'OK',
-              confirmButtonColor: '#4CAF50',
-              width: '550px'
-            });
-          }
-        } else {
+      // Create the manager user
+      const userResult = await dispatch(createUser(userFormData)).unwrap();
+      
+      if (userResult.success && userResult.data) {
+        const managerId = userResult.data.id;
+
+        // THEN create district with manager_id
+        const districtData = {
+          name: formData.name,
+          description: formData.description,
+          is_active: formData.is_active,
+          brand_id: user.brand_id,
+          manager_id: managerId // This matches the backend expectation
+        };
+
+        const districtResult = await dispatch(createDistrict(districtData)).unwrap();
+        
+        if (districtResult.success) {
           Swal.fire({
             icon: 'success',
             title: 'District Created Successfully!',
             html: `
               <div style="text-align: left;">
                 <p><strong>District:</strong> ${formData.name}</p>
-                <p><strong>Status:</strong> ${formData.is_active ? 'Active' : 'Inactive'}</p>
+                <p><strong>District Manager:</strong> ${managerFormData.first_name} ${managerFormData.last_name}</p>
+                <p><strong>Manager Email:</strong> ${managerFormData.email}</p>
+                <p><strong>Contact:</strong> ${managerFormData.contact_no}</p>
                 <br>
-                <p style="color: #666;">
-                  No district manager was assigned. You can assign one later.
+                <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
+                  <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
+                  <p style="color: #0d47a1; margin: 5px 0 0 0; font-size: 14px;">
+                    A temporary password has been sent to <strong>${managerFormData.email}</strong>
+                  </p>
+                </div>
+                <p style="font-size: 14px; color: #666; margin-top: 15px;">
+                  The manager will use this password for first-time login and will be prompted to create a new password.
                 </p>
               </div>
             `,
             confirmButtonText: 'OK',
             confirmButtonColor: '#4CAF50',
-            width: '500px'
+            width: '550px'
           });
-        }
 
-        resetForm();
-        // Refresh data
-        dispatch(getDistrictsByBrand(user.brand_id));
-        dispatch(getAllUsers());
-        setTimeout(() => {
-          setShowCreateForm(false);
-        }, 100);
+          resetForm();
+          // Refresh data
+          dispatch(getDistrictsByBrand(user.brand_id));
+          dispatch(getAllUsers());
+          setTimeout(() => {
+            setShowCreateForm(false);
+          }, 100);
+        }
       }
     } catch (err) {
       console.error('District creation failed:', err);
@@ -375,10 +413,17 @@ const Districts = () => {
     setFormSuccess('');
 
     try {
+      // Prepare district update data
+      const districtUpdateData = {
+        name: editFormData.name,
+        description: editFormData.description,
+        is_active: editFormData.is_active
+      };
+
       // Update district
-      await dispatch(updateDistrict({
+      const districtResult = await dispatch(updateDistrict({
         id: showEditModal,
-        data: editFormData
+        data: districtUpdateData
       })).unwrap();
 
       // Update district manager if exists
@@ -448,7 +493,8 @@ const Districts = () => {
   const handleToggleStatus = async (district) => {
     try {
       const updateData = {
-        ...district,
+        name: district.name,
+        description: district.description,
         is_active: !district.is_active
       };
 
@@ -510,11 +556,19 @@ const Districts = () => {
     setFormData({
       name: '',
       description: '',
-      is_active: true,
-      manager_first_name: '',
-      manager_last_name: '',
-      manager_email: '',
-      manager_contact: ''
+      is_active: true
+    });
+    setManagerFormData({
+      first_name: '',
+      last_name: '',
+      email: '',
+      contact_no: ''
+    });
+    setManagerValidationErrors({
+      first_name: '',
+      last_name: '',
+      email: '',
+      contact_no: ''
     });
     setManagerProfilePicFile(null);
     setManagerProfilePicPreview(null);
@@ -530,22 +584,49 @@ const Districts = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'manager_contact') {
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleManagerInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name === 'contact_no') {
       const formattedValue = formatPhoneNumber(value);
-      setFormData(prev => ({
+      setManagerFormData(prev => ({
         ...prev,
         [name]: formattedValue
       }));
-    } else if (name === 'manager_email') {
-      setFormData(prev => ({
+      
+      // Clear validation error for this field
+      setManagerValidationErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    } else if (name === 'email') {
+      setManagerFormData(prev => ({
         ...prev,
         [name]: value
       }));
       checkEmailExists(value);
-    } else {
-      setFormData(prev => ({
+      
+      // Clear validation error for this field
+      setManagerValidationErrors(prev => ({
         ...prev,
-        [name]: type === 'checkbox' ? checked : value
+        [name]: ''
+      }));
+    } else {
+      setManagerFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Clear validation error for this field
+      setManagerValidationErrors(prev => ({
+        ...prev,
+        [name]: ''
       }));
     }
   };
@@ -621,12 +702,14 @@ const Districts = () => {
               {/* Left Column: District Manager Profile Picture */}
               <div className="space-y-8">
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">District Manager Profile Picture</h3>
+                  <h3 className="font-semibold text-gray-700">
+                    District Manager Profile Picture <span className="text-red-500">*</span>
+                  </h3>
                   
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>Note:</strong> If you assign a manager, a random password will be auto-generated and sent to their email.
-                      The manager will use this password for first-time login and will be prompted to create a new password.
+                      <strong>Important:</strong> A district manager is required for every district.
+                      All manager fields must be completed.
                     </p>
                   </div>
                   
@@ -661,7 +744,7 @@ const Districts = () => {
                     )}
                     <label className="block mt-4">
                       <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
-                        Choose Photo
+                        Choose Photo (Optional)
                       </span>
                       <input
                         type="file"
@@ -722,73 +805,94 @@ const Districts = () => {
                   </label>
                 </div>
 
-                {/* District Manager Information */}
+                {/* District Manager Information - ALL FIELDS REQUIRED */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">District Manager (Optional)</h3>
+                  <h3 className="font-semibold text-gray-700">
+                    District Manager <span className="text-red-500">*</span>
+                  </h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name
+                        First Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
-                        name="manager_first_name"
-                        value={formData.manager_first_name}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        name="first_name"
+                        value={managerFormData.first_name}
+                        onChange={handleManagerInputChange}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          managerValidationErrors.first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="First name"
+                        required
                       />
+                      {managerValidationErrors.first_name && (
+                        <p className="mt-1 text-xs text-red-600">{managerValidationErrors.first_name}</p>
+                      )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name
+                        Last Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
-                        name="manager_last_name"
-                        value={formData.manager_last_name}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        name="last_name"
+                        value={managerFormData.last_name}
+                        onChange={handleManagerInputChange}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          managerValidationErrors.last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Last name"
+                        required
                       />
+                      {managerValidationErrors.last_name && (
+                        <p className="mt-1 text-xs text-red-600">{managerValidationErrors.last_name}</p>
+                      )}
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
+                      Email <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
-                      name="manager_email"
-                      value={formData.manager_email}
-                      onChange={handleInputChange}
+                      name="email"
+                      value={managerFormData.email}
+                      onChange={handleManagerInputChange}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        managerValidationErrors.email || emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="manager@example.com"
+                      required
                     />
-                    {emailExistsError && (
-                      <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
+                    {(managerValidationErrors.email || emailExistsError) && (
+                      <p className="mt-1 text-xs text-red-600">{managerValidationErrors.email || emailExistsError}</p>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Contact Number
+                      Contact Number <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
-                      name="manager_contact"
-                      value={formData.manager_contact}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      name="contact_no"
+                      value={managerFormData.contact_no}
+                      onChange={handleManagerInputChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        managerValidationErrors.contact_no ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="+1 (XXX) XXX-XXXX"
                       pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
                       title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
+                      required
                     />
+                    {managerValidationErrors.contact_no && (
+                      <p className="mt-1 text-xs text-red-600">{managerValidationErrors.contact_no}</p>
+                    )}
                     <p className="text-xs text-gray-500 mt-1">
                       Format: +1 (XXX) XXX-XXXX
                     </p>
@@ -807,7 +911,7 @@ const Districts = () => {
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Create District'}
+                {isSubmitting ? 'Creating District with Manager...' : emailExistsError ? 'Email Already Exists' : 'Create District with Manager'}
               </button>
             </div>
           </form>
@@ -863,6 +967,11 @@ const Districts = () => {
                   const isExpanded = expandedDistrict === district.id;
                   const districtShops = getShopsForDistrict(district.id);
                   
+                  // Every district should have a manager, but just in case
+                  if (!manager) {
+                    console.warn(`District ${district.id} has no manager assigned`);
+                  }
+                  
                   return (
                     <React.Fragment key={district.id}>
                       {/* District Row */}
@@ -911,7 +1020,7 @@ const Districts = () => {
                               </div>
                             </div>
                           ) : (
-                            <div className="text-sm text-gray-500 italic">No manager</div>
+                            <div className="text-sm text-red-500 italic font-medium">⚠️ No manager assigned!</div>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1064,7 +1173,7 @@ const Districts = () => {
               <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
             </svg>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Districts Found</h3>
-            <p className="text-gray-500 mb-4">Create your first district to organize shops</p>
+            <p className="text-gray-500 mb-4">Create your first district with a manager to organize shops</p>
             <button
               onClick={() => setShowCreateForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"

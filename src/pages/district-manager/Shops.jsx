@@ -1,3 +1,4 @@
+// src/components/DistrictManager/Shops.jsx
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
@@ -50,7 +51,7 @@ const Shops = () => {
   
   // Use selectShopsByDistrict - this gets shops for the current district directly from the API
   const shops = useSelector(selectShopsByDistrict) || [];
-  const users = useSelector(selectAllUsers);
+  const users = useSelector(selectAllUsers) || [];
   const loading = useSelector(selectShopLoading);
   const error = useSelector(selectShopError);
   // Get districts for this brand
@@ -67,19 +68,16 @@ const Shops = () => {
   const [editManagerProfilePicFile, setEditManagerProfilePicFile] = useState(null);
   const [editManagerProfilePicPreview, setEditManagerProfilePicPreview] = useState(null);
   
-  // ✅ FIX: Use street_address (not address) to match backend
+  // ✅ EXACT FIELDS FROM BACKEND CONTROLLER
   const [formData, setFormData] = useState({
     name: '',                    // Required
-    street_address: '',         // ✅ Required - match backend field name
-    city: '',                  // Required
-    state: '',                 // Required
-    zip_code: '',
-    phone: '',
-    email: '',
-    tekmetric_shop_id: '',      // Required
-    timezone: 'America/New_York', // Required - default to Eastern Time
+    street_address: '',          // Required
+    city: '',                    // Required
+    state: '',                   // Required
+    timezone: 'America/New_York', // Required
+    tekmetric_shop_id: '',       // Required
     is_active: true,
-    // Manager fields
+    // Manager fields - ALL REQUIRED
     manager_email: '',
     manager_first_name: '',
     manager_last_name: '',
@@ -88,12 +86,9 @@ const Shops = () => {
   
   const [editFormData, setEditFormData] = useState({
     name: '',
-    street_address: '',        // ✅ Fix: street_address
+    street_address: '',
     city: '',
     state: '',
-    zip_code: '',
-    phone: '',
-    email: '',
     tekmetric_shop_id: '',
     timezone: 'America/New_York',
     is_active: true,
@@ -103,7 +98,6 @@ const Shops = () => {
     manager_last_name: '',
     manager_contact: '',
     manager_profile_pic: '',
-    original_phone: '',
     original_manager_first_name: '',
     original_manager_last_name: '',
     original_manager_contact: ''
@@ -113,6 +107,7 @@ const Shops = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [shopManagers, setShopManagers] = useState({});
   const [emailExistsError, setEmailExistsError] = useState('');
+  const [validationErrors, setValidationErrors] = useState({});
 
   // ============================================
   // HELPER FUNCTIONS
@@ -156,6 +151,64 @@ const Shops = () => {
     const exists = users.some(user => user.email?.toLowerCase() === email.toLowerCase());
     setEmailExistsError(exists ? 'A user with this email already exists. Please use a different email.' : '');
     return exists;
+  };
+
+  // Validate ALL required fields including manager
+  const validateAllFields = () => {
+    const errors = {};
+    
+    // Shop fields
+    if (!formData.name?.trim()) {
+      errors.name = 'Shop name is required';
+    }
+    
+    if (!formData.street_address?.trim()) {
+      errors.street_address = 'Street address is required';
+    }
+    
+    if (!formData.city?.trim()) {
+      errors.city = 'City is required';
+    }
+    
+    if (!formData.state?.trim()) {
+      errors.state = 'State is required';
+    }
+    
+    if (!formData.timezone) {
+      errors.timezone = 'Timezone is required';
+    }
+    
+    if (!formData.tekmetric_shop_id?.trim()) {
+      errors.tekmetric_shop_id = 'Tekmetric Shop ID is required';
+    }
+    
+    // Manager fields - ALL REQUIRED
+    if (!formData.manager_email?.trim()) {
+      errors.manager_email = 'Manager email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.manager_email)) {
+      errors.manager_email = 'Invalid email format';
+    }
+    
+    if (!formData.manager_first_name?.trim()) {
+      errors.manager_first_name = 'Manager first name is required';
+    }
+    
+    if (!formData.manager_last_name?.trim()) {
+      errors.manager_last_name = 'Manager last name is required';
+    }
+    
+    if (!formData.manager_contact?.trim()) {
+      errors.manager_contact = 'Manager contact number is required';
+    } else {
+      // Check phone format
+      const phoneRegex = /^\+1\s\(\d{3}\)\s\d{3}-\d{4}$/;
+      if (!phoneRegex.test(formData.manager_contact)) {
+        errors.manager_contact = 'Please use format: +1 (XXX) XXX-XXXX';
+      }
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   // ============================================
@@ -237,53 +290,22 @@ const Shops = () => {
   };
 
   // ============================================
-  // CREATE SHOP - WITH CORRECT FIELD NAMES
+  // CREATE SHOP - WITH REQUIRED MANAGER
   // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
-    setIsSubmitting(true);
-
-    // ✅ Validate ALL required fields with correct field names
-    if (!formData.name) {
-      setFormError('Shop name is required');
+    
+    // ✅ Validate ALL fields including manager
+    if (!validateAllFields()) {
+      setFormError('Please fill in all required fields correctly');
       setIsSubmitting(false);
       return;
     }
 
-    if (!formData.street_address) {
-      setFormError('Street address is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.city) {
-      setFormError('City is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.state) {
-      setFormError('State is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.timezone) {
-      setFormError('Timezone is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.tekmetric_shop_id || formData.tekmetric_shop_id.trim() === '') {
-      setFormError('Tekmetric Shop ID is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Check if email exists when manager is being created
-    if (formData.manager_email && checkEmailExists(formData.manager_email)) {
+    // Check if email exists
+    if (checkEmailExists(formData.manager_email)) {
       setFormError('Email already exists. Please use a different email for the shop manager.');
       Swal.fire({
         icon: 'error',
@@ -296,58 +318,58 @@ const Shops = () => {
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
-      // ✅ Create shop with CORRECT field names matching backend
-      const shopData = {
-        name: formData.name,
-        street_address: formData.street_address, // ✅ Changed from address to street_address
-        city: formData.city,
-        state: formData.state,
-        zip_code: formData.zip_code || '',
-        phone: formData.phone ? formatPhoneNumber(formData.phone) : '',
-        email: formData.email || '',
-        tekmetric_shop_id: formData.tekmetric_shop_id,
-        timezone: formData.timezone,
+      // Step 1: Create shop manager user FIRST
+      const randomPassword = generateRandomPassword();
+      
+      const userData = {
+        email: formData.manager_email,
+        first_name: formData.manager_first_name,
+        last_name: formData.manager_last_name,
+        contact_no: formData.manager_contact,
+        role: 'shop_manager',
         district_id: districtId,
         brand_id: brandId,
-        is_active: formData.is_active
+        is_active: true,
+        ft_password: randomPassword,
+        password_type: 'ft_password',
+        is_first_login: true
       };
 
-      console.log('Creating shop with data:', shopData);
-
-      const shopResult = await dispatch(createShop(shopData)).unwrap();
+      const userFormData = new FormData();
+      Object.keys(userData).forEach(key => {
+        userFormData.append(key, userData[key]);
+      });
       
-      if (shopResult.success) {
-        // Create shop manager user if email is provided
-        if (formData.manager_email) {
-          const randomPassword = generateRandomPassword();
-          
-          const userData = {
-            email: formData.manager_email,
-            first_name: formData.manager_first_name || 'Shop',
-            last_name: formData.manager_last_name || 'Manager',
-            contact_no: formData.manager_contact ? formatPhoneNumber(formData.manager_contact) : '',
-            role: 'shop_manager',
-            shop_id: shopResult.data.id,
-            district_id: districtId,
-            brand_id: brandId,
-            is_active: true,
-            ft_password: randomPassword,
-            password_type: 'ft_password',
-            is_first_login: true
-          };
+      if (managerProfilePicFile) {
+        userFormData.append('profile_pic', managerProfilePicFile);
+      }
 
-          const userFormData = new FormData();
-          Object.keys(userData).forEach(key => {
-            userFormData.append(key, userData[key]);
-          });
-          
-          if (managerProfilePicFile) {
-            userFormData.append('profile_pic', managerProfilePicFile);
-          }
+      // Create the manager user
+      const userResult = await dispatch(createUser(userFormData)).unwrap();
+      
+      if (userResult.success && userResult.data) {
+        // Step 2: Create shop with manager_id
+        const shopData = {
+          name: formData.name,
+          street_address: formData.street_address,
+          city: formData.city,
+          state: formData.state,
+          timezone: formData.timezone,
+          tekmetric_shop_id: formData.tekmetric_shop_id,
+          brand_id: brandId,
+          district_id: districtId,
+          is_active: formData.is_active,
+          manager_id: userResult.data.id // Link the manager to the shop
+        };
 
-          await dispatch(createUser(userFormData)).unwrap();
-          
+        console.log('Creating shop with data:', shopData);
+
+        const shopResult = await dispatch(createShop(shopData)).unwrap();
+        
+        if (shopResult.success) {
           Swal.fire({
             icon: 'success',
             title: 'Shop Created Successfully!',
@@ -357,8 +379,9 @@ const Shops = () => {
                 <p><strong>Address:</strong> ${formData.street_address}, ${formData.city}, ${formData.state}</p>
                 <p><strong>Tekmetric ID:</strong> ${formData.tekmetric_shop_id}</p>
                 <p><strong>Timezone:</strong> ${formData.timezone}</p>
-                <p><strong>Shop Manager:</strong> ${formData.manager_first_name || 'Shop'} ${formData.manager_last_name || 'Manager'}</p>
+                <p><strong>Shop Manager:</strong> ${formData.manager_first_name} ${formData.manager_last_name}</p>
                 <p><strong>Manager Email:</strong> ${formData.manager_email}</p>
+                <p><strong>Manager Contact:</strong> ${formData.manager_contact}</p>
                 <br>
                 <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
                   <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
@@ -372,33 +395,14 @@ const Shops = () => {
             confirmButtonColor: '#4CAF50',
             width: '550px'
           });
-        } else {
-          Swal.fire({
-            icon: 'success',
-            title: 'Shop Created Successfully!',
-            html: `
-              <div style="text-align: left;">
-                <p><strong>Shop:</strong> ${formData.name}</p>
-                <p><strong>Address:</strong> ${formData.street_address}, ${formData.city}, ${formData.state}</p>
-                <p><strong>Tekmetric ID:</strong> ${formData.tekmetric_shop_id}</p>
-                <p><strong>Timezone:</strong> ${formData.timezone}</p>
-                <p><strong>Status:</strong> ${formData.is_active ? 'Active' : 'Inactive'}</p>
-                <br>
-                <p style="color: #666;">No shop manager was assigned. You can assign one later.</p>
-              </div>
-            `,
-            confirmButtonText: 'OK',
-            confirmButtonColor: '#4CAF50',
-            width: '500px'
-          });
-        }
 
-        resetForm();
-        dispatch(getShopsByDistrict(districtId));
-        dispatch(getAllUsers());
-        setTimeout(() => {
-          setShowCreateForm(false);
-        }, 100);
+          resetForm();
+          dispatch(getShopsByDistrict(districtId));
+          dispatch(getAllUsers());
+          setTimeout(() => {
+            setShowCreateForm(false);
+          }, 100);
+        }
       }
     } catch (err) {
       console.error('Shop creation failed:', err);
@@ -423,23 +427,23 @@ const Shops = () => {
     setFormError('');
     setFormSuccess('');
 
-    // ✅ Validate required fields for edit with correct field names
-    if (!editFormData.name) {
+    // ✅ Validate required fields for edit
+    if (!editFormData.name?.trim()) {
       setFormError('Shop name is required');
       return;
     }
 
-    if (!editFormData.street_address) {
+    if (!editFormData.street_address?.trim()) {
       setFormError('Street address is required');
       return;
     }
 
-    if (!editFormData.city) {
+    if (!editFormData.city?.trim()) {
       setFormError('City is required');
       return;
     }
 
-    if (!editFormData.state) {
+    if (!editFormData.state?.trim()) {
       setFormError('State is required');
       return;
     }
@@ -449,23 +453,18 @@ const Shops = () => {
       return;
     }
 
-    if (!editFormData.tekmetric_shop_id || editFormData.tekmetric_shop_id.trim() === '') {
+    if (!editFormData.tekmetric_shop_id?.trim()) {
       setFormError('Tekmetric Shop ID is required');
       return;
     }
 
     try {
-      // ✅ Update shop with CORRECT field names
+      // ✅ Update shop with EXACT backend fields
       const shopData = {
         name: editFormData.name,
-        street_address: editFormData.street_address, // ✅ Changed from address to street_address
+        street_address: editFormData.street_address,
         city: editFormData.city,
         state: editFormData.state,
-        zip_code: editFormData.zip_code || '',
-        phone: editFormData.phone !== editFormData.original_phone 
-          ? formatPhoneNumber(editFormData.phone) 
-          : editFormData.phone,
-        email: editFormData.email || '',
         tekmetric_shop_id: editFormData.tekmetric_shop_id,
         timezone: editFormData.timezone,
         is_active: editFormData.is_active
@@ -575,12 +574,9 @@ const Shops = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      street_address: '',  // ✅ Fix: street_address
+      street_address: '',
       city: '',
       state: '',
-      zip_code: '',
-      phone: '',
-      email: '',
       tekmetric_shop_id: '',
       timezone: 'America/New_York',
       is_active: true,
@@ -589,6 +585,7 @@ const Shops = () => {
       manager_last_name: '',
       manager_contact: ''
     });
+    setValidationErrors({});
     setManagerProfilePicFile(null);
     setManagerProfilePicPreview(null);
     setEmailExistsError('');
@@ -597,12 +594,9 @@ const Shops = () => {
   const resetEditForm = () => {
     setEditFormData({
       name: '',
-      street_address: '',  // ✅ Fix: street_address
+      street_address: '',
       city: '',
       state: '',
-      zip_code: '',
-      phone: '',
-      email: '',
       tekmetric_shop_id: '',
       timezone: 'America/New_York',
       is_active: true,
@@ -612,7 +606,6 @@ const Shops = () => {
       manager_last_name: '',
       manager_contact: '',
       manager_profile_pic: '',
-      original_phone: '',
       original_manager_first_name: '',
       original_manager_last_name: '',
       original_manager_contact: ''
@@ -624,7 +617,7 @@ const Shops = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'phone' || name === 'manager_contact') {
+    if (name === 'manager_contact') {
       const formattedValue = formatPhoneNumber(value);
       setFormData(prev => ({
         ...prev,
@@ -642,12 +635,20 @@ const Shops = () => {
         [name]: type === 'checkbox' ? checked : value
       }));
     }
+    
+    // Clear validation error for this field
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'phone' || name === 'manager_contact') {
+    if (name === 'manager_contact') {
       const formattedValue = formatPhoneNumber(value);
       setEditFormData(prev => ({
         ...prev,
@@ -671,13 +672,10 @@ const Shops = () => {
     
     setShowEditModal(shop.id);
     setEditFormData({
-      name: shop.name,
-      street_address: shop.street_address || '',  // ✅ Fix: street_address
+      name: shop.name || '',
+      street_address: shop.street_address || '',
       city: shop.city || '',
       state: shop.state || '',
-      zip_code: shop.zip_code || '',
-      phone: shop.phone || '',
-      email: shop.email || '',
       tekmetric_shop_id: shop.tekmetric_shop_id || '',
       timezone: shop.timezone || 'America/New_York',
       is_active: shop.is_active,
@@ -687,7 +685,6 @@ const Shops = () => {
       manager_last_name: shopManager.last_name || '',
       manager_contact: shopManager.contact_no || '',
       manager_profile_pic: managerProfilePic,
-      original_phone: shop.phone || '',
       original_manager_first_name: shopManager.first_name || '',
       original_manager_last_name: shopManager.last_name || '',
       original_manager_contact: shopManager.contact_no || ''
@@ -709,11 +706,7 @@ const Shops = () => {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Shop Management</h1>
-        <p className="text-gray-600">Manage all shops in your district</p>
-      </div>
-
+      
       {/* Create Shop Button */}
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div className="flex items-center space-x-4">
@@ -736,6 +729,7 @@ const Shops = () => {
               setShowCreateForm(!showCreateForm);
               setFormError('');
               setEmailExistsError('');
+              setValidationErrors({});
             }}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors ml-4"
           >
@@ -763,11 +757,14 @@ const Shops = () => {
               {/* Left Column: Manager Profile Picture */}
               <div className="space-y-8">
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Manager Profile Picture</h3>
+                  <h3 className="font-semibold text-gray-700">
+                    Manager Profile Picture <span className="text-red-500">*</span>
+                  </h3>
                   
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>Note:</strong> If you assign a manager, a random password will be auto-generated and sent to their email.
+                      <strong>Important:</strong> A shop manager is required for every shop. 
+                      All manager fields must be completed.
                     </p>
                   </div>
                   
@@ -802,7 +799,7 @@ const Shops = () => {
                     )}
                     <label className="block mt-4">
                       <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
-                        Choose Photo
+                        Choose Photo (Optional)
                       </span>
                       <input
                         type="file"
@@ -818,7 +815,7 @@ const Shops = () => {
 
               {/* Right Column: Shop & Manager Info */}
               <div className="space-y-6">
-                {/* Shop Information - ALL FIELDS MARKED REQUIRED */}
+                {/* Shop Information - EXACT BACKEND FIELDS */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Shop Information <span className="text-red-500 text-sm">* All fields required</span></h3>
                   
@@ -831,10 +828,15 @@ const Shops = () => {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        validationErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Enter shop name"
                       required
                     />
+                    {validationErrors.name && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.name}</p>
+                    )}
                   </div>
 
                   <div>
@@ -843,13 +845,18 @@ const Shops = () => {
                     </label>
                     <input
                       type="text"
-                      name="street_address"  // ✅ Fix: street_address
+                      name="street_address"
                       value={formData.street_address}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        validationErrors.street_address ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Enter street address"
                       required
                     />
+                    {validationErrors.street_address && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.street_address}</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -862,10 +869,15 @@ const Shops = () => {
                         name="city"
                         value={formData.city}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          validationErrors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="City"
                         required
                       />
+                      {validationErrors.city && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.city}</p>
+                      )}
                     </div>
 
                     <div>
@@ -877,89 +889,58 @@ const Shops = () => {
                         name="state"
                         value={formData.state}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          validationErrors.state ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="State"
                         required
                       />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Zip Code
-                      </label>
-                      <input
-                        type="text"
-                        name="zip_code"
-                        value={formData.zip_code}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Zip Code"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Tekmetric Shop ID <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="tekmetric_shop_id"
-                        value={formData.tekmetric_shop_id}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter Tekmetric Shop ID"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Timezone <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        name="timezone"
-                        value={formData.timezone}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      >
-                        {TIMEZONES.map(tz => (
-                          <option key={tz} value={tz}>{tz.replace('America/', '')}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="+1 (XXX) XXX-XXXX"
-                      />
+                      {validationErrors.state && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.state}</p>
+                      )}
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
+                      Tekmetric Shop ID <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
+                      type="text"
+                      name="tekmetric_shop_id"
+                      value={formData.tekmetric_shop_id}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="shop@example.com"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        validationErrors.tekmetric_shop_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter Tekmetric Shop ID"
+                      required
                     />
+                    {validationErrors.tekmetric_shop_id && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.tekmetric_shop_id}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Timezone <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="timezone"
+                      value={formData.timezone}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        validationErrors.timezone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
+                      required
+                    >
+                      {TIMEZONES.map(tz => (
+                        <option key={tz} value={tz}>{tz.replace('America/', '')}</option>
+                      ))}
+                    </select>
+                    {validationErrors.timezone && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.timezone}</p>
+                    )}
                   </div>
 
                   <label className="flex items-center space-x-2">
@@ -974,13 +955,15 @@ const Shops = () => {
                   </label>
                 </div>
 
-                {/* Manager Information */}
+                {/* Manager Information - ALL FIELDS REQUIRED */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Manager Account (Optional)</h3>
+                  <h3 className="font-semibold text-gray-700">
+                    Shop Manager <span className="text-red-500">* All fields required</span>
+                  </h3>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Manager Email
+                      Manager Email <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
@@ -988,10 +971,14 @@ const Shops = () => {
                       value={formData.manager_email}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        validationErrors.manager_email || emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="manager@example.com"
+                      required
                     />
+                    {validationErrors.manager_email && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.manager_email}</p>
+                    )}
                     {emailExistsError && (
                       <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
                     )}
@@ -1000,45 +987,68 @@ const Shops = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name
+                        First Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         name="manager_first_name"
                         value={formData.manager_first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          validationErrors.manager_first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="First name"
+                        required
                       />
+                      {validationErrors.manager_first_name && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.manager_first_name}</p>
+                      )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name
+                        Last Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         name="manager_last_name"
                         value={formData.manager_last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          validationErrors.manager_last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Last name"
+                        required
                       />
+                      {validationErrors.manager_last_name && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.manager_last_name}</p>
+                      )}
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Contact Number
+                      Contact Number <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
                       name="manager_contact"
                       value={formData.manager_contact}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        validationErrors.manager_contact ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="+1 (XXX) XXX-XXXX"
+                      pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
+                      title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
+                      required
                     />
+                    {validationErrors.manager_contact && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.manager_contact}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: +1 (XXX) XXX-XXXX
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1054,7 +1064,7 @@ const Shops = () => {
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : `Create Shop ${formData.manager_email ? '& Manager Account' : ''}`}
+                {isSubmitting ? 'Creating Shop with Manager...' : emailExistsError ? 'Email Already Exists' : 'Create Shop with Manager'}
               </button>
             </div>
           </form>
@@ -1071,6 +1081,12 @@ const Shops = () => {
         ) : error ? (
           <div className="py-12 text-center">
             <p className="text-red-600">{error}</p>
+            <button
+              onClick={() => dispatch(getShopsByDistrict(districtId))}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Retry
+            </button>
           </div>
         ) : shops && shops.length > 0 ? (
           <div className="overflow-x-auto">
@@ -1116,9 +1132,6 @@ const Shops = () => {
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{shop.name}</div>
-                            {shop.phone && (
-                              <div className="text-xs text-gray-400">{shop.phone}</div>
-                            )}
                             {manager?.is_first_login && (
                               <span className="text-xs text-orange-600">🔄 First login pending</span>
                             )}
@@ -1130,7 +1143,6 @@ const Shops = () => {
                           <div className="text-sm text-gray-900">
                             {shop.street_address}, {shop.city}, {shop.state}
                           </div>
-                          <div className="text-xs text-gray-500">{shop.zip_code || ''}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -1151,10 +1163,13 @@ const Shops = () => {
                                 {manager.first_name} {manager.last_name}
                               </div>
                               <div className="text-xs text-gray-500">{manager.email}</div>
+                              {manager.contact_no && (
+                                <div className="text-xs text-gray-400">{manager.contact_no}</div>
+                              )}
                             </div>
                           </div>
                         ) : (
-                          <div className="text-sm text-gray-500 italic">No manager assigned</div>
+                          <div className="text-sm text-red-500 italic font-medium">⚠️ No manager assigned!</div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -1214,7 +1229,7 @@ const Shops = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Shops Found</h3>
-            <p className="text-gray-500 mb-4">Create your first shop to get started</p>
+            <p className="text-gray-500 mb-4">Create your first shop with a manager to get started</p>
             <button
               onClick={() => setShowCreateForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
@@ -1340,7 +1355,7 @@ const Shops = () => {
                         </label>
                         <input
                           type="text"
-                          name="street_address"  // ✅ Fix: street_address
+                          name="street_address"
                           value={editFormData.street_address}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1378,78 +1393,35 @@ const Shops = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Zip Code
-                          </label>
-                          <input
-                            type="text"
-                            name="zip_code"
-                            value={editFormData.zip_code}
-                            onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Tekmetric ID <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            name="tekmetric_shop_id"
-                            value={editFormData.tekmetric_shop_id}
-                            onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Timezone <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            name="timezone"
-                            value={editFormData.timezone}
-                            onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                          >
-                            {TIMEZONES.map(tz => (
-                              <option key={tz} value={tz}>{tz.replace('America/', '')}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Phone
-                          </label>
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={editFormData.phone}
-                            onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Tekmetric ID <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="tekmetric_shop_id"
+                          value={editFormData.tekmetric_shop_id}
+                          onChange={handleEditInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email
+                          Timezone <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={editFormData.email}
+                        <select
+                          name="timezone"
+                          value={editFormData.timezone}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                          required
+                        >
+                          {TIMEZONES.map(tz => (
+                            <option key={tz} value={tz}>{tz.replace('America/', '')}</option>
+                          ))}
+                        </select>
                       </div>
 
                       <label className="flex items-center space-x-2">
