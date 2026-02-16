@@ -655,37 +655,54 @@ const Users = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      {/* Create Technician Button and Stats */}
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-        <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-bold text-gray-800">
-            {myShop?.shop_name || 'Shop'} - Technicians
-          </h2>
-          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-            {userCounts.total} Technicians
-          </span>
-        </div>
-        
-        <div className="flex space-x-2">
-          <span className="text-sm text-gray-600 flex items-center mr-4">
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-            {userCounts.active} Active
-          </span>
-          <button
-            onClick={() => {
-              setShowCreateForm(!showCreateForm);
-              setFormError('');
-              setEmailExistsError('');
-            }}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors duration-200"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            {showCreateForm ? 'Cancel' : 'New Technician'}
-          </button>
-        </div>
-      </div>
+  {/* Create Technician Button and Stats */}
+  <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+    <div className="flex items-center space-x-4">
+      <h2 className="text-xl font-bold text-gray-800">
+        {myShop?.shop_name || 'Shop'} - Technicians
+      </h2>
+      <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+        {userCounts.total} Technicians
+      </span>
+    </div>
+    
+    <div className="flex space-x-2">
+      <span className="text-sm text-gray-600 flex items-center mr-4">
+        <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+        {userCounts.active} Active
+      </span>
+      <button
+        onClick={() => {
+          if (showCreateForm) {
+            setShowCreateForm(false);
+            resetForm(); // Reset the form when canceling
+          } else {
+            setShowCreateForm(true);
+            setFormError('');
+            setEmailExistsError('');
+          }
+        }}
+        className={`px-4 py-2 rounded-lg flex items-center transition-colors duration-200 ${
+          showCreateForm 
+            ? 'bg-gray-500 hover:bg-gray-600' 
+            : 'bg-red-600 hover:bg-red-700'
+        } text-white`}
+      >
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            strokeWidth={2} 
+            d={showCreateForm 
+              ? "M6 18L18 6M6 6l12 12"  // X icon for cancel
+              : "M12 6v6m0 0v6m0-6h6m-6 0H6" // Plus icon for add
+            } 
+          />
+        </svg>
+        {showCreateForm ? 'Cancel' : 'New Technician'}
+      </button>
+    </div>
+  </div>
 
       {/* Create Technician Form */}
       {showCreateForm && (
