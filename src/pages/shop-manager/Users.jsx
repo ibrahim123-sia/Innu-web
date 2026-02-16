@@ -114,6 +114,8 @@ const Users = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastOperation, setLastOperation] = useState(null); // 'create', 'update', null
+  const [successMessage, setSuccessMessage] = useState('');
   
   // File states
   const [profilePicFile, setProfilePicFile] = useState(null);
@@ -145,7 +147,6 @@ const Users = () => {
   });
   
   const [formError, setFormError] = useState('');
-  const [formSuccess, setFormSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [emailExistsError, setEmailExistsError] = useState('');
 
@@ -242,20 +243,33 @@ const Users = () => {
     user.role === 'technician' // Additional role filter for safety
   );
 
+  // Handle success messages and form closing
   useEffect(() => {
-    if (success) {
-      setFormSuccess('Operation completed successfully!');
-      setTimeout(() => {
-        setFormSuccess('');
-        if (showCreateForm) setShowCreateForm(false);
-        if (showEditModal) setShowEditModal(null);
-      }, 2000);
+    if (success && lastOperation) {
+      if (lastOperation === 'create') {
+        setSuccessMessage('Technician created successfully!');
+        setTimeout(() => {
+          setSuccessMessage('');
+          setShowCreateForm(false);
+          setLastOperation(null);
+          resetForm();
+        }, 2000);
+      } else if (lastOperation === 'update') {
+        setSuccessMessage('Technician updated successfully!');
+        setTimeout(() => {
+          setSuccessMessage('');
+          setShowEditModal(null);
+          setLastOperation(null);
+          resetEditForm();
+        }, 2000);
+      }
     }
-  }, [success, showCreateForm, showEditModal]);
+  }, [success, lastOperation]);
 
   useEffect(() => {
     if (error) {
       setFormError(error);
+      setLastOperation(null);
     }
   }, [error]);
 
@@ -283,12 +297,13 @@ const Users = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
-    setFormSuccess('');
+    setLastOperation('create');
     setIsSubmitting(true);
 
     if (!myShop) {
       setFormError('Shop information not available');
       setIsSubmitting(false);
+      setLastOperation(null);
       return;
     }
 
@@ -296,18 +311,21 @@ const Users = () => {
     if (!formData.first_name) {
       setFormError('First name is required');
       setIsSubmitting(false);
+      setLastOperation(null);
       return;
     }
     
     if (!formData.last_name) {
       setFormError('Last name is required');
       setIsSubmitting(false);
+      setLastOperation(null);
       return;
     }
     
     if (!formData.email) {
       setFormError('Email is required');
       setIsSubmitting(false);
+      setLastOperation(null);
       return;
     }
 
@@ -322,6 +340,7 @@ const Users = () => {
         confirmButtonColor: '#d33'
       });
       setIsSubmitting(false);
+      setLastOperation(null);
       return;
     }
 
@@ -382,12 +401,8 @@ const Users = () => {
           width: '550px'
         });
         
-        resetForm();
         // Refresh the users list for this shop
         dispatch(getUsersByShopId(myShop.id));
-        setTimeout(() => {
-          setShowCreateForm(false);
-        }, 100);
       }
       
     } catch (err) {
@@ -400,7 +415,7 @@ const Users = () => {
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
-    } finally {
+      setLastOperation(null);
       setIsSubmitting(false);
     }
   };
@@ -411,7 +426,7 @@ const Users = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
-    setFormSuccess('');
+    setLastOperation('update');
 
     try {
       const userFormData = new FormData();
@@ -464,9 +479,10 @@ const Users = () => {
           confirmButtonColor: '#4CAF50',
           timer: 2000
         });
+        setLastOperation(null);
+        setShowEditModal(null);
+        resetEditForm();
       }
-
-      resetEditForm();
       
     } catch (err) {
       console.error('User update failed:', err);
@@ -478,6 +494,7 @@ const Users = () => {
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
+      setLastOperation(null);
     }
   };
 
@@ -497,6 +514,7 @@ const Users = () => {
     setProfilePicFile(null);
     setProfilePicPreview(null);
     setEmailExistsError('');
+    setIsSubmitting(false);
   };
 
   const resetEditForm = () => {
@@ -655,54 +673,54 @@ const Users = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-  {/* Create Technician Button and Stats */}
-  <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-    <div className="flex items-center space-x-4">
-      <h2 className="text-xl font-bold text-gray-800">
-        {myShop?.shop_name || 'Shop'} - Technicians
-      </h2>
-      <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-        {userCounts.total} Technicians
-      </span>
-    </div>
-    
-    <div className="flex space-x-2">
-      <span className="text-sm text-gray-600 flex items-center mr-4">
-        <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-        {userCounts.active} Active
-      </span>
-      <button
-        onClick={() => {
-          if (showCreateForm) {
-            setShowCreateForm(false);
-            resetForm(); // Reset the form when canceling
-          } else {
-            setShowCreateForm(true);
-            setFormError('');
-            setEmailExistsError('');
-          }
-        }}
-        className={`px-4 py-2 rounded-lg flex items-center transition-colors duration-200 ${
-          showCreateForm 
-            ? 'bg-gray-500 hover:bg-gray-600' 
-            : 'bg-red-600 hover:bg-red-700'
-        } text-white`}
-      >
-        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d={showCreateForm 
-              ? "M6 18L18 6M6 6l12 12"  // X icon for cancel
-              : "M12 6v6m0 0v6m0-6h6m-6 0H6" // Plus icon for add
-            } 
-          />
-        </svg>
-        {showCreateForm ? 'Cancel' : 'New Technician'}
-      </button>
-    </div>
-  </div>
+      {/* Create Technician Button and Stats */}
+      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+        <div className="flex items-center space-x-4">
+          <h2 className="text-xl font-bold text-gray-800">
+            {myShop?.shop_name || 'Shop'} - Technicians
+          </h2>
+          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+            {userCounts.total} Technicians
+          </span>
+        </div>
+        
+        <div className="flex space-x-2">
+          <span className="text-sm text-gray-600 flex items-center mr-4">
+            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+            {userCounts.active} Active
+          </span>
+          <button
+            onClick={() => {
+              if (showCreateForm) {
+                setShowCreateForm(false);
+                resetForm();
+              } else {
+                setShowCreateForm(true);
+                setFormError('');
+                setEmailExistsError('');
+              }
+            }}
+            className={`px-4 py-2 rounded-lg flex items-center transition-colors duration-200 ${
+              showCreateForm 
+                ? 'bg-gray-500 hover:bg-gray-600' 
+                : 'bg-red-600 hover:bg-red-700'
+            } text-white`}
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d={showCreateForm 
+                  ? "M6 18L18 6M6 6l12 12"
+                  : "M12 6v6m0 0v6m0-6h6m-6 0H6"
+                } 
+              />
+            </svg>
+            {showCreateForm ? 'Cancel' : 'New Technician'}
+          </button>
+        </div>
+      </div>
 
       {/* Create Technician Form */}
       {showCreateForm && (
@@ -715,9 +733,9 @@ const Users = () => {
             </div>
           )}
           
-          {formSuccess && (
+          {successMessage && (
             <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-              {formSuccess}
+              {successMessage}
             </div>
           )}
           
@@ -875,14 +893,14 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={!!emailExistsError || isSubmitting}
+                disabled={!!emailExistsError || isSubmitting || lastOperation === 'create'}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                  emailExistsError || isSubmitting
+                  emailExistsError || isSubmitting || lastOperation === 'create'
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Add Technician'}
+                {isSubmitting || lastOperation === 'create' ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Add Technician'}
               </button>
             </div>
           </form>
@@ -1072,9 +1090,9 @@ const Users = () => {
                 </div>
               )}
               
-              {formSuccess && (
+              {successMessage && (
                 <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-                  {formSuccess}
+                  {successMessage}
                 </div>
               )}
               
@@ -1222,16 +1240,25 @@ const Users = () => {
                 <div className="mt-8 pt-6 border-t flex justify-end space-x-3">
                   <button
                     type="button"
-                    onClick={() => setShowEditModal(null)}
+                    onClick={() => {
+                      setShowEditModal(null);
+                      resetEditForm();
+                      setLastOperation(null);
+                    }}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
+                    disabled={lastOperation === 'update'}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                      lastOperation === 'update'
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                   >
-                    Update Technician
+                    {lastOperation === 'update' ? 'Updating...' : 'Update Technician'}
                   </button>
                 </div>
               </form>
