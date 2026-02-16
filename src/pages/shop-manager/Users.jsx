@@ -360,7 +360,9 @@ const Users = () => {
       userFormData.append('role', 'technician');
       userFormData.append('shop_id', myShop.id);
       userFormData.append('brand_id', myShop.brand_id);
-      userFormData.append('district_id', myShop.district_id || null);
+       if (myShop.district_id) {
+      userFormData.append('district_id', myShop.district_id);
+    }
       userFormData.append('is_active', formData.is_active);
       
       // Add ft_password and password_type
