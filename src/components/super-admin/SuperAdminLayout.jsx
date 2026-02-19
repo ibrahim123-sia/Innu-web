@@ -8,7 +8,7 @@ const SuperAdminLayout = ({ children }) => {
   
   const navItems = [
     { name: 'Overview', path: '/super-admin' },
-    { name: 'Brands', path: '/super-admin/brands' },
+    { name: 'Companies', path: '/super-admin/brands' },
     { name: 'Analytics', path: '/super-admin/analytics' },
   ];
 

@@ -16,21 +16,23 @@ import {
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 
-// ✅ IMPORT FROM VIDEO SLICE - NOT videoEditSlice
+// ✅ CORRECT VIDEO SLICE IMPORTS
 import {
   getVideosByBrand,
   selectVideos,
   selectVideoLoading,
-  selectDashboardSummary,
-  selectDerivedVideoStats
+  // These don't exist in your videoSlice - remove or create them
+  // selectDashboardSummary,
+  // selectDerivedVideoStats
 } from '../../redux/slice/videoSlice';
 
-// Video Edit selectors
+// ✅ VIDEO EDIT SLICE IMPORTS - only use what actually exists
 import {
-  selectTotalAIVideoRequests,
-  selectAIVideoRequestsByBrandStats,
-  selectBrandStats,
-  getVideoAnalyticsStats
+  selectEditDetailsList,
+  selectBrandEditDetails,
+  getAllEditDetails,
+  getEditDetailsByBrand,
+  selectTotalEditCount  // This exists in videoEditSlice
 } from '../../redux/slice/videoEditSlice';
 
 const Overview = () => {
@@ -38,25 +40,144 @@ const Overview = () => {
   const user = useSelector(state => state.user.currentUser);
   const brandId = user?.brand_id;
 
-  // ✅ CORRECT: Using memoized selectors with brandId
+  // ✅ Shops from shopSlice
   const shops = useSelector(selectShopsForBrand(brandId));
+  
+  // ✅ Orders from orderSlice
   const brandOrders = useSelector(selectOrdersByBrand);
   
-  // ✅ Get videos from Redux state - filter by brand
+  // ✅ Videos from videoSlice
   const allVideos = useSelector(selectVideos);
   const brandVideos = useMemo(() => 
     allVideos?.filter(video => video.brand_id === brandId) || [],
     [allVideos, brandId]
   );
   
-  // ✅ Use memoized dashboard summary
-  const dashboardSummary = useSelector(selectDashboardSummary);
-  const videoStats = useSelector(selectDerivedVideoStats);
+  // ✅ Video Edit stats - using what actually exists
+  const allEditDetails = useSelector(selectEditDetailsList);
+  const brandEditDetails = useSelector(selectBrandEditDetails);
+  const totalEditCount = useSelector(selectTotalEditCount);
   
-  // Video Edit selectors
-  const totalAIVideoRequests = useSelector(selectTotalAIVideoRequests);
-  const aiVideoRequestsByBrand = useSelector(selectAIVideoRequestsByBrandStats);
-  const brandAIErrorStats = useSelector(selectBrandStats);
+  // Calculate brand-specific edit stats
+  const brandEditStats = useMemo(() => {
+    if (!brandId) return null;
+    
+    // Filter edit details for this brand
+    const brandEdits = allEditDetails?.filter(edit => edit.brand_id === brandId) || [];
+    const brandSpecificEdits = brandEditDetails?.filter(edit => edit.brand_id === brandId) || [];
+    
+    const totalBrandEdits = brandEdits.length + brandSpecificEdits.length;
+    
+    // Calculate success/error rates
+    const aiCorrect = brandEdits.filter(edit => edit.feedback_reason === 'correct').length;
+    const aiErrors = brandEdits.filter(edit => edit.feedback_reason === 'incorrect').length;
+    
+    return {
+      totalEdits: totalBrandEdits,
+      aiCorrect,
+      aiErrors,
+      aiSuccessRate: totalBrandEdits > 0 ? ((aiCorrect / totalBrandEdits) * 100).toFixed(1) : '0.00',
+      aiErrorRate: totalBrandEdits > 0 ? ((aiErrors / totalBrandEdits) * 100).toFixed(1) : '0.00',
+      totalSegments: brandEdits.length + brandSpecificEdits.length
+    };
+  }, [brandId, allEditDetails, brandEditDetails]);
+
+  // Calculate video stats manually
+  const videoStats = useMemo(() => {
+    if (!brandVideos?.length) {
+      return {
+        total: 0,
+        byStatus: {},
+        byStatusPercentage: {},
+        recentUploads: 0,
+        recentUploadsPercentage: 0
+      };
+    }
+    
+    const byStatus = {};
+    brandVideos.forEach(video => {
+      const status = video.status || 'unknown';
+      byStatus[status] = (byStatus[status] || 0) + 1;
+    });
+    
+    const byStatusPercentage = {};
+    Object.entries(byStatus).forEach(([status, count]) => {
+      byStatusPercentage[status] = ((count / brandVideos.length) * 100).toFixed(1);
+    });
+    
+    // Recent uploads (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const recentUploads = brandVideos.filter(video => {
+      if (!video.created_at) return false;
+      const createdDate = new Date(video.created_at);
+      return createdDate >= sevenDaysAgo;
+    }).length;
+    
+    const recentUploadsPercentage = brandVideos.length > 0 
+      ? ((recentUploads / brandVideos.length) * 100).toFixed(1)
+      : 0;
+    
+    return {
+      total: brandVideos.length,
+      byStatus,
+      byStatusPercentage,
+      recentUploads,
+      recentUploadsPercentage
+    };
+  }, [brandVideos]);
+
+  // Calculate dashboard summary manually
+  const dashboardSummary = useMemo(() => {
+    if (!brandVideos?.length) {
+      return {
+        total: 0,
+        uploaded: 0,
+        processing: 0,
+        completed: 0,
+        failed: 0,
+        today: 0,
+        yesterday: 0,
+        lastWeek: 0
+      };
+    }
+    
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    
+    const isToday = (date) => {
+      if (!date) return false;
+      const videoDate = new Date(date);
+      return videoDate.toDateString() === today.toDateString();
+    };
+    
+    const isYesterday = (date) => {
+      if (!date) return false;
+      const videoDate = new Date(date);
+      return videoDate.toDateString() === yesterday.toDateString();
+    };
+    
+    const isLastWeek = (date) => {
+      if (!date) return false;
+      const videoDate = new Date(date);
+      return videoDate >= lastWeek && videoDate < today;
+    };
+    
+    return {
+      total: brandVideos.length,
+      uploaded: brandVideos.filter(v => v.status === 'uploading').length,
+      processing: brandVideos.filter(v => v.status === 'processing').length,
+      completed: brandVideos.filter(v => ['completed', 'pending'].includes(v.status)).length,
+      failed: brandVideos.filter(v => v.status === 'failed').length,
+      today: brandVideos.filter(v => isToday(v.created_at)).length,
+      yesterday: brandVideos.filter(v => isYesterday(v.created_at)).length,
+      lastWeek: brandVideos.filter(v => isLastWeek(v.created_at)).length,
+    };
+  }, [brandVideos]);
 
   // Loading states
   const shopsLoading = useSelector(selectShopLoading);
@@ -65,24 +186,11 @@ const Overview = () => {
   
   const [loading, setLoading] = useState(true);
   const [dailyOrders, setDailyOrders] = useState(0);
-  const [brandVideoRequests, setBrandVideoRequests] = useState(0);
-  const [brandAIStats, setBrandAIStats] = useState(null);
   const [topShop, setTopShop] = useState(null);
   const [shopVideosMap, setShopVideosMap] = useState({});
 
   // Combined loading state
   const isLoading = loading || shopsLoading || ordersLoading || videosLoading;
-
-  // ✅ Calculate video stats for this brand whenever brandVideos changes
-  useEffect(() => {
-    console.log('🎥 Brand videos from Redux:', brandVideos?.length);
-    
-    if (brandVideos && brandVideos.length > 0) {
-      setBrandVideoRequests(brandVideos.length);
-    } else {
-      setBrandVideoRequests(0);
-    }
-  }, [brandVideos]);
 
   // Fetch all data
   useEffect(() => {
@@ -103,7 +211,7 @@ const Overview = () => {
     if (!isLoading && shops?.length > 0) {
       calculateStats();
     }
-  }, [shops, brandOrders, aiVideoRequestsByBrand, brandAIErrorStats, shopVideosMap, brandVideos, isLoading]);
+  }, [shops, brandOrders, shopVideosMap, brandVideos, isLoading]);
 
   const fetchData = async () => {
     if (!brandId) return;
@@ -119,13 +227,17 @@ const Overview = () => {
       console.log('📦 Fetching orders for brand:', brandId);
       await dispatch(getOrdersByBrand(brandId));
       
-      // ✅ 3. Fetch ALL videos and filter client-side for this brand
-      console.log('🎬 Fetching all videos...');
+      // ✅ 3. Fetch videos for this brand
+      console.log('🎬 Fetching videos for brand:', brandId);
       await dispatch(getVideosByBrand(brandId));
       
-      // ✅ 4. Fetch video analytics stats
-      console.log('📊 Fetching video analytics stats...');
-      await dispatch(getVideoAnalyticsStats());
+      // ✅ 4. Fetch all edit details for video stats
+      console.log('📊 Fetching video edit details...');
+      await dispatch(getAllEditDetails());
+      
+      // ✅ 5. Fetch brand-specific edit details
+      console.log('📊 Fetching brand edit details for:', brandId);
+      await dispatch(getEditDetailsByBrand(brandId));
       
     } catch (error) {
       console.error('💥 Error fetching data:', error);
@@ -160,28 +272,13 @@ const Overview = () => {
     
     setDailyOrders(todayOrders);
 
-    // Calculate brand-specific AI video requests from videoEditSlice
-    if (aiVideoRequestsByBrand && brandId) {
-      const brandRequestsData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
-      const brandRequests = brandRequestsData?.totalAIVideoRequests || 0;
-      setBrandVideoRequests(brandRequests);
-    }
-
-    // Find brand-specific AI stats
-    if (brandAIErrorStats && brandId) {
-      const brandStats = brandAIErrorStats.find(b => b.brandId === brandId);
-      if (brandStats) {
-        setBrandAIStats(brandStats);
-      }
-    }
-
-    // Find top shop with most AI video requests
+    // Find top shop with most videos
     if (shops?.length > 0 && Object.keys(shopVideosMap).length > 0) {
       const shopsWithVideoCounts = shops.map(shop => {
         const shopVideos = shopVideosMap[shop.id] || [];
         
         const aiVideoRequests = shopVideos.filter(video => 
-          ['completed', 'processing', 'ai_processing'].includes(video?.status)
+          ['completed', 'processing'].includes(video?.status)
         ).length;
         
         return {
@@ -201,13 +298,10 @@ const Overview = () => {
         totalVideos: 0
       } : null));
     }
-  }, [brandOrders, aiVideoRequestsByBrand, brandAIErrorStats, brandId, shops, shopVideosMap]);
+  }, [brandOrders, shops, shopVideosMap]);
 
   // ✅ Memoized derived values
-  const brandVideoRequestsCount = useMemo(() => 
-    brandVideoRequests || brandVideos?.length || 0,
-    [brandVideoRequests, brandVideos]
-  );
+  const brandVideoRequestsCount = brandVideos?.length || 0;
 
   const totalShops = shops?.length || 0;
   
@@ -222,7 +316,7 @@ const Overview = () => {
     return Object.keys(shopVideosMap).filter(shopId => {
       const shopVideos = shopVideosMap[shopId] || [];
       return shopVideos.some(video => 
-        ['completed', 'processing', 'ai_processing'].includes(video?.status)
+        ['completed', 'processing'].includes(video?.status)
       );
     }).length;
   }, [shopVideosMap]);
@@ -272,9 +366,11 @@ const Overview = () => {
       brandVideoRequests,
       shopsWithAIRequests,
       topShop: topShop?.name,
-      dailyOrders
+      dailyOrders,
+      totalEditCount,
+      brandEditStats
     });
-  }, [brandId, totalShops, activeShops, totalOrders, brandVideos, brandVideoRequests, shopsWithAIRequests, topShop, dailyOrders]);
+  }, [brandId, totalShops, activeShops, totalOrders, brandVideos, brandVideoRequests, shopsWithAIRequests, topShop, dailyOrders, totalEditCount, brandEditStats]);
 
   if (isLoading) {
     return (
@@ -379,7 +475,7 @@ const Overview = () => {
             shops.slice(0, 6).map(shop => {
               const shopVideos = shopVideosMap[shop.id] || [];
               const aiRequests = shopVideos.filter(v => 
-                ['completed', 'processing', 'ai_processing'].includes(v?.status)
+                ['completed', 'processing'].includes(v?.status)
               ).length;
               
               return (
@@ -668,8 +764,8 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* AI Performance Summary */}
-      {brandAIStats && (
+      {/* AI Performance Summary - Using videoEditSlice data */}
+      {brandEditStats && brandEditStats.totalEdits > 0 && (
         <div className="mt-8 bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">AI Performance Summary</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -686,30 +782,30 @@ const Overview = () => {
             <div className="bg-green-50 p-4 rounded-lg">
               <h3 className="text-sm text-green-600 font-medium">AI Success Rate</h3>
               <p className="text-2xl font-bold text-green-700 mt-1">
-                {brandAIStats.aiSuccessRate || '0.00'}%
+                {brandEditStats.aiSuccessRate}%
               </p>
               <p className="text-xs text-green-600">
-                {brandAIStats.aiCorrect || 0} correct selections
+                {brandEditStats.aiCorrect || 0} correct selections
               </p>
             </div>
             
             <div className="bg-red-50 p-4 rounded-lg">
               <h3 className="text-sm text-red-600 font-medium">AI Error Rate</h3>
               <p className="text-2xl font-bold text-red-700 mt-1">
-                {brandAIStats.aiErrorRate || '0.00'}%
+                {brandEditStats.aiErrorRate}%
               </p>
               <p className="text-xs text-red-600">
-                {brandAIStats.aiErrors || 0} manual corrections
+                {brandEditStats.aiErrors || 0} manual corrections
               </p>
             </div>
             
             <div className="bg-purple-50 p-4 rounded-lg">
-              <h3 className="text-sm text-purple-600 font-medium">Total Segments</h3>
+              <h3 className="text-sm text-purple-600 font-medium">Total Edits</h3>
               <p className="text-2xl font-bold text-purple-700 mt-1">
-                {brandAIStats.totalSegments || 0}
+                {brandEditStats.totalEdits || 0}
               </p>
               <p className="text-xs text-purple-600">
-                Processed video segments
+                Feedback records
               </p>
             </div>
           </div>
@@ -717,7 +813,7 @@ const Overview = () => {
       )}
 
       {/* Video Status Distribution */}
-      {videoStats?.byStatus && Object.keys(videoStats.byStatus).length > 0 && (
+      {videoStats && Object.keys(videoStats.byStatus).length > 0 && (
         <div className="mt-8 bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Video Status Distribution</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

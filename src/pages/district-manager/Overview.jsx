@@ -12,13 +12,13 @@ import {
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
-  // ✅ CORRECT SELECTORS FROM VIDEO SLICE
+  // ✅ CORRECT SELECTORS FROM VIDEO SLICE - remove getVideoStats
   selectVideos,
-  selectDerivedVideoStats,
-  selectStatusDistribution,
+  // selectDerivedVideoStats, // This doesn't exist either
+  // selectStatusDistribution, // This doesn't exist either
   selectVideoLoading,
-  getAllVideos,
-  getVideoStats
+  getAllVideos
+  // getVideoStats // REMOVE THIS - doesn't exist
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
 
@@ -31,10 +31,8 @@ const Overview = () => {
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
   
-  // ✅ FIXED: Use the correct video selectors
+  // ✅ FIXED: Use only existing video selectors
   const allVideos = useSelector(selectVideos) || [];
-  const videoStats = useSelector(selectDerivedVideoStats);
-  const statusDistribution = useSelector(selectStatusDistribution);
   const videoLoading = useSelector(selectVideoLoading);
   
   const orderLoading = useSelector(selectOrderLoading);
@@ -121,8 +119,8 @@ const Overview = () => {
       await Promise.all([
         dispatch(getShopsByDistrict(districtId)),
         dispatch(getOrdersByDistrict(districtId)),
-        dispatch(getAllVideos()), // ✅ Fetch all videos
-        dispatch(getVideoStats())  // ✅ Fetch video stats
+        dispatch(getAllVideos()) // ✅ Fetch all videos - this exists
+        // dispatch(getVideoStats()) // REMOVED - doesn't exist
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -141,8 +139,6 @@ const Overview = () => {
 
   return (
     <div>
-     
-
       {/* Stats Grid - All showing DAILY numbers */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">

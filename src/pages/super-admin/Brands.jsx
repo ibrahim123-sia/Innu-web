@@ -23,6 +23,67 @@ import Swal from 'sweetalert2';
 const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
+// Skeleton Loader Components
+const TableRowSkeleton = () => (
+  <tr className="hover:bg-gray-50">
+    <td className="px-6 py-4">
+      <div className="flex items-center">
+        <div className="w-12 h-12 rounded-lg bg-gray-200 animate-pulse mr-4"></div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+        </div>
+      </div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="flex items-center">
+        <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse mr-3"></div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-1"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+        </div>
+      </div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="flex space-x-2">
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
+      </div>
+    </td>
+  </tr>
+);
+
+const BrandsTableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <th key={i} className="px-6 py-3">
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <TableRowSkeleton key={i} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
 const Brands = () => {
   const dispatch = useDispatch();
   const brands = useSelector(selectAllBrands);
@@ -42,7 +103,6 @@ const Brands = () => {
     admin_email: '',
     admin_first_name: '',
     admin_last_name: '',
-    admin_contact: '',
     is_active: true
   });
   const [editFormData, setEditFormData] = useState({
@@ -52,11 +112,9 @@ const Brands = () => {
     admin_email: '',
     admin_first_name: '',
     admin_last_name: '',
-    admin_contact: '',
     admin_profile_pic: '',
     original_admin_first_name: '',
-    original_admin_last_name: '',
-    original_admin_contact: ''
+    original_admin_last_name: ''
   });
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -67,8 +125,7 @@ const Brands = () => {
     name: false,
     admin_email: false,
     admin_first_name: false,
-    admin_last_name: false,
-    admin_contact: false
+    admin_last_name: false
   });
 
   useEffect(() => {
@@ -183,8 +240,7 @@ const Brands = () => {
       name: !formData.name.trim(),
       admin_email: !formData.admin_email.trim(),
       admin_first_name: !formData.admin_first_name.trim(),
-      admin_last_name: !formData.admin_last_name.trim(),
-      admin_contact: !formData.admin_contact.trim()
+      admin_last_name: !formData.admin_last_name.trim()
     };
     
     setFormErrors(errors);
@@ -197,7 +253,7 @@ const Brands = () => {
       Swal.fire({
         icon: 'error',
         title: 'Required Fields Missing',
-        text: 'Please fill in all required fields (Brand Name, Admin Email, First Name, Last Name, and Contact Number)',
+        text: 'Please fill in all required fields (Brand Name, Admin Email, First Name, and Last Name)',
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
@@ -256,9 +312,6 @@ const Brands = () => {
         userFormData.append('first_name', formData.admin_first_name);
         userFormData.append('last_name', formData.admin_last_name);
         
-        const formattedPhone = formatPhoneNumber(formData.admin_contact);
-        userFormData.append('contact_no', formattedPhone || '');
-        
         userFormData.append('role', 'brand_admin');
         userFormData.append('brand_id', brandResult.data.id);
         userFormData.append('is_active', true);
@@ -290,7 +343,6 @@ const Brands = () => {
                     An email with instructions to set up their password has been sent to ${formData.admin_email}
                   </p>
                 </div>
-                <p><strong>Contact:</strong> ${formData.admin_contact || 'Not provided'}</p>
               </div>
             `,
             confirmButtonText: 'OK',
@@ -378,12 +430,6 @@ const Brands = () => {
           hasChanges = true;
         }
         
-        if (editFormData.admin_contact !== editFormData.original_admin_contact) {
-          const formattedPhone = formatPhoneNumber(editFormData.admin_contact);
-          adminFormData.append('contact_no', formattedPhone);
-          hasChanges = true;
-        }
-        
         if (adminProfilePicFile) {
           adminFormData.append('profile_pic', adminProfilePicFile);
           hasChanges = true;
@@ -431,15 +477,13 @@ const Brands = () => {
       admin_email: '',
       admin_first_name: '',
       admin_last_name: '',
-      admin_contact: '',
       is_active: true
     });
     setFormErrors({
       name: false,
       admin_email: false,
       admin_first_name: false,
-      admin_last_name: false,
-      admin_contact: false
+      admin_last_name: false
     });
     setLogoFile(null);
     setLogoPreview(null);
@@ -456,11 +500,9 @@ const Brands = () => {
       admin_email: '',
       admin_first_name: '',
       admin_last_name: '',
-      admin_contact: '',
       admin_profile_pic: '',
       original_admin_first_name: '',
-      original_admin_last_name: '',
-      original_admin_contact: ''
+      original_admin_last_name: ''
     });
     setLogoFile(null);
     setLogoPreview(null);
@@ -471,15 +513,7 @@ const Brands = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'admin_contact') {
-      const formattedValue = formatPhoneNumber(value);
-      setFormData(prev => ({
-        ...prev,
-        [name]: formattedValue
-      }));
-      // Clear error for this field
-      setFormErrors(prev => ({ ...prev, [name]: false }));
-    } else if (name === 'admin_email') {
+    if (name === 'admin_email') {
       setFormData(prev => ({
         ...prev,
         [name]: value
@@ -506,18 +540,10 @@ const Brands = () => {
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'admin_contact') {
-      const formattedValue = formatPhoneNumber(value);
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: formattedValue
-      }));
-    } else {
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
-    }
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   const handleViewDetails = (brandId) => {
@@ -538,11 +564,9 @@ const Brands = () => {
       admin_email: brandAdmin.email || '',
       admin_first_name: brandAdmin.first_name || '',
       admin_last_name: brandAdmin.last_name || '',
-      admin_contact: brandAdmin.contact_no || '',
       admin_profile_pic: adminProfilePic,
       original_admin_first_name: brandAdmin.first_name || '',
-      original_admin_last_name: brandAdmin.last_name || '',
-      original_admin_contact: brandAdmin.contact_no || ''
+      original_admin_last_name: brandAdmin.last_name || ''
     });
     setLogoPreview(brandLogo);
     setLogoFile(null);
@@ -626,13 +650,13 @@ const Brands = () => {
   };
 
   return (
-    <div>
+    <div className="transition-opacity duration-300 ease-in-out">
       {/* Create Brand Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-bold text-gray-800">All Brands</h2>
+          <h2 className="text-xl font-bold text-gray-800">All Companies</h2>
           <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-            {brands?.length || 0} Brands
+            {brands?.length || 0} Companies
           </span>
         </div>
         <button
@@ -644,8 +668,7 @@ const Brands = () => {
               name: false,
               admin_email: false,
               admin_first_name: false,
-              admin_last_name: false,
-              admin_contact: false
+              admin_last_name: false
             });
           }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
@@ -653,14 +676,14 @@ const Brands = () => {
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
-          {showCreateForm ? 'Cancel' : 'New Brand'}
+          {showCreateForm ? 'Cancel' : 'New Company'}
         </button>
       </div>
 
       {/* Create Brand Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New Brand</h2>
+          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New Company</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -680,13 +703,13 @@ const Brands = () => {
               <div className="space-y-8">
                 {/* Brand Logo Upload */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Brand Logo</h3>
+                  <h3 className="font-semibold text-gray-700">Company Logo</h3>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     {logoPreview ? (
                       <div className="space-y-2">
                         <img 
                           src={logoPreview} 
-                          alt="Brand logo preview" 
+                          alt="Company logo preview" 
                           className="max-h-48 mx-auto rounded-lg object-contain"
                         />
                         <button
@@ -704,7 +727,7 @@ const Brands = () => {
                       <div className="space-y-2">
                         <img 
                           src={DEFAULT_BRAND_LOGO}
-                          alt="Default brand logo" 
+                          alt="Default Company logo" 
                           className="max-h-48 mx-auto rounded-lg object-contain opacity-50"
                         />
                         <p className="text-sm text-gray-500">Optional - Default logo will be used if not uploaded</p>
@@ -777,13 +800,11 @@ const Brands = () => {
               <div className="space-y-6">
                 {/* Brand Info */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Brand Information</h3>
-                  
-                
+                  <h3 className="font-semibold text-gray-700">Companies Information</h3>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Brand Name <span className="text-red-500">*</span>
+                      Company Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -797,14 +818,14 @@ const Brands = () => {
                       required
                     />
                     {formErrors.name && (
-                      <p className="mt-1 text-xs text-red-600">Brand name is required</p>
+                      <p className="mt-1 text-xs text-red-600">Company name is required</p>
                     )}
                   </div>
                 </div>
 
                 {/* Admin Info - ALL FIELDS REQUIRED */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Brand Admin Account <span className="text-red-500">*</span></h3>
+                  <h3 className="font-semibold text-gray-700">Company Admin Account <span className="text-red-500">*</span></h3>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -870,31 +891,6 @@ const Brands = () => {
                       )}
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Contact Number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      name="admin_contact"
-                      value={formData.admin_contact}
-                      onChange={handleInputChange}
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.admin_contact ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                      }`}
-                      placeholder="+1 (XXX) XXX-XXXX"
-                      pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
-                      title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
-                      required
-                    />
-                    {formErrors.admin_contact && (
-                      <p className="mt-1 text-xs text-red-600">Contact number is required</p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      Format: +1 (XXX) XXX-XXXX
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -916,24 +912,21 @@ const Brands = () => {
         </div>
       )}
 
-      {/* Brands Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {loading ? (
-          <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Loading brands...</p>
-          </div>
-        ) : error ? (
-          <div className="py-12 text-center">
-            <p className="text-red-600">{error}</p>
-          </div>
-        ) : brands && brands.length > 0 ? (
+      {/* Brands Table with Skeleton Loader */}
+      {loading ? (
+        <BrandsTableSkeleton />
+      ) : error ? (
+        <div className="bg-white rounded-lg shadow-md py-12 text-center">
+          <p className="text-red-600">{error}</p>
+        </div>
+      ) : brands && brands.length > 0 ? (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Brand Details
+                    Company Details
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Admin
@@ -957,7 +950,7 @@ const Brands = () => {
                   const canActivate = canActivateBrand(brand);
                   
                   return (
-                    <tr key={brand.id} className="hover:bg-gray-50">
+                    <tr key={brand.id} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
@@ -999,7 +992,6 @@ const Brands = () => {
                                 {admin.first_name} {admin.last_name}
                               </div>
                               <div className="text-sm text-gray-500">{admin.email}</div>
-                              <div className="text-xs text-gray-400">{admin.contact_no}</div>
                             </div>
                           </div>
                         ) : (
@@ -1031,20 +1023,20 @@ const Brands = () => {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewDetails(brand.id)}
-                            className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm"
+                            className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm transition-colors"
                           >
                             View
                           </button>
                           <button
                             onClick={() => handleEdit(brand)}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
+                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm transition-colors"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleToggleStatus(brand)}
                             disabled={!brand.is_active && !admin}
-                            className={`px-3 py-1 rounded text-sm ${
+                            className={`px-3 py-1 rounded text-sm transition-colors ${
                               !brand.is_active && !admin
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : brand.is_active 
@@ -1063,24 +1055,24 @@ const Brands = () => {
               </tbody>
             </table>
           </div>
-        ) : (
-          <div className="py-12 text-center">
-            <img 
-              src={DEFAULT_BRAND_LOGO}
-              alt="No brands" 
-              className="w-16 h-16 mx-auto mb-4 opacity-50"
-            />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Brands Found</h3>
-            <p className="text-gray-500 mb-4">Create your first brand to get started</p>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-            >
-              Create First Brand
-            </button>
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md py-12 text-center">
+          <img 
+            src={DEFAULT_BRAND_LOGO}
+            alt="No brands" 
+            className="w-16 h-16 mx-auto mb-4 opacity-50"
+          />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Companies Found</h3>
+          <p className="text-gray-500 mb-4">Create your first company to get started</p>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Create First Company
+          </button>
+        </div>
+      )}
 
       {/* Brand Detail Modal */}
       {showBrandDetail && (
@@ -1095,7 +1087,7 @@ const Brands = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Brand</h2>
+              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Company</h2>
               
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -1115,13 +1107,13 @@ const Brands = () => {
                   <div className="space-y-8">
                     {/* Brand Logo */}
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-700">Brand Logo</h3>
+                      <h3 className="font-semibold text-gray-700">Company Logo</h3>
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                         {logoPreview ? (
                           <div className="space-y-2">
                             <img 
                               src={logoPreview} 
-                              alt="Brand logo preview" 
+                              alt="Company logo preview" 
                               className="max-h-48 mx-auto rounded-lg object-contain"
                             />
                             <button
@@ -1142,7 +1134,7 @@ const Brands = () => {
                               alt="Brand logo" 
                               className="max-h-48 mx-auto rounded-lg object-contain"
                             />
-                            <p className="text-sm text-gray-500">Current brand logo</p>
+                            <p className="text-sm text-gray-500">Current company logo</p>
                           </div>
                         )}
                         <label className="block mt-4">
@@ -1212,10 +1204,10 @@ const Brands = () => {
                   <div className="space-y-6">
                     {/* Brand Information */}
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-700">Brand Information</h3>
+                      <h3 className="font-semibold text-gray-700">Company Information</h3>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Brand Name <span className="text-red-500">*</span>
+                          Company Name <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1243,7 +1235,7 @@ const Brands = () => {
                     {/* Brand Admin Information */}
                     {editFormData.admin_id && (
                       <div className="space-y-4 border-t pt-6">
-                        <h3 className="font-semibold text-gray-700">Brand Admin</h3>
+                        <h3 className="font-semibold text-gray-700">Company Admin</h3>
                         
                         <div className="grid grid-cols-2 gap-4">
                           <div>
@@ -1275,25 +1267,6 @@ const Brands = () => {
                           </div>
                         </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Contact Number
-                          </label>
-                          <input
-                            type="tel"
-                            name="admin_contact"
-                            value={editFormData.admin_contact}
-                            onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="+1 (XXX) XXX-XXXX"
-                            pattern="^\+1\s\(\d{3}\)\s\d{3}-\d{4}$"
-                            title="Please enter a valid US phone number in format: +1 (XXX) XXX-XXXX"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Format: +1 (XXX) XXX-XXXX
-                          </p>
-                        </div>
-
                         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                           <p className="text-sm text-blue-800">
                             <strong>Note:</strong> Password management is handled by users themselves.
@@ -1321,15 +1294,15 @@ const Brands = () => {
                   <button
                     type="button"
                     onClick={() => setShowEditModal(null)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
                   >
-                    Update Brand
+                    Update Company
                   </button>
                 </div>
               </form>

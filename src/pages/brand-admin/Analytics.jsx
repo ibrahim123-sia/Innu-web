@@ -2,106 +2,138 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   getShopsByBrand,
-  selectShopsForBrand // ✅ Change this import
+  selectShopsForBrand
 } from '../../redux/slice/shopSlice';
 import {
   selectDistrictsByBrand,
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
+// ✅ CORRECT VIDEO EDIT SLICE IMPORTS
 import {
-  getAIVideoRequestsByBrand,
-  getBrandAIErrorStats,
-  selectAIVideoRequestsByBrandStats,
-  selectBrandStats
+  getAllEditDetails,
+  getEditDetailsByBrand,
+  selectEditDetailsList,
+  selectBrandEditDetails
 } from '../../redux/slice/videoEditSlice';
+// ✅ IMPORT FROM VIDEO SLICE FOR VIDEO DATA
+import {
+  getVideosByBrand,
+  selectVideos
+} from '../../redux/slice/videoSlice';
 
 const Analytics = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
   const brandId = user?.brand_id;
   
-  // ✅ Fix: Use selectShopsForBrand selector to get array of shops for current brand
+  // Shop and district data
   const shops = useSelector(state => selectShopsForBrand(brandId)(state)) || [];
   const districtsByBrand = useSelector(selectDistrictsByBrand) || [];
-  const aiVideoRequestsByBrand = useSelector(selectAIVideoRequestsByBrandStats);
-  const brandAIErrorStats = useSelector(selectBrandStats);
+  
+  // ✅ Video Edit data
+  const allEditDetails = useSelector(selectEditDetailsList);
+  const brandEditDetails = useSelector(selectBrandEditDetails);
+  
+  // ✅ Video data
+  const allVideos = useSelector(selectVideos);
+  const brandVideos = allVideos?.filter(video => video.brand_id === brandId) || [];
   
   const [loading, setLoading] = useState(true);
   const [brandAIStats, setBrandAIStats] = useState(null);
   const [expandedDistrict, setExpandedDistrict] = useState(null);
   const [shopAIRequestsMap, setShopAIRequestsMap] = useState({});
+  const [aiRequestsByBrand, setAiRequestsByBrand] = useState([]);
 
   useEffect(() => {
     console.log('Analytics Debug:');
     console.log('User brand_id:', brandId);
     console.log('Shops count:', shops?.length);
-    console.log('Shops data:', shops);
     console.log('DistrictsByBrand count:', districtsByBrand?.length);
-    console.log('AI Video Requests by Brand:', aiVideoRequestsByBrand);
+    console.log('Brand Videos count:', brandVideos?.length);
+    console.log('All Edit Details count:', allEditDetails?.length);
+    console.log('Brand Edit Details count:', brandEditDetails?.length);
     
     if (brandId) {
       fetchData();
     }
   }, [brandId]);
 
+  // Calculate AI video requests by brand and shop from videos
   useEffect(() => {
-    // Process AI video requests by shop from videoEditSlice
-    if (aiVideoRequestsByBrand && Array.isArray(aiVideoRequestsByBrand) && shops && shops.length > 0) {
+    if (brandVideos && brandVideos.length > 0) {
+      // Calculate by brand
+      const videosByBrandMap = {};
+      brandVideos.forEach((video) => {
+        if (video.brand_id) {
+          if (!videosByBrandMap[video.brand_id]) {
+            videosByBrandMap[video.brand_id] = {
+              brandId: video.brand_id,
+              totalAIVideoRequests: 0,
+              shopStats: {}
+            };
+          }
+          videosByBrandMap[video.brand_id].totalAIVideoRequests++;
+          
+          // Calculate by shop
+          if (video.shop_id) {
+            if (!videosByBrandMap[video.brand_id].shopStats[video.shop_id]) {
+              videosByBrandMap[video.brand_id].shopStats[video.shop_id] = 0;
+            }
+            videosByBrandMap[video.brand_id].shopStats[video.shop_id]++;
+          }
+        }
+      });
+
+      const videosByBrandArray = Object.values(videosByBrandMap);
+      setAiRequestsByBrand(videosByBrandArray);
+      console.log('📊 AI Requests by brand:', videosByBrandArray);
+    } else {
+      setAiRequestsByBrand([]);
+    }
+  }, [brandVideos]);
+
+  // Process AI video requests by shop
+  useEffect(() => {
+    if (aiRequestsByBrand && Array.isArray(aiRequestsByBrand) && shops && shops.length > 0) {
       const requestsMap = {};
       
       // Get the brand-specific data
-      const brandData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
+      const brandData = aiRequestsByBrand.find(b => b.brandId === brandId);
       
       if (brandData && brandData.shopStats) {
-        // If the API returns shop-level breakdown
-        brandData.shopStats.forEach(shop => {
-          requestsMap[shop.shopId] = shop.totalAIVideoRequests || 0;
+        // Use shop-level breakdown from videos
+        Object.entries(brandData.shopStats).forEach(([shopId, count]) => {
+          requestsMap[shopId] = count;
         });
       } else {
-        // If we only have brand-level total, use a placeholder
-        // This is a fallback - ideally your API should return shop-level data
+        // If no shop-level data, initialize with 0
         shops.forEach(shop => {
-          // For now, we'll use a placeholder - you should modify your backend to return per-shop AI request counts
-          requestsMap[shop.id] = 0; // Set to 0 instead of random numbers
+          requestsMap[shop.id] = 0;
         });
-        
-        // If we have brand total, distribute it evenly across shops as a temporary solution
-        if (brandData?.totalAIVideoRequests) {
-          const totalRequests = brandData.totalAIVideoRequests;
-          const shopCount = shops.length;
-          if (shopCount > 0) {
-            const baseRequests = Math.floor(totalRequests / shopCount);
-            const remainder = totalRequests % shopCount;
-            
-            shops.forEach((shop, index) => {
-              requestsMap[shop.id] = baseRequests + (index < remainder ? 1 : 0);
-            });
-          }
-        }
       }
       
       setShopAIRequestsMap(requestsMap);
     }
-  }, [aiVideoRequestsByBrand, brandId, shops]);
+  }, [aiRequestsByBrand, brandId, shops]);
 
+  // Calculate brand-specific AI stats from edit details
   useEffect(() => {
-    // Calculate brand-specific AI stats when data is available
-    if (brandId && brandAIErrorStats && aiVideoRequestsByBrand) {
+    if (brandId && (allEditDetails?.length > 0 || brandEditDetails?.length > 0)) {
       calculateBrandStats();
     }
-  }, [brandAIErrorStats, aiVideoRequestsByBrand, brandId]);
+  }, [brandId, allEditDetails, brandEditDetails]);
 
   const fetchData = async () => {
     if (!brandId) return;
     
     setLoading(true);
     try {
-      // Pass brand_id to all API calls that need it
       await Promise.all([
         dispatch(getShopsByBrand(brandId)),
         dispatch(getDistrictsByBrand(brandId)),
-        dispatch(getAIVideoRequestsByBrand()),
-        dispatch(getBrandAIErrorStats())
+        dispatch(getVideosByBrand(brandId)), // Get videos for this brand
+        dispatch(getAllEditDetails()), // Get all edit details
+        dispatch(getEditDetailsByBrand(brandId)) // Get brand-specific edit details
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -111,13 +143,66 @@ const Analytics = () => {
   };
 
   const calculateBrandStats = () => {
-    // Get brand-specific AI stats from the transformed selector
-    const brandStats = brandAIErrorStats?.find(b => b.brandId === brandId);
-    setBrandAIStats(brandStats || null);
+    // Filter edit details for this brand
+    const brandSpecificEdits = brandEditDetails?.filter(edit => edit.brand_id === brandId) || [];
+    const brandEditsFromAll = allEditDetails?.filter(edit => edit.brand_id === brandId) || [];
+    
+    // Combine both sources
+    const allBrandEdits = [...brandSpecificEdits, ...brandEditsFromAll];
+    
+    if (allBrandEdits.length === 0) {
+      setBrandAIStats(null);
+      return;
+    }
+    
+    // Calculate stats
+    const aiCorrect = allBrandEdits.filter(edit => edit.feedback_reason === 'correct').length;
+    const aiErrors = allBrandEdits.filter(edit => edit.feedback_reason === 'incorrect').length;
+    const totalEdits = allBrandEdits.length;
+    
+    const aiSuccessRate = totalEdits > 0 ? (aiCorrect / totalEdits) * 100 : 0;
+    const aiErrorRate = totalEdits > 0 ? (aiErrors / totalEdits) * 100 : 0;
+    
+    // Group by shop for shop-level stats
+    const shopStats = {};
+    allBrandEdits.forEach(edit => {
+      if (edit.shop_id) {
+        if (!shopStats[edit.shop_id]) {
+          shopStats[edit.shop_id] = {
+            totalEdits: 0,
+            correct: 0,
+            errors: 0
+          };
+        }
+        shopStats[edit.shop_id].totalEdits++;
+        if (edit.feedback_reason === 'correct') {
+          shopStats[edit.shop_id].correct++;
+        } else if (edit.feedback_reason === 'incorrect') {
+          shopStats[edit.shop_id].errors++;
+        }
+      }
+    });
+    
+    setBrandAIStats({
+      brandId,
+      totalEdits,
+      aiCorrect,
+      aiErrors,
+      aiSuccessRate,
+      aiErrorRate,
+      totalSegments: totalEdits,
+      shopStats
+    });
   };
 
   const getAIRequestsForShop = (shopId) => {
-    return shopAIRequestsMap[shopId] || 0;
+    // First try from video count
+    const videoCount = shopAIRequestsMap[shopId] || 0;
+    
+    // Then add any edit details for this shop
+    const editCount = brandAIStats?.shopStats?.[shopId]?.totalEdits || 0;
+    
+    return videoCount + editCount;
   };
 
   const getShopsByDistrict = (districtId) => {
@@ -153,10 +238,13 @@ const Analytics = () => {
   const districtStats = getAllDistrictStats();
 
   const getTotalAIRequests = () => {
-    if (!aiVideoRequestsByBrand || !brandId) return 0;
+    // Total from videos
+    const videoTotal = brandVideos?.length || 0;
     
-    const brandData = aiVideoRequestsByBrand.find(b => b.brandId === brandId);
-    return brandData?.totalAIVideoRequests || 0;
+    // Total from edit details
+    const editTotal = brandAIStats?.totalEdits || 0;
+    
+    return videoTotal + editTotal;
   };
 
   const getAverageAIRequestsPerShop = () => {
@@ -166,7 +254,13 @@ const Analytics = () => {
   };
 
   const getShopsWithAIVideoRequests = () => {
-    return Object.keys(shopAIRequestsMap).filter(shopId => shopAIRequestsMap[shopId] > 0).length;
+    // Shops with videos
+    const shopsWithVideos = Object.keys(shopAIRequestsMap).filter(shopId => shopAIRequestsMap[shopId] > 0).length;
+    
+    // Shops with edit details
+    const shopsWithEdits = brandAIStats?.shopStats ? Object.keys(brandAIStats.shopStats).length : 0;
+    
+    return Math.max(shopsWithVideos, shopsWithEdits);
   };
 
   if (loading) {
@@ -367,6 +461,7 @@ const Analytics = () => {
                           <div className="space-y-4">
                             {districtShops.map((shop) => {
                               const aiRequests = getAIRequestsForShop(shop.id);
+                              const shopEditStats = brandAIStats?.shopStats?.[shop.id];
                               
                               return (
                                 <div key={shop.id} className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
@@ -387,9 +482,15 @@ const Analytics = () => {
                                             Tekmetric ID: {shop.tekmetric_shop_id}
                                           </p>
                                         )}
-                                        <p className="text-xs text-gray-400 mt-1">
-                                          AI Requests: {aiRequests}
-                                        </p>
+                                        <div className="flex space-x-3 mt-1 text-xs">
+                                          <span className="text-red-500">Videos: {shopAIRequestsMap[shop.id] || 0}</span>
+                                          {shopEditStats && (
+                                            <>
+                                              <span className="text-green-500">Correct: {shopEditStats.correct || 0}</span>
+                                              <span className="text-orange-500">Errors: {shopEditStats.errors || 0}</span>
+                                            </>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                     
@@ -449,13 +550,15 @@ const Analytics = () => {
       <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-500">
         <div className="bg-gray-50 p-4 rounded-lg">
           <p className="font-medium text-gray-700 mb-2">Data Source</p>
-          <p>Total AI Requests: {getTotalAIRequests()}</p>
-          <p className="text-xs mt-1 text-blue-600">From videoEditSlice: getAIVideoRequestsByBrand</p>
+          <p>Total Videos: {brandVideos?.length || 0}</p>
+          <p>Total Edit Details: {brandAIStats?.totalEdits || 0}</p>
+          <p className="text-xs mt-1 text-blue-600">Combined from videoSlice + videoEditSlice</p>
         </div>
         <div className="bg-gray-50 p-4 rounded-lg">
           <p className="font-medium text-gray-700 mb-2">AI Performance</p>
           <p>Success Rate: {brandAIStats?.aiSuccessRate?.toFixed(2) || 0}%</p>
           <p>Error Rate: {brandAIStats?.aiErrorRate?.toFixed(2) || 0}%</p>
+          <p>Total Segments: {brandAIStats?.totalSegments || 0}</p>
         </div>
         <div className="bg-gray-50 p-4 rounded-lg">
           <p className="font-medium text-gray-700 mb-2">Last Updated</p>

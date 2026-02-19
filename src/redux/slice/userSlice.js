@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const API = axios.create({
-  baseURL: 'https://innu-api-112488489004.us-central1.run.app/api',
+  baseURL: 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -211,18 +211,25 @@ export const getUserProfile = createAsyncThunk(
 // Update user profile
 export const updateUserProfile = createAsyncThunk(
   'user/updateUserProfile',
-  async (profileData, { rejectWithValue }) => {
+  async ({ userId, profileData }, { rejectWithValue, getState }) => {
     try {
-      let response;
-      if (profileData instanceof FormData) {
-        response = await API.put('/users/profile', profileData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-      } else {
-        response = await API.put('/users/profile', profileData);
+      // If userId is not provided, get it from the current user in state
+      const actualUserId = userId || getState().user.currentUser?.id;
+      
+      if (!actualUserId) {
+        return rejectWithValue({ error: "User ID is required" });
       }
+
+      let response;
+      
+      // If profileData is just an object with contact_no, send it directly
+      // Don't wrap it in FormData unless there's a file
+      response = await API.put(`/users/profile/${actualUserId}`, profileData, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);

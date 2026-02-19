@@ -73,7 +73,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-lg p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading brand details...</p>
+          <p className="mt-4 text-gray-600">Loading companies details...</p>
         </div>
       </div>
     );
@@ -88,8 +88,8 @@ const BrandDetailModal = ({ brandId, onClose }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Brand Not Found</h3>
-          <p className="text-gray-500 mb-4">The brand you're looking for doesn't exist or has been removed.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Company Not Found</h3>
+          <p className="text-gray-500 mb-4">The company you're looking for doesn't exist or has been removed.</p>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -122,7 +122,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-800">{brand.name}</h2>
-              <p className="text-gray-600">Brand Details</p>
+              <p className="text-gray-600">Company Details</p>
               <div className="flex items-center space-x-2 mt-1">
                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                   brand.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -178,7 +178,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
             </div>
             
             <div className="bg-yellow-50 p-4 rounded-lg">
-              <h3 className="text-sm text-yellow-600 font-medium">Orders</h3>
+              <h3 className="text-sm text-yellow-600 font-medium">Repair Orders</h3>
               <p className="text-2xl font-bold text-yellow-700 mt-1">{brandOrders.length}</p>
               <p className="text-xs text-yellow-600">Total requests</p>
             </div>
@@ -188,7 +188,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* Brand Logo Section */}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-gray-800">Brand Logo</h3>
+              <h3 className="text-lg font-bold text-gray-800">Company Logo</h3>
               <div className="flex items-center space-x-4">
                 <div className="w-32 h-32 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
                   <img 
@@ -221,7 +221,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
 
             {/* Admin Profile Picture Section */}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-gray-800">Brand Admin</h3>
+              <h3 className="text-lg font-bold text-gray-800">Company Admin</h3>
               {brandAdmin.id ? (
                 <div className="flex items-center space-x-4">
                   <div className="w-32 h-32 rounded-full overflow-hidden border bg-gray-100">
@@ -267,9 +267,9 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                     />
                   </div>
                   <div>
-                    <p className="text-gray-500 italic">No admin assigned to this brand</p>
+                    <p className="text-gray-500 italic">No admin assigned to this company</p>
                     <p className="text-sm text-gray-400 mt-1">
-                      Assign an admin in the Brands page
+                      Assign an admin in the Companies page
                     </p>
                   </div>
                 </div>
@@ -336,7 +336,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                 <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-                <p className="text-gray-500 italic">No shops found for this brand</p>
+                <p className="text-gray-500 italic">No shops found for this companies</p>
                 <p className="text-sm text-gray-400 mt-1">Add shops in the Shops management section</p>
               </div>
             )}
@@ -345,7 +345,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
           {/* Recent Orders */}
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-800">Recent Orders</h3>
+              <h3 className="text-lg font-bold text-gray-800">Recent Repair Orders</h3>
               {brandOrders.length > 0 && (
                 <span className="text-sm text-gray-500">
                   Last updated: {new Date().toLocaleDateString('en-US', {
@@ -361,7 +361,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RO ID</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -407,7 +407,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                 </table>
                 {brandOrders.length > 5 && (
                   <p className="text-sm text-gray-500 mt-2 px-4">
-                    Showing 5 of {brandOrders.length} orders
+                    Showing 5 of {brandOrders.length} repair orders
                   </p>
                 )}
               </div>
@@ -416,8 +416,8 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                 <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
-                <p className="text-gray-500 italic">No orders found for this brand</p>
-                <p className="text-sm text-gray-400 mt-1">Orders will appear here when shops start creating them</p>
+                <p className="text-gray-500 italic">No repair orders found for this company</p>
+                <p className="text-sm text-gray-400 mt-1">Repair orders will appear here when shops start creating them</p>
               </div>
             )}
           </div>

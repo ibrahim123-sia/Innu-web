@@ -1,18 +1,19 @@
+// src/components/DistrictManager/Analytics.jsx
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
   selectAllShops,
-  getShopsByDistrict // Changed from getDistrictShops to getShopsByDistrict
+  getShopsByDistrict
 } from '../../redux/slice/shopSlice';
 import { 
   selectVideos,
   getAllVideos,
-  selectDashboardSummary,
-  getVideoStats
+  // ✅ Remove getVideoStats - doesn't exist
+  selectVideoLoading
 } from '../../redux/slice/videoSlice';
 import {
   getOrdersByDistrict,
-  selectOrdersByDistrict // Changed from selectAllOrders to selectOrdersByDistrict
+  selectOrdersByDistrict
 } from '../../redux/slice/orderSlice';
 
 const Analytics = () => {
@@ -23,8 +24,10 @@ const Analytics = () => {
   // Get data from Redux with correct selectors
   const allShops = useSelector(selectAllShops);
   const allVideos = useSelector(selectVideos);
-  const districtOrders = useSelector(selectOrdersByDistrict) || []; // Changed from selectAllOrders
-  const videoDashboardSummary = useSelector(selectDashboardSummary);
+  const districtOrders = useSelector(selectOrdersByDistrict) || [];
+  
+  // Loading states
+  const videoLoading = useSelector(selectVideoLoading);
   
   // Local state
   const [loading, setLoading] = useState(true);
@@ -34,6 +37,58 @@ const Analytics = () => {
   const [filteredShops, setFilteredShops] = useState([]);
   const [shopVideoData, setShopVideoData] = useState({});
   const [filteredOrders, setFilteredOrders] = useState([]);
+
+  // Manual calculation of dashboard summary from videos
+  const videoDashboardSummary = React.useMemo(() => {
+    if (!allVideos || !filteredShops.length) return {
+      total: 0,
+      uploaded: 0,
+      processing: 0,
+      completed: 0,
+      failed: 0,
+      today: 0,
+      yesterday: 0,
+      lastWeek: 0
+    };
+    
+    const shopIds = filteredShops.map(shop => shop.id);
+    const districtVideos = allVideos.filter(video => shopIds.includes(video.shop_id));
+    
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    
+    const isToday = (date) => {
+      if (!date) return false;
+      const videoDate = new Date(date);
+      return videoDate.toDateString() === today.toDateString();
+    };
+    
+    const isYesterday = (date) => {
+      if (!date) return false;
+      const videoDate = new Date(date);
+      return videoDate.toDateString() === yesterday.toDateString();
+    };
+    
+    const isLastWeek = (date) => {
+      if (!date) return false;
+      const videoDate = new Date(date);
+      return videoDate >= lastWeek && videoDate < today;
+    };
+    
+    return {
+      total: districtVideos.length,
+      uploaded: districtVideos.filter(v => v.status === 'uploaded').length,
+      processing: districtVideos.filter(v => v.status === 'processing').length,
+      completed: districtVideos.filter(v => ['completed', 'pending'].includes(v.status)).length,
+      failed: districtVideos.filter(v => v.status === 'failed').length,
+      today: districtVideos.filter(v => isToday(v.created_at)).length,
+      yesterday: districtVideos.filter(v => isYesterday(v.created_at)).length,
+      lastWeek: districtVideos.filter(v => isLastWeek(v.created_at)).length,
+    };
+  }, [allVideos, filteredShops]);
 
   // Initial data fetch
   useEffect(() => {
@@ -83,10 +138,11 @@ const Analytics = () => {
     setLoading(true);
     try {
       await Promise.all([
-        dispatch(getShopsByDistrict(districtId)), // Changed from getDistrictShops
+        dispatch(getShopsByDistrict(districtId)),
         dispatch(getAllVideos()),
-        dispatch(getOrdersByDistrict({ districtId })),
-        dispatch(getVideoStats())
+        // ✅ Fix: Pass just the districtId, not an object
+        dispatch(getOrdersByDistrict(districtId))
+        // ✅ Remove getVideoStats
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -233,7 +289,7 @@ const Analytics = () => {
 
   const districtTotals = calculateDistrictTotals();
 
-  if (loading) {
+  if (loading || videoLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -244,7 +300,6 @@ const Analytics = () => {
 
   return (
     <div className="p-6">
-     
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -331,6 +386,35 @@ const Analytics = () => {
           <div className="text-center p-4 bg-red-100 rounded-lg">
             <div className="text-2xl font-bold text-red-600">{districtTotals.totalFailedVideos || 0}</div>
             <div className="text-sm text-red-500">Failed</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Today's Summary Card */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Today's Activity</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h3 className="text-sm text-blue-600 font-medium">Videos Uploaded Today</h3>
+            <p className="text-2xl font-bold text-blue-700 mt-1">{videoDashboardSummary.today || 0}</p>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h3 className="text-sm text-green-600 font-medium">Completed Today</h3>
+            <p className="text-2xl font-bold text-green-700 mt-1">
+              {allVideos.filter(v => {
+                if (!v.updated_at) return false;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const updatedDate = new Date(v.updated_at);
+                return updatedDate >= today && v.status === 'completed';
+              }).length}
+            </p>
+          </div>
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <h3 className="text-sm text-purple-600 font-medium">Active Shops</h3>
+            <p className="text-2xl font-bold text-purple-700 mt-1">
+              {filteredShops.filter(s => s.is_active).length}
+            </p>
           </div>
         </div>
       </div>
@@ -488,9 +572,10 @@ const Analytics = () => {
         <p>Active shops: {filteredShops.filter(s => s.is_active).length}</p>
       </div>
 
-      {/* Shop Analytics Modal */}
+      {/* Shop Analytics Modal - Keep existing modal JSX */}
       {showShopAnalyticsModal && shopAnalyticsData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          {/* Modal content - unchanged */}
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">

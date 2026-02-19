@@ -1,107 +1,204 @@
 // src/pages/super-admin/Overview.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { 
-  selectAllBrands,
-  getAllBrands
-} from '../../redux/slice/brandSlice';
+import React, { useState, useEffect, useCallback } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { selectAllBrands, getAllBrands } from "../../redux/slice/brandSlice";
 import {
   getShopsByBrand,
-  selectShopsByBrand
-} from '../../redux/slice/shopSlice';
-import {
-  getOrdersByBrand
-} from '../../redux/slice/orderSlice';
-// ✅ IMPORT FROM VIDEO SLICE - NOT videoEditSlice
-import {
-  getAllVideos,
-  selectVideos
-} from '../../redux/slice/videoSlice';
-import { Link } from 'react-router-dom';
+  selectShopsByBrand,
+} from "../../redux/slice/shopSlice";
+import { getOrdersByBrand } from "../../redux/slice/orderSlice";
+// ✅ ONLY IMPORT FROM VIDEO SLICE - NOT videoEditSlice
+import { getAllVideos, selectVideos } from "../../redux/slice/videoSlice";
+import { Link } from "react-router-dom";
+
+// Skeleton Loader Components
+const StatsSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    {[1, 2, 3, 4].map((i) => (
+      <div
+        key={i}
+        className="bg-white p-6 rounded-lg shadow-md border-l-4 border-gray-200"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-8 bg-gray-300 rounded animate-pulse w-16 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+          </div>
+          <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const BrandShopsSummarySkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+    <div className="h-6 bg-gray-200 rounded animate-pulse w-48 mb-4"></div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div key={i} className="border rounded-lg p-4">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div className="flex-1">
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+            </div>
+          </div>
+          <div className="flex justify-between items-center mt-2">
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-8"></div>
+          </div>
+          <div className="flex justify-between items-center mt-1">
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-8"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const TopBrandSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="flex justify-between items-center mb-4">
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-24"></div>
+    </div>
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center space-x-4 mb-3">
+        <div className="w-16 h-16 bg-gray-200 rounded-lg animate-pulse"></div>
+        <div className="flex-1">
+          <div className="h-5 bg-gray-200 rounded animate-pulse w-40 mb-1"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="bg-gray-100 p-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+            <div className="flex-1">
+              <div className="h-5 bg-gray-200 rounded animate-pulse w-12 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-100 p-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+            <div className="flex-1">
+              <div className="h-5 bg-gray-200 rounded animate-pulse w-12 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const QuickActionsSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="h-6 bg-gray-200 rounded animate-pulse w-32 mb-4"></div>
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center p-4 border rounded-lg">
+          <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse mr-4"></div>
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-48"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 const Overview = () => {
   const dispatch = useDispatch();
   const brands = useSelector(selectAllBrands);
   const shopsByBrand = useSelector(selectShopsByBrand);
-  // ✅ Get videos from Redux state
+  // ✅ Get videos from Redux state using correct selector from videoSlice
   const videos = useSelector(selectVideos);
-  
+
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
   const [dailyOrders, setDailyOrders] = useState(0);
-  const [totalAIVideoRequests, setTotalAIVideoRequests] = useState(0);
-  const [aiRequestsByBrand, setAiRequestsByBrand] = useState([]);
+  const [totalVideos, setTotalVideos] = useState(0);
+  const [videosByBrand, setVideosByBrand] = useState([]);
   const [topBrand, setTopBrand] = useState(null);
   const [allOrders, setAllOrders] = useState([]);
   const [totalShops, setTotalShops] = useState(0);
   const [activeShops, setActiveShops] = useState(0);
 
-  // ✅ Calculate video stats from videos whenever videos change
+ 
   useEffect(() => {
-    console.log('🎥 Videos from Redux:', videos);
     
+
     if (videos && videos.length > 0) {
       // Set total video count
-      setTotalAIVideoRequests(videos.length);
-      
+      setTotalVideos(videos.length);
+
       // Calculate videos by brand
       const videosByBrandMap = {};
-      videos.forEach(video => {
+      videos.forEach((video) => {
         if (video.brand_id) {
           if (!videosByBrandMap[video.brand_id]) {
             videosByBrandMap[video.brand_id] = {
               brand_id: video.brand_id,
-              total_ai_video_requests: 0
+              total_videos: 0,
             };
           }
-          videosByBrandMap[video.brand_id].total_ai_video_requests++;
+          videosByBrandMap[video.brand_id].total_videos++;
         }
       });
-      
+
       const videosByBrandArray = Object.values(videosByBrandMap);
-      setAiRequestsByBrand(videosByBrandArray);
-      console.log('📊 Videos by brand:', videosByBrandArray);
+      setVideosByBrand(videosByBrandArray);
     } else {
-      setTotalAIVideoRequests(0);
-      setAiRequestsByBrand([]);
+      setTotalVideos(0);
+      setVideosByBrand([]);
     }
   }, [videos]);
 
   // Calculate shop stats whenever Redux shopsByBrand changes
   useEffect(() => {
-    console.log('🔄 Redux shopsByBrand updated:', shopsByBrand);
     calculateShopStats(shopsByBrand);
   }, [shopsByBrand]);
 
-  const fetchShopsForBrand = useCallback(async (brandId) => {
-    try {
-      console.log(`🔍 Fetching shops for brand: ${brandId}`);
-      const result = await dispatch(getShopsByBrand(brandId));
-      
-      if (result.payload?.data?.data) {
-        console.log(`✅ Found ${result.payload.data.data.length} shops for brand ${brandId}`);
-        return result.payload.data.data;
+  const fetchShopsForBrand = useCallback(
+    async (brandId) => {
+      try {
+        console.log(`🔍 Fetching shops for brand: ${brandId}`);
+        const result = await dispatch(getShopsByBrand(brandId));
+
+        if (result.payload?.data?.data) {
+          return result.payload.data.data;
+        }
+        return [];
+      } catch (error) {
+        console.error(`❌ Error fetching shops for brand ${brandId}:`, error);
+        return [];
       }
-      return [];
-    } catch (error) {
-      console.error(`❌ Error fetching shops for brand ${brandId}:`, error);
-      return [];
-    }
-  }, [dispatch]);
+    },
+    [dispatch],
+  );
 
   const calculateShopStats = useCallback((shopsData) => {
     let total = 0;
     let active = 0;
-    
+
     if (!shopsData || Object.keys(shopsData).length === 0) {
       setTotalShops(0);
       setActiveShops(0);
       return;
     }
-    
-    Object.values(shopsData).forEach(shops => {
+
+    Object.values(shopsData).forEach((shops) => {
       if (Array.isArray(shops)) {
         total += shops.length;
-        active += shops.filter(shop => shop?.is_active).length;
+        active += shops.filter((shop) => shop?.is_active).length;
       }
     });
 
@@ -115,47 +212,51 @@ const Overview = () => {
 
   useEffect(() => {
     calculateStats();
-  }, [allOrders, aiRequestsByBrand, brands, shopsByBrand, videos]);
+  }, [allOrders, videosByBrand, brands, shopsByBrand]);
 
   const fetchData = async () => {
     setLoading(true);
-    console.log('🚀 Fetching data...');
+    setIsInitialLoad(true);
+    console.log("🚀 Fetching data...");
     try {
       // ✅ 1. Fetch all brands FIRST
       const brandsResult = await dispatch(getAllBrands());
       const brandsData = brandsResult.payload || brandsResult.data || [];
-      console.log('Brands loaded:', brandsData.length);
-      
-      // ✅ 2. Fetch ALL videos - THIS IS THE KEY FIX
-      console.log('🎬 Fetching all videos...');
+
+      // ✅ 2. Fetch ALL videos using correct thunk from videoSlice
+      console.log("🎬 Fetching all videos...");
       const videosResult = await dispatch(getAllVideos());
-      console.log('Videos API response:', videosResult);
-      
+      console.log("Videos API response:", videosResult);
+
       // ✅ 3. Fetch shops for each brand
       if (brandsData && brandsData.length > 0) {
-        console.log('🏪 Fetching shops for each brand...');
-        
+        console.log("🏪 Fetching shops for each brand...");
+
         for (const brand of brandsData) {
           await fetchShopsForBrand(brand.id);
         }
-        
+
         // ✅ 4. Fetch orders for each brand
-        const ordersPromises = brandsData.map(brand => 
-          dispatch(getOrdersByBrand(brand.id))
+        const ordersPromises = brandsData.map((brand) =>
+          dispatch(getOrdersByBrand(brand.id)),
         );
-        
+
         const ordersResponses = await Promise.all(ordersPromises);
-        
+
         const combinedOrders = ordersResponses.reduce((acc, result) => {
           const orders = result.payload?.data || result.data || [];
           return [...acc, ...orders];
         }, []);
-        
+
         setAllOrders(combinedOrders);
       }
       
+      // Add a small delay to show skeletons
+      setTimeout(() => setIsInitialLoad(false), 300);
+      setIsDataReady(true);
     } catch (error) {
-      console.error('💥 Error fetching data:', error);
+      console.error("💥 Error fetching data:", error);
+      setIsInitialLoad(false);
     } finally {
       setLoading(false);
     }
@@ -166,132 +267,199 @@ const Overview = () => {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
-    const todayOrders = allOrders?.filter(order => {
-      if (!order.created_at) return false;
-      const orderDate = new Date(order.created_at);
-      return orderDate >= yesterday;
-    }).length || 0;
-    
+
+    const todayOrders =
+      allOrders?.filter((order) => {
+        if (!order.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        return orderDate >= yesterday;
+      }).length || 0;
+
     setDailyOrders(todayOrders);
 
-    // Find top brand based on video requests
-    if (aiRequestsByBrand && aiRequestsByBrand.length > 0 && brands && brands.length > 0) {
-      const sortedBrands = [...aiRequestsByBrand].sort((a, b) => 
-        (b.total_ai_video_requests || 0) - (a.total_ai_video_requests || 0)
+    // Find top brand based on video count
+    if (
+      videosByBrand &&
+      videosByBrand.length > 0 &&
+      brands &&
+      brands.length > 0
+    ) {
+      const sortedBrands = [...videosByBrand].sort(
+        (a, b) => (b.total_videos || 0) - (a.total_videos || 0),
       );
 
       if (sortedBrands.length > 0) {
         const topBrandData = sortedBrands[0];
-        const brandInfo = brands?.find(b => b.id === topBrandData.brand_id);
-        
+        const brandInfo = brands?.find((b) => b.id === topBrandData.brand_id);
+
         if (brandInfo) {
           setTopBrand({
             ...brandInfo,
-            aiVideoRequests: topBrandData.total_ai_video_requests || 0,
+            totalVideos: topBrandData.total_videos || 0,
             shopCount: shopsByBrand[brandInfo.id]?.length || 0,
-            activeShopCount: shopsByBrand[brandInfo.id]?.filter(shop => shop.is_active).length || 0
+            activeShopCount:
+              shopsByBrand[brandInfo.id]?.filter((shop) => shop.is_active)
+                .length || 0,
           });
         }
       }
     }
   };
 
-  const getTotalVideoRequests = () => totalAIVideoRequests || 0;
+  const getTotalVideos = () => totalVideos || 0;
   const getShopCountForBrand = (brandId) => shopsByBrand[brandId]?.length || 0;
-  const getActiveShopCountForBrand = (brandId) => shopsByBrand[brandId]?.filter(shop => shop.is_active).length || 0;
+  const getActiveShopCountForBrand = (brandId) =>
+    shopsByBrand[brandId]?.filter((shop) => shop.is_active).length || 0;
 
   // Debug logging
   useEffect(() => {
-    console.log('📊 Current state:', {
+    console.log("📊 Current state:", {
       totalVideos: videos?.length,
-      totalAIVideoRequests,
-      aiRequestsByBrandCount: aiRequestsByBrand?.length,
+      totalVideos,
+      videosByBrandCount: videosByBrand?.length,
       brandsCount: brands?.length,
       totalShops,
       activeShops,
-      dailyOrders
+      dailyOrders,
     });
-  }, [videos, totalAIVideoRequests, aiRequestsByBrand, brands, totalShops, activeShops, dailyOrders]);
+  }, [
+    videos,
+    totalVideos,
+    videosByBrand,
+    brands,
+    totalShops,
+    activeShops,
+    dailyOrders,
+  ]);
 
-  if (loading) {
+  // Show skeleton during initial load
+  if (isInitialLoad || (loading && !isDataReady)) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+      <div className="transition-opacity duration-300 ease-in-out">
+        <div className="mb-8">
+          <div className="h-8 bg-gray-200 rounded animate-pulse w-64 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-96"></div>
+        </div>
+        <StatsSkeleton />
+        <BrandShopsSummarySkeleton />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <TopBrandSkeleton />
+          <QuickActionsSkeleton />
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="transition-opacity duration-300 ease-in-out">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Total Brands Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-primary-blue">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-primary-blue hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Total Brands</h3>
-              <p className="text-3xl font-bold text-primary-blue mt-2">{brands?.length || 0}</p>
+              <h3 className="text-sm text-gray-500">Total Companies</h3>
+              <p className="text-3xl font-bold text-primary-blue mt-2">
+                {brands?.length || 0}
+              </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-primary-blue" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z" clipRule="evenodd" />
+              <svg
+                className="w-6 h-6 text-primary-blue"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
           </div>
         </div>
 
-        {/* AI Video Requests Card - NOW USING ACTUAL VIDEO DATA */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
+        {/* Total Videos Card */}
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">AI Video Requests</h3>
-              <p className="text-3xl font-bold text-red-600 mt-2">{getTotalVideoRequests()}</p>
+              <h3 className="text-sm text-gray-500">Total Videos</h3>
+              <p className="text-3xl font-bold text-red-600 mt-2">
+                {getTotalVideos()}
+              </p>
               <p className="text-xs text-gray-400 mt-1">
-                {aiRequestsByBrand && aiRequestsByBrand.length > 0 
-                  ? `${aiRequestsByBrand.length} brands with videos` 
-                  : 'No videos yet'}
+                {videosByBrand && videosByBrand.length > 0
+                  ? `${videosByBrand.length} brands with videos`
+                  : "No videos yet"}
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              <svg
+                className="w-6 h-6 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
               </svg>
             </div>
           </div>
         </div>
 
         {/* Daily Orders Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Daily Orders</h3>
-              <p className="text-3xl font-bold text-blue-600 mt-2">{dailyOrders}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                Last 24 hours
+              <h3 className="text-sm text-gray-500">Daily Repair Orders</h3>
+              <p className="text-3xl font-bold text-blue-600 mt-2">
+                {dailyOrders}
               </p>
+              <p className="text-xs text-gray-400 mt-1">Last 24 hours</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
+              <svg
+                className="w-6 h-6 text-blue-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
           </div>
         </div>
 
         {/* Active Shops Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Active Shops</h3>
-              <p className="text-3xl font-bold text-green-600 mt-2">{activeShops}</p>
+              <p className="text-3xl font-bold text-green-600 mt-2">
+                {activeShops}
+              </p>
               <p className="text-xs text-gray-400 mt-1">
-                Total: {totalShops} shops across {brands?.length || 0} brands
+                Total: {totalShops} shops across {brands?.length || 0} companies
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+              <svg
+                className="w-6 h-6 text-green-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
           </div>
@@ -299,39 +467,57 @@ const Overview = () => {
       </div>
 
       {/* Brand Shops Summary */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Shops by Brand</h2>
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Shops by Company</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {brands && brands.length > 0 ? (
-            brands.slice(0, 6).map(brand => (
-              <div key={brand.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+            brands.slice(0, 6).map((brand) => (
+              <div
+                key={brand.id}
+                className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-center space-x-3 mb-2">
                   <div className="w-10 h-10 rounded-lg overflow-hidden border bg-gray-100 flex-shrink-0">
                     {brand.logo_url ? (
-                      <img 
-                        src={brand.logo_url} 
+                      <img
+                        src={brand.logo_url}
                         alt={brand.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          e.target.src = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+                          e.target.src =
+                            "https://cdn-icons-png.flaticon.com/512/891/891419.png";
                         }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-blue-50">
-                        <svg className="w-5 h-5 text-blue-300" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4z" clipRule="evenodd" />
+                        <svg
+                          className="w-5 h-5 text-blue-300"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-gray-800 truncate">{brand.name}</h3>
-                    <p className="text-xs text-gray-500 truncate">{brand.email || 'No email'}</p>
+                    <h3 className="font-medium text-gray-800 truncate">
+                      {brand.name}
+                    </h3>
+                    <p className="text-xs text-gray-500 truncate">
+                      {brand.email || "No email"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-sm text-gray-600">Total Shops:</span>
-                  <span className="font-bold text-primary-blue">{getShopCountForBrand(brand.id)}</span>
+                  <span className="font-bold text-primary-blue">
+                    {getShopCountForBrand(brand.id)}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-sm text-gray-600">Active Shops:</span>
@@ -339,7 +525,6 @@ const Overview = () => {
                     {getActiveShopCountForBrand(brand.id)}
                   </span>
                 </div>
-               
               </div>
             ))
           ) : (
@@ -350,8 +535,8 @@ const Overview = () => {
         </div>
         {brands && brands.length > 6 && (
           <div className="mt-4 text-center">
-            <Link 
-              to="/super-admin/brands" 
+            <Link
+              to="/super-admin/brands"
               className="text-sm text-primary-blue hover:text-blue-700 font-medium"
             >
               View all {brands.length} brands →
@@ -363,118 +548,182 @@ const Overview = () => {
       {/* Top Brand & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Top Performing Brand */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800">Top Performing Brand</h2>
+            <h2 className="text-xl font-bold text-gray-800">
+              Top Performing Company
+            </h2>
             {topBrand && (
               <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
-                #1 in AI Requests
+                #1 in Video Uploads
               </span>
             )}
           </div>
-          
+
           {topBrand ? (
             <div className="border rounded-lg p-4">
               <div className="flex items-center space-x-4 mb-3">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100">
                   {topBrand.logo_url ? (
-                    <img 
-                      src={topBrand.logo_url} 
+                    <img
+                      src={topBrand.logo_url}
                       alt={topBrand.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        e.target.src = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+                        e.target.src =
+                          "https://cdn-icons-png.flaticon.com/512/891/891419.png";
                       }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-blue-50">
-                      <svg className="w-8 h-8 text-blue-300" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z" clipRule="evenodd" />
+                      <svg
+                        className="w-8 h-8 text-blue-300"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </div>
                   )}
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">{topBrand.name}</h3>
-                  <p className="text-sm text-gray-500">{topBrand.email || 'No email provided'}</p>
+                  <p className="text-sm text-gray-500">
+                    {topBrand.email || "No email provided"}
+                  </p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="bg-red-50 p-3 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <svg
+                      className="w-5 h-5 text-red-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-red-600">{topBrand.aiVideoRequests}</div>
-                      <div className="text-xs text-red-500">AI Video Requests</div>
+                      <div className="text-xl font-bold text-red-600">
+                        {topBrand.totalVideos}
+                      </div>
+                      <div className="text-xs text-red-500">
+                        Total Videos
+                      </div>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-green-50 p-3 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="w-5 h-5 text-green-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     <div>
                       <div className="text-xl font-bold text-green-600">
-                        {totalAIVideoRequests > 0 ? 
-                          `${((topBrand.aiVideoRequests / totalAIVideoRequests) * 100).toFixed(1)}%` : 
-                          '0%'
-                        }
+                        {totalVideos > 0
+                          ? `${((topBrand.totalVideos / totalVideos) * 100).toFixed(1)}%`
+                          : "0%"}
                       </div>
-                      <div className="text-xs text-green-500">of Total Requests</div>
+                      <div className="text-xs text-green-500">
+                        of Total Videos
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4z" clipRule="evenodd" />
+                    <svg
+                      className="w-5 h-5 text-blue-500"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-blue-600">{topBrand.shopCount || 0}</div>
+                      <div className="text-xl font-bold text-blue-600">
+                        {topBrand.shopCount || 0}
+                      </div>
                       <div className="text-xs text-blue-500">Total Shops</div>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-purple-50 p-3 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    <svg
+                      className="w-5 h-5 text-purple-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
                     </svg>
                     <div>
-                      <div className="text-xl font-bold text-purple-600">{topBrand.activeShopCount || 0}</div>
-                      <div className="text-xs text-purple-500">Active Shops</div>
+                      <div className="text-xl font-bold text-purple-600">
+                        {topBrand.activeShopCount || 0}
+                      </div>
+                      <div className="text-xs text-purple-500">
+                        Active Shops
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-              
+
               <div className="text-gray-600">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium">Status:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    topBrand.is_active 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {topBrand.is_active ? 'Active' : 'Inactive'}
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      topBrand.is_active
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {topBrand.is_active ? "Active" : "Inactive"}
                   </span>
                 </div>
                 {topBrand.created_at && (
                   <div className="text-sm">
-                    <span className="font-medium">Created:</span>{' '}
-                    {new Date(topBrand.created_at).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
+                    <span className="font-medium">Created:</span>{" "}
+                    {new Date(topBrand.created_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
                     })}
                   </div>
                 )}
@@ -482,72 +731,144 @@ const Overview = () => {
             </div>
           ) : (
             <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-              <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="w-12 h-12 text-gray-300 mx-auto mb-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
-              <p className="text-gray-500">No AI video request data available</p>
+              <p className="text-gray-500">
+                No video data available
+              </p>
               <p className="text-sm text-gray-400 mt-1">
-                Upload videos to see brand performance
+                Upload videos to see company performance
               </p>
             </div>
           )}
         </div>
 
-        {/* Quick Actions - Keep your existing Quick Actions JSX */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">
+            Quick Actions
+          </h2>
           <div className="space-y-4">
             <Link
               to="/super-admin/brands"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors group"
+              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
             >
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-blue-700 transition-colors">
-                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-gray-800">Manage Brands</h3>
-                <p className="text-sm text-gray-500">View and manage all brands</p>
+                <h3 className="font-medium text-gray-800">Manage Companies</h3>
+                <p className="text-sm text-gray-500">
+                  View and manage all Companies
+                </p>
               </div>
-              <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg
+                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </Link>
-            
+
             <Link
               to="/super-admin/shops"
-              className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-colors group"
+              className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-all duration-200 group"
             >
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
-                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z"
+                    clipRule="evenodd"
+                  />
                 </svg>
               </div>
               <div className="flex-1">
                 <h3 className="font-medium text-gray-800">Manage Shops</h3>
-                <p className="text-sm text-gray-500">View and manage all shops by brand</p>
+                <p className="text-sm text-gray-500">
+                  View and manage all shops by company
+                </p>
               </div>
-              <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg
+                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </Link>
-            
+
             <Link
               to="/super-admin/videos"
-              className="flex items-center p-4 border rounded-lg hover:bg-red-50 transition-colors group"
+              className="flex items-center p-4 border rounded-lg hover:bg-red-50 transition-all duration-200 group"
             >
               <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-red-700 transition-colors">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
                 </svg>
               </div>
               <div className="flex-1">
                 <h3 className="font-medium text-gray-800">View All Videos</h3>
-                <p className="text-sm text-gray-500">Check all uploaded AI videos</p>
+                <p className="text-sm text-gray-500">
+                  Check all uploaded videos
+                </p>
               </div>
-              <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg
+                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </Link>
           </div>
@@ -558,20 +879,28 @@ const Overview = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-50 p-3 rounded-lg">
                 <div className="text-sm text-gray-500">Total Orders</div>
-                <div className="text-xl font-bold text-gray-800">{allOrders.length}</div>
+                <div className="text-xl font-bold text-gray-800">
+                  {allOrders.length}
+                </div>
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Brands with Videos</div>
-                <div className="text-xl font-bold text-gray-800">{aiRequestsByBrand?.length || 0}</div>
+                <div className="text-sm text-gray-500">Companies with Videos</div>
+                <div className="text-xl font-bold text-gray-800">
+                  {videosByBrand?.length || 0}
+                </div>
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
                 <div className="text-sm text-gray-500">Total Shops</div>
-                <div className="text-xl font-bold text-gray-800">{totalShops}</div>
+                <div className="text-xl font-bold text-gray-800">
+                  {totalShops}
+                </div>
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Avg Shops/Brand</div>
+                <div className="text-sm text-gray-500">Avg Shops/Companies</div>
                 <div className="text-xl font-bold text-gray-800">
-                  {brands?.length > 0 ? (totalShops / brands.length).toFixed(1) : 0}
+                  {brands?.length > 0
+                    ? (totalShops / brands.length).toFixed(1)
+                    : 0}
                 </div>
               </div>
             </div>
