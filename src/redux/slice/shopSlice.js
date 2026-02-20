@@ -46,11 +46,15 @@ export const getShopById = createAsyncThunk(
 
 export const updateShop = createAsyncThunk(
   'shop/updateShop',
-  async ({ id, ...updateData }, { rejectWithValue }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await API.put(`/shops/updateshop/${id}`, updateData);
+      console.log('Updating shop with ID:', id);
+      console.log('Update data:', data);
+      
+      const response = await API.put(`/shops/updateshop/${id}`, data);
       return response.data;
     } catch (error) {
+      console.error('Update error:', error.response?.data || error.message);
       return rejectWithValue(error.response?.data || error.message);
     }
   }

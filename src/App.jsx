@@ -19,6 +19,7 @@ import BrandAdminLayout from './components/brand-admin/BrandAdminLayout';
 import BrandAdminOverview from './pages/brand-admin/Overview';
 import BrandAdminShops from './pages/brand-admin/Shops';
 import BrandAdminDistricts from './pages/brand-admin/Districts';
+import BrandAdminUsers from './pages/brand-admin/Users'; // Added Users
 import BrandAdminAnalytics from './pages/brand-admin/Analytics';
 import BrandAdminOrders from './pages/brand-admin/Orders';
 
@@ -115,6 +116,17 @@ function AppContent() {
             <RoleRoute role="brand_admin">
               <BrandAdminLayout>
                 <BrandAdminDistricts />
+              </BrandAdminLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        {/* NEW: Brand Admin Users Route */}
+        <Route path="/brand-admin/users" element={
+          <ProtectedRoute>
+            <RoleRoute role="brand_admin">
+              <BrandAdminLayout>
+                <BrandAdminUsers />
               </BrandAdminLayout>
             </RoleRoute>
           </ProtectedRoute>

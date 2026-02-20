@@ -1,4 +1,4 @@
-// src/pages/super-admin/Overview.jsx
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { selectAllBrands, getAllBrands } from "../../redux/slice/brandSlice";
@@ -7,7 +7,7 @@ import {
   selectShopsByBrand,
 } from "../../redux/slice/shopSlice";
 import { getOrdersByBrand } from "../../redux/slice/orderSlice";
-// ✅ ONLY IMPORT FROM VIDEO SLICE - NOT videoEditSlice
+
 import { getAllVideos, selectVideos } from "../../redux/slice/videoSlice";
 import { Link } from "react-router-dom";
 
@@ -508,9 +508,7 @@ const Overview = () => {
                     <h3 className="font-medium text-gray-800 truncate">
                       {brand.name}
                     </h3>
-                    <p className="text-xs text-gray-500 truncate">
-                      {brand.email || "No email"}
-                    </p>
+                   
                   </div>
                 </div>
                 <div className="flex justify-between items-center mt-2">
@@ -592,9 +590,7 @@ const Overview = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">{topBrand.name}</h3>
-                  <p className="text-sm text-gray-500">
-                    {topBrand.email || "No email provided"}
-                  </p>
+                  
                 </div>
               </div>
 
@@ -873,38 +869,7 @@ const Overview = () => {
             </Link>
           </div>
 
-          {/* System Summary */}
-          <div className="mt-6 pt-6 border-t">
-            <h3 className="font-medium text-gray-800 mb-3">System Summary</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Total Orders</div>
-                <div className="text-xl font-bold text-gray-800">
-                  {allOrders.length}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Companies with Videos</div>
-                <div className="text-xl font-bold text-gray-800">
-                  {videosByBrand?.length || 0}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Total Shops</div>
-                <div className="text-xl font-bold text-gray-800">
-                  {totalShops}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-500">Avg Shops/Companies</div>
-                <div className="text-xl font-bold text-gray-800">
-                  {brands?.length > 0
-                    ? (totalShops / brands.length).toFixed(1)
-                    : 0}
-                </div>
-              </div>
-            </div>
-          </div>
+          
         </div>
       </div>
     </div>

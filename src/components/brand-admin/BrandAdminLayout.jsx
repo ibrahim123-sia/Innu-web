@@ -1,17 +1,18 @@
-import React from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import LogoutButton from '../../components/common/LogoutButton';
+import React from "react";
+import { Outlet, NavLink } from "react-router-dom";
+import { useSelector } from "react-redux";
+import LogoutButton from "../../components/common/LogoutButton";
 
 const BrandAdminLayout = ({ children }) => {
-  const user = useSelector(state => state.user.currentUser);
-  
+  const user = useSelector((state) => state.user.currentUser);
+
   const navItems = [
-    { name: 'Overview', path: '/brand-admin' },
-    { name: 'Shops', path: '/brand-admin/shops' },
-    { name: 'Districts', path: '/brand-admin/districts' },
-    { name: 'Orders', path: '/brand-admin/orders' },
-    { name: 'Analytics', path: '/brand-admin/analytics' },
+    { name: "Overview", path: "/brand-admin" },
+    { name: "Shops", path: "/brand-admin/shops" },
+    { name: "Districts", path: "/brand-admin/districts" },
+    { name: "Users", path: "/brand-admin/users" }, // Added Users
+    // { name: 'Orders', path: '/brand-admin/orders' },
+    { name: "Analytics", path: "/brand-admin/analytics" },
   ];
 
   return (
@@ -20,9 +21,11 @@ const BrandAdminLayout = ({ children }) => {
       <header className="bg-primary-blue text-white p-4 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <h1 className="text-2xl font-bold">Brand Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold">Company Admin Dashboard</h1>
             <p className="text-sm text-primary-blue-100">
-              {user?.brand_name ? `Managing: ${user.brand_name}` : 'Brand Management'}
+              {user?.brand_name
+                ? `Managing: ${user.brand_name}`
+                : "Company Management"}
             </p>
           </div>
           <div className="flex items-center space-x-4">
@@ -34,7 +37,7 @@ const BrandAdminLayout = ({ children }) => {
           </div>
         </div>
       </header>
-      
+
       {/* Navigation */}
       <nav className="bg-white shadow-sm border-b">
         <div className="container mx-auto">
@@ -43,12 +46,12 @@ const BrandAdminLayout = ({ children }) => {
               <NavLink
                 key={item.path}
                 to={item.path}
-                end={item.path === '/brand-admin'}
+                end={item.path === "/brand-admin"}
                 className={({ isActive }) =>
                   `px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
-                      ? 'text-primary-blue border-b-2 border-primary-blue'
-                      : 'text-gray-500 hover:text-primary-red'
+                      ? "text-primary-blue border-b-2 border-primary-blue"
+                      : "text-gray-500 hover:text-primary-red"
                   }`
                 }
               >
@@ -58,7 +61,7 @@ const BrandAdminLayout = ({ children }) => {
           </div>
         </div>
       </nav>
-      
+
       {/* Main Content */}
       <main className="container mx-auto p-4 md:p-6">
         {children || <Outlet />}

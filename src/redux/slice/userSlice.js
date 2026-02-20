@@ -279,21 +279,26 @@ export const getUserById = createAsyncThunk(
   }
 );
 
+// FIXED: updateUser thunk
 export const updateUser = createAsyncThunk(
   'user/updateUser',
   async ({ id, data }, { rejectWithValue }) => {
     try {
       let response;
+      
+      // Check if data is FormData (for file uploads)
       if (data instanceof FormData) {
-        data.append('id', id);
+        // Don't append id to FormData - backend expects it in URL only
         response = await API.put(`/users/updateUser/${id}`, data, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
       } else {
+        // For JSON data, send as is
         response = await API.put(`/users/updateUser/${id}`, data);
       }
+      
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -385,11 +390,12 @@ export const getAdminUsers = createAsyncThunk(
   }
 );
 
+
 export const getBrandUsers = createAsyncThunk(
   'user/getBrandUsers',
-  async (_, { rejectWithValue }) => {
+  async (brandId, { rejectWithValue }) => {
     try {
-      const response = await API.get('/users/brand/users');
+      const response = await API.get(`users/users/brand/${brandId}`);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -1212,22 +1218,26 @@ const userSlice = createSlice({
       })
       
       // Get Users By Brand
-      .addCase(getUsersByBrand.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getUsersByBrand.fulfilled, (state, action) => {
-        state.loading = false;
-        state.users = action.payload.data.map(user => ({
-          ...user,
-          is_first_login: user.ft_password && !user.password ? true : (user.is_first_login || false)
-        }));
-        userSlice.caseReducers.updateStatistics(state);
-      })
-      .addCase(getUsersByBrand.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch users by brand';
-      })
+      // Add this inside your extraReducers in userSlice.js
+      
+// Get Brand Users
+.addCase(getBrandUsers.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(getBrandUsers.fulfilled, (state, action) => {
+  state.loading = false;
+  // Store in state.users
+  state.users = action.payload.data.map(user => ({
+    ...user,
+    is_first_login: user.ft_password && !user.password ? true : (user.is_first_login || false)
+  }));
+  userSlice.caseReducers.updateStatistics(state);
+})
+.addCase(getBrandUsers.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload?.error || 'Failed to fetch brand users';
+})
       
       // Get Users By District
       .addCase(getUsersByDistrict.pending, (state) => {

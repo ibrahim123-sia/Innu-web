@@ -1,4 +1,3 @@
-// src/components/Analytics/Analytics.jsx
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
@@ -6,14 +5,13 @@ import {
   getAllBrands
 } from '../../redux/slice/brandSlice';
 
-// ========== VIDEO SLICE IMPORTS ==========
 import {
   selectVideos,
   getAllVideos,
   getVideosByBrand,
 } from '../../redux/slice/videoSlice';
 
-// ========== VIDEO EDIT SLICE IMPORTS ==========
+
 import {
   selectEditDetailsList,
   selectVideoEditLoading,
@@ -21,10 +19,7 @@ import {
   getEditDetailsByBrand,
 } from '../../redux/slice/videoEditSlice';
 
-// Default images
 const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
-
-// ========== SKELETON LOADERS ==========
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -100,18 +95,17 @@ const BrandsTableSkeleton = () => (
 const Analytics = () => {
   const dispatch = useDispatch();
   
-  // ========== SELECTORS ==========
+
   const brands = useSelector(selectAllBrands);
   const videos = useSelector(selectVideos);
   const editDetailsList = useSelector(selectEditDetailsList);
   const videoEditLoading = useSelector(selectVideoEditLoading);
-  
-  // Local state for brand-specific data
+
   const [brandVideos, setBrandVideos] = useState({});
   const [brandEdits, setBrandEdits] = useState({});
   const [loadingBrandData, setLoadingBrandData] = useState({});
   
-  // Local state
+
   const [localLoading, setLocalLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
@@ -121,15 +115,14 @@ const Analytics = () => {
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
   const [selectedBrandForFeedback, setSelectedBrandForFeedback] = useState(null);
 
-  // Fetch all data on component mount
+
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Fetch all brand-specific data after initial load
   useEffect(() => {
     if (brands && brands.length > 0 && isDataReady) {
-      // Fetch data for all brands to populate the main table
+   
       brands.forEach(brand => {
         fetchBrandVideos(brand.id);
         fetchBrandEdits(brand.id);
@@ -137,18 +130,17 @@ const Analytics = () => {
     }
   }, [brands, isDataReady]);
 
-  // Fetch all required data
+
   const fetchData = async () => {
     setLocalLoading(true);
     setIsInitialLoad(true);
     try {
-      console.log('Fetching brands...');
+      
       await dispatch(getAllBrands()).unwrap();
       
-      console.log('Fetching all videos...');
+
       await dispatch(getAllVideos()).unwrap();
       
-      console.log('Fetching all edit details...');
       await dispatch(getAllEditDetails()).unwrap();
       
       setTimeout(() => {
@@ -166,15 +158,14 @@ const Analytics = () => {
 
   // Fetch brand-specific videos
   const fetchBrandVideos = async (brandId) => {
-    console.log(`Fetching videos for brand ${brandId}...`);
+  
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
       const result = await dispatch(getVideosByBrand(brandId)).unwrap();
-      console.log(`Videos for brand ${brandId}:`, result);
-      
-      // Result is now the array directly
+    
+
       const videosData = Array.isArray(result) ? result : [];
-      console.log(`Setting ${videosData.length} videos for brand ${brandId}`);
+    
       setBrandVideos(prev => ({ ...prev, [brandId]: videosData }));
     } catch (error) {
       console.error(`Error fetching videos for brand ${brandId}:`, error);
@@ -186,15 +177,15 @@ const Analytics = () => {
 
   // Fetch brand-specific edit details
   const fetchBrandEdits = async (brandId) => {
-    console.log(`Fetching edits for brand ${brandId}...`);
+    
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
       const result = await dispatch(getEditDetailsByBrand(brandId)).unwrap();
-      console.log(`Edits for brand ${brandId}:`, result);
+   
       
       // Result is now the array directly
       const editsData = Array.isArray(result) ? result : [];
-      console.log(`Setting ${editsData.length} edits for brand ${brandId}`);
+    
       setBrandEdits(prev => ({ ...prev, [brandId]: editsData }));
     } catch (error) {
       console.error(`Error fetching edits for brand ${brandId}:`, error);
@@ -204,12 +195,12 @@ const Analytics = () => {
     }
   };
 
-  // Handle view brand analytics
+
   const handleViewBrandAnalytics = async (brandId) => {
-    console.log(`Opening modal for brand ${brandId}`);
+   
     setShowBrandAnalyticsModal(brandId);
     
-    // Fetch both videos and edits for this brand if not already loaded
+ 
     if (!brandVideos[brandId] || brandVideos[brandId].length === 0) {
       await fetchBrandVideos(brandId);
     }
