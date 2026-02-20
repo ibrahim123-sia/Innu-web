@@ -7,6 +7,7 @@ import {
   validateOTP,
   resetPasswordWithOTP,
   updateFirstTimePassword,
+  updateUser,
   selectIsFirstLogin,
   selectCurrentUser,
 } from "../../redux/slice/userSlice";
@@ -18,13 +19,15 @@ const Login = () => {
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // First-time password update states
+  // First-time password update states - UPDATED with phone number
   const [isFirstLoginDetected, setIsFirstLoginDetected] = useState(false);
   const [showFirstTimePasswordForm, setShowFirstTimePasswordForm] =
     useState(false);
   const [currentTempPassword, setCurrentTempPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  // NEW: Phone number state for first-time users (required)
+  const [contactNumber, setContactNumber] = useState("");
 
   // Password reset states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -60,6 +63,10 @@ const Login = () => {
       setShowFirstTimePasswordForm(true);
       // Pre-fill email for context
       setEmail(currentUser.email);
+      // Pre-fill contact number if exists
+      if (currentUser.contact_no) {
+        setContactNumber(currentUser.contact_no);
+      }
     }
   }, [isFirstLogin, currentUser, showFirstTimePasswordForm]);
 
@@ -109,11 +116,23 @@ const Login = () => {
   };
 
   // ============================================
-  // 2. FIRST-TIME PASSWORD UPDATE HANDLER
+  // 2. FIRST-TIME PASSWORD AND PHONE UPDATE HANDLER
   // ============================================
   const handleFirstTimePasswordUpdate = async (e) => {
     e.preventDefault();
     setLoginError("");
+    setResetSuccess("");
+
+    // Validate phone number (required)
+    if (!contactNumber) {
+      setLoginError("Phone number is required");
+      return;
+    }
+
+    if (!validatePhoneNumber(contactNumber)) {
+      setLoginError("Please enter a valid phone number in format: +1 (XXX) XXX-XXXX");
+      return;
+    }
 
     // Validation
     if (newPassword !== confirmNewPassword) {
@@ -137,25 +156,42 @@ const Login = () => {
     setLoginLoading(true);
 
     try {
-      const result = await dispatch(
+      // STEP 1: Update phone number FIRST
+      if (currentUser?.id) {
+        try {
+          await dispatch(
+            updateUser({
+              id: currentUser.id,
+              data: { contact_no: contactNumber }
+            })
+          ).unwrap();
+          
+          console.log("Phone number updated successfully");
+        } catch (phoneErr) {
+          console.error("Phone number update failed:", phoneErr);
+          setLoginError("Failed to update phone number. Please try again.");
+          setLoginLoading(false);
+          return; // Stop here - don't proceed to password update
+        }
+      }
+
+      // STEP 2: Only update password if phone number update was successful
+      const passwordResult = await dispatch(
         updateFirstTimePassword({
           currentPassword: currentTempPassword,
           newPassword,
         }),
       ).unwrap();
 
-      if (result.success) {
+      if (passwordResult.success) {
+        setResetSuccess("Phone number and password updated successfully!");
+
         // Clear forms
         setPassword("");
         setNewPassword("");
         setConfirmNewPassword("");
         setCurrentTempPassword("");
-
-        // Show success message
-        setLoginError("");
-        setResetSuccess(
-          "Password updated successfully! You can now login with your new password.",
-        );
+        setContactNumber("");
 
         // Auto-login with new credentials after 2 seconds
         setTimeout(async () => {
@@ -191,6 +227,36 @@ const Login = () => {
     } finally {
       setLoginLoading(false);
     }
+  };
+
+  // Helper function to validate phone number format
+  const validatePhoneNumber = (phone) => {
+    // Basic validation for +1 (XXX) XXX-XXXX format
+    const phoneRegex = /^\+\d{1,3}\s\(\d{3}\)\s\d{3}-\d{4}$/;
+    return phoneRegex.test(phone);
+  };
+
+  // Helper function to format phone number as user types
+  const formatPhoneNumber = (value) => {
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, '');
+    
+    // Format as +1 (XXX) XXX-XXXX
+    if (digits.length === 0) return '';
+    if (digits.length <= 1) return `+${digits}`;
+    if (digits.length <= 4) return `+${digits.slice(0, 1)} (${digits.slice(1)}`;
+    if (digits.length <= 7) return `+${digits.slice(0, 1)} (${digits.slice(1, 4)}) ${digits.slice(4)}`;
+    if (digits.length <= 11) {
+      return `+${digits.slice(0, 1)} (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
+    }
+    
+    // Limit to 11 digits (1 country code + 10 number)
+    return `+${digits.slice(0, 1)} (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
+  };
+
+  const handlePhoneChange = (e) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setContactNumber(formatted);
   };
 
   // ============================================
@@ -383,6 +449,7 @@ const Login = () => {
       setNewPassword("");
       setConfirmNewPassword("");
       setCurrentTempPassword("");
+      setContactNumber("");
     } else if (showForgotPassword) {
       setShowForgotPassword(false);
       setResetStep(1);
@@ -415,24 +482,41 @@ const Login = () => {
   const renderFirstTimePasswordForm = () => (
     <div className="animate-fadeIn">
       <h2 className="text-2xl font-bold text-gray-800 mb-2">
-        Welcome! Set Your Password
+        Welcome! Complete Your Profile
       </h2>
       <p className="text-gray-600 mb-6">
-        This is your first login. Please create a secure password for your
-        account.
+        This is your first login. Please update your password and provide your contact information.
       </p>
 
       <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-blue-700 text-sm">
           <strong>Note:</strong> You just logged in with your temporary
-          password. Now create your permanent password.
+          password. Now create your permanent password and update your contact number.
         </p>
       </div>
 
       <form onSubmit={handleFirstTimePasswordUpdate}>
+        {/* PHONE NUMBER FIELD - Required */}
+        <div className="mb-5">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Contact Number <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="tel"
+            value={contactNumber}
+            onChange={handlePhoneChange}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+            placeholder="+1 (XXX) XXX-XXXX"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Format: +1 (XXX) XXX-XXXX (required)
+          </p>
+        </div>
+
         <div className="mb-5">
           <label className="block text-gray-700 mb-2 font-medium">
-            New Password
+            New Password <span className="text-red-500">*</span>
           </label>
           <input
             type="password"
@@ -467,7 +551,7 @@ const Login = () => {
 
         <div className="mb-6">
           <label className="block text-gray-700 mb-2 font-medium">
-            Confirm New Password
+            Confirm New Password <span className="text-red-500">*</span>
           </label>
           <input
             type="password"
@@ -504,7 +588,7 @@ const Login = () => {
             className={`flex-1 py-3 rounded-lg font-medium ${loginLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"} text-white transition`}
             disabled={loginLoading}
           >
-            {loginLoading ? "Updating..." : "Set Password"}
+            {loginLoading ? "Updating..." : "Complete Setup"}
           </button>
         </div>
       </form>
@@ -857,8 +941,6 @@ const Login = () => {
           )}
         </button>
       </form>
-
-     
     </div>
   );
 

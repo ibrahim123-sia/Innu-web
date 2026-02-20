@@ -222,9 +222,7 @@ export const updateUserProfile = createAsyncThunk(
 
       let response;
       
-      // If profileData is just an object with contact_no, send it directly
-      // Don't wrap it in FormData unless there's a file
-      response = await API.put(`/users/profile/${actualUserId}`, profileData, {
+      response = await API.put(`/users/updateUser/${actualUserId}`, profileData, {
         headers: {
           'Content-Type': 'application/json',
         },

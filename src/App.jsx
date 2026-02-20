@@ -19,7 +19,7 @@ import BrandAdminLayout from './components/brand-admin/BrandAdminLayout';
 import BrandAdminOverview from './pages/brand-admin/Overview';
 import BrandAdminShops from './pages/brand-admin/Shops';
 import BrandAdminDistricts from './pages/brand-admin/Districts';
-import BrandAdminUsers from './pages/brand-admin/Users'; // Added Users
+import BrandAdminUsers from './pages/brand-admin/Users';
 import BrandAdminAnalytics from './pages/brand-admin/Analytics';
 import BrandAdminOrders from './pages/brand-admin/Orders';
 
@@ -27,6 +27,7 @@ import BrandAdminOrders from './pages/brand-admin/Orders';
 import DistrictManagerLayout from './components/district-manager/DistrictManagerLayout';
 import DistrictManagerOverview from './pages/district-manager/Overview';
 import DistrictManagerShops from './pages/district-manager/Shops';
+import DistrictManagerUsers from './pages/district-manager/Users'; // Import Users page for District Manager
 import DistrictManagerAnalytics from './pages/district-manager/Analytics';
 
 // Import Shop Manager components
@@ -121,7 +122,6 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* NEW: Brand Admin Users Route */}
         <Route path="/brand-admin/users" element={
           <ProtectedRoute>
             <RoleRoute role="brand_admin">
@@ -168,6 +168,17 @@ function AppContent() {
             <RoleRoute role="district_manager">
               <DistrictManagerLayout>
                 <DistrictManagerShops />
+              </DistrictManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        {/* NEW: District Manager Users Route */}
+        <Route path="/district-manager/users" element={
+          <ProtectedRoute>
+            <RoleRoute role="district_manager">
+              <DistrictManagerLayout>
+                <DistrictManagerUsers />
               </DistrictManagerLayout>
             </RoleRoute>
           </ProtectedRoute>

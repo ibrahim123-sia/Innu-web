@@ -7,13 +7,23 @@ import {
   selectIsUploading,
   selectUploadData,
   clearUploadData,
-  selectVideos
+  selectVideos,
+  updateVideo
 } from '../../redux/slice/videoSlice';
 
 // GCS Base URL
 const GCS_BASE_URL = 'https://storage.googleapis.com/innu-video-app';
 
-const OrderDetailModal = ({ order, videos, onClose }) => {
+// Preset messages for edit feedback (same as mobile app)
+const PRESET_MESSAGES = [
+  "AI selected wrong video",
+  "Selected fallback, but actual available",
+  "No video selected by AI",
+  "Could not detect issue",
+  "Other (Write custom message...)"
+];
+
+const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
   const dispatch = useDispatch();
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
@@ -23,6 +33,14 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
   const [videoError, setVideoError] = useState(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  
+  // State for edit popup
+  const [showEditPopup, setShowEditPopup] = useState(false);
+  const [videoToEdit, setVideoToEdit] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState(null);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [selectedProblem, setSelectedProblem] = useState('general_diagnosis');
   
   const isUploading = useSelector(selectIsUploading);
   const uploadData = useSelector(selectUploadData);
@@ -41,6 +59,10 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
     if (uploadSuccess) {
       uploadTimeoutRef.current = setTimeout(() => {
         setUploadSuccess(false);
+        // Trigger parent refresh after successful upload
+        if (onVideoUpdate) {
+          onVideoUpdate();
+        }
       }, 3000);
     }
     return () => {
@@ -48,7 +70,7 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
         clearTimeout(uploadTimeoutRef.current);
       }
     };
-  }, [uploadSuccess]);
+  }, [uploadSuccess, onVideoUpdate]);
 
   // Clean up object URLs on unmount
   useEffect(() => {
@@ -146,6 +168,56 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
     setSelectedVideo(null);
     setVideoPreview(null);
     setVideoError(null);
+  };
+
+  // Handle edit video - open popup
+  const handleEditVideo = (video) => {
+    setVideoToEdit(video);
+    setFeedbackMessage('');
+    setSelectedProblem('general_diagnosis');
+    setEditError(null);
+    setShowEditPopup(true);
+  };
+
+  // Handle edit submission
+  const handleEditSubmit = async () => {
+    if (!videoToEdit?.id) {
+      setEditError('Video ID not found');
+      return;
+    }
+
+    setEditLoading(true);
+    setEditError(null);
+
+    try {
+      await dispatch(updateVideo({
+        videoId: videoToEdit.id,
+        user_selected_vid: videoToEdit.id,
+        problem_label: selectedProblem,
+        feedback_reason: feedbackMessage || 'No feedback provided'
+      })).unwrap();
+
+      // Close popup and refresh
+      setShowEditPopup(false);
+      setVideoToEdit(null);
+      if (onVideoUpdate) {
+        onVideoUpdate();
+      }
+    } catch (err) {
+      console.error('Failed to update video:', err);
+      setEditError(err.message || 'Failed to update video. Please try again.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Close edit popup
+  const handleCloseEditPopup = () => {
+    setShowEditPopup(false);
+    setVideoToEdit(null);
+    setFeedbackMessage('');
+    setSelectedProblem('general_diagnosis');
+    setEditError(null);
   };
 
   // Download video function
@@ -719,7 +791,7 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
                           )}
                           
                           <button
-                            onClick={() => alert('Edit functionality coming soon')}
+                            onClick={() => handleEditVideo(video)}
                             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
                             title="Edit video"
                           >
@@ -768,11 +840,10 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
         </div>
       </div>
 
-      {/* Video Player Modal - Clean Popup with Close Button */}
+      {/* Video Player Modal */}
       {selectedVideo && videoPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-[70] backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden">
-            {/* Modal Header with Close Button */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-white">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -789,7 +860,6 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
               <button
                 onClick={handleCloseVideo}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                title="Close"
               >
                 <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -797,7 +867,6 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
               </button>
             </div>
             
-            {/* Video Player */}
             <div className="p-6 bg-black">
               <video
                 key={videoPreview}
@@ -813,7 +882,6 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
               </video>
             </div>
             
-            {/* Video Details */}
             {selectedVideo.transcription_text && (
               <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
                 <p className="text-sm text-gray-700">
@@ -822,6 +890,160 @@ const OrderDetailModal = ({ order, videos, onClose }) => {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Video Popup */}
+      {showEditPopup && videoToEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[80] backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            {/* Popup Header */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-100 rounded-lg">
+                    <svg className="w-5 h-5 text-indigo-700" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">Edit Video</h3>
+                </div>
+                <button
+                  onClick={handleCloseEditPopup}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Editing: <span className="font-medium text-gray-900">{videoToEdit.title || `Video #${videoToEdit.id}`}</span>
+              </p>
+            </div>
+
+            {/* Popup Content */}
+            <div className="p-6 space-y-6">
+              {/* Error Message */}
+              {editError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                  <svg className="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-red-700">{editError}</p>
+                </div>
+              )}
+
+              {/* Problem Label Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Problem Category
+                </label>
+                <select
+                  value={selectedProblem}
+                  onChange={(e) => setSelectedProblem(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
+                >
+                  <option value="general_diagnosis">General Diagnosis</option>
+                  <option value="engine_issue">Engine Issue</option>
+                  <option value="transmission">Transmission</option>
+                  <option value="electrical">Electrical</option>
+                  <option value="brakes">Brakes</option>
+                  <option value="suspension">Suspension</option>
+                  <option value="hvac">HVAC</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              {/* Feedback Message */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Feedback Message
+                </label>
+                
+                {/* Preset Messages */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {PRESET_MESSAGES.map((msg) => {
+                    const isSelected = feedbackMessage === msg || 
+                      (msg.startsWith("Other") && !PRESET_MESSAGES.includes(feedbackMessage) && feedbackMessage !== "");
+                    return (
+                      <button
+                        key={msg}
+                        type="button"
+                        onClick={() => {
+                          if (msg.startsWith("Other")) {
+                            setFeedbackMessage("");
+                          } else {
+                            setFeedbackMessage(msg);
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          isSelected 
+                            ? 'bg-indigo-600 text-white shadow-sm' 
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {msg}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Message Input */}
+                {(!PRESET_MESSAGES.includes(feedbackMessage) || feedbackMessage === "") && (
+                  <textarea
+                    placeholder="Type your custom message here..."
+                    value={feedbackMessage}
+                    onChange={(e) => setFeedbackMessage(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 resize-none"
+                  />
+                )}
+              </div>
+
+              {/* Video Preview */}
+              {videoToEdit.thumbnail_url && (
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                  <img 
+                    src={getThumbnailUrl(videoToEdit) || 'https://via.placeholder.com/320x180?text=Video'}
+                    alt="Video thumbnail"
+                    className="w-full h-32 object-cover"
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/320x180?text=Video';
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Popup Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={handleCloseEditPopup}
+                disabled={editLoading}
+                className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-300 transition-colors font-medium text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSubmit}
+                disabled={editLoading}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm hover:shadow disabled:opacity-50 flex items-center gap-2"
+              >
+                {editLoading ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

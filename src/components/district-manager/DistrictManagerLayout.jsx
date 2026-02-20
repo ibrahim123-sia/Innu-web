@@ -9,6 +9,7 @@ const DistrictManagerLayout = ({ children }) => {
   const navItems = [
     { name: 'Overview', path: '/district-manager' },
     { name: 'Shops', path: '/district-manager/shops' },
+    { name: 'Users', path: '/district-manager/users' }, // Added Users
     { name: 'Analytics', path: '/district-manager/analytics' },
   ];
 

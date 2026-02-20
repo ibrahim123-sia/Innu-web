@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   getOrdersByShop,
@@ -102,6 +102,11 @@ const Orders = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
+  
+  // Add refresh trigger state
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const refreshIntervalRef = useRef(null);
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
   // Fetch shop data when component mounts
   useEffect(() => {
@@ -120,9 +125,28 @@ const Orders = () => {
     if (myShop?.id) {
       dispatch(getOrdersByShop(myShop.id)).then(() => {
         setIsDataReady(true);
+        setLastRefreshed(new Date());
       });
     }
-  }, [dispatch, myShop]);
+  }, [dispatch, myShop, refreshTrigger]); // Add refreshTrigger to dependencies
+
+  // Auto-refresh setup
+  useEffect(() => {
+    // Start auto-refresh every 30 seconds
+    refreshIntervalRef.current = setInterval(() => {
+      if (myShop?.id) {
+        console.log('Auto-refreshing orders...');
+        setRefreshTrigger(prev => prev + 1);
+      }
+    }, 30000); // 30 seconds
+
+    // Cleanup interval on unmount
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [myShop?.id]);
 
   const handleViewOrder = async (order) => {
     setSelectedOrder(order);
@@ -137,6 +161,21 @@ const Orders = () => {
     }
     setShowOrderDetail(order.id);
   };
+
+  // Callback to refresh videos after upload/edit
+  const handleRefreshVideos = useCallback(async (orderId) => {
+    if (orderId) {
+      try {
+        console.log('Refreshing videos for order:', orderId);
+        const result = await dispatch(getVideosByOrderId(orderId)).unwrap();
+        if (result.data) {
+          setOrderVideos(result.data);
+        }
+      } catch (error) {
+        console.error("Error refreshing videos:", error);
+      }
+    }
+  }, [dispatch]);
 
   const filteredOrders = orders?.filter((order) => {
     let matches = true;
@@ -208,6 +247,15 @@ const Orders = () => {
 
   const orderCounts = getOrderCounts();
 
+  // Format last refreshed time
+  const formatLastRefreshed = () => {
+    return lastRefreshed.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
   // Show skeleton during initial load
   if (isInitialLoad || (loading && !orders.length && !isDataReady)) {
     return (
@@ -225,7 +273,22 @@ const Orders = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-     
+      {/* Auto-refresh indicator */}
+      <div className="mb-4 flex justify-end items-center">
+        <div className="flex items-center text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+          <span>Auto-refreshing every 30s • Last updated: {formatLastRefreshed()}</span>
+          <button 
+            onClick={() => setRefreshTrigger(prev => prev + 1)}
+            className="ml-3 text-blue-600 hover:text-blue-800 text-xs font-medium"
+            title="Refresh now"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -473,6 +536,7 @@ const Orders = () => {
             setSelectedOrder(null);
             setOrderVideos([]);
           }}
+          onVideoUpdate={() => handleRefreshVideos(selectedOrder.id)}
         />
       )}
     </div>
