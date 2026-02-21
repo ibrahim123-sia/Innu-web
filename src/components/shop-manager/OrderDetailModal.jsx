@@ -8,8 +8,19 @@ import {
   selectUploadData,
   clearUploadData,
   selectVideos,
-  updateVideo
+  getCategories,
+  getCategoriesVideos,
+  selectCategories,
+  selectCategoryVideos,
+  selectIsFetchingCategories,
+  selectIsFetching
 } from '../../redux/slice/videoSlice';
+import {
+  createEditVideo,
+  selectVideoEditLoading,
+  selectVideoEditError,
+  selectVideoEditSuccess
+} from '../../redux/slice/videoEditSlice';
 
 // GCS Base URL
 const GCS_BASE_URL = 'https://storage.googleapis.com/innu-video-app';
@@ -33,19 +44,42 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
   const [videoError, setVideoError] = useState(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [showUploadSection, setShowUploadSection] = useState(false);
   
   // State for edit popup
   const [showEditPopup, setShowEditPopup] = useState(false);
   const [videoToEdit, setVideoToEdit] = useState(null);
+  const [editStep, setEditStep] = useState('categories'); // 'categories', 'videos', 'feedback'
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedReplacementVideo, setSelectedReplacementVideo] = useState(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState(null);
+  const [editSuccess, setEditSuccess] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [selectedProblem, setSelectedProblem] = useState('general_diagnosis');
+  
+  // Redux selectors
+  const categories = useSelector(selectCategories);
+  const categoryVideos = useSelector(selectCategoryVideos);
+  const isFetchingCategories = useSelector(selectIsFetchingCategories);
+  const isFetchingCategoryVideos = useSelector(selectIsFetching);
+  const isVideoEditLoading = useSelector(selectVideoEditLoading);
+  const videoEditError = useSelector(selectVideoEditError);
+  const videoEditSuccess = useSelector(selectVideoEditSuccess);
   
   const isUploading = useSelector(selectIsUploading);
   const uploadData = useSelector(selectUploadData);
   const fileInputRef = useRef(null);
   const uploadTimeoutRef = useRef(null);
+  const editSuccessTimeoutRef = useRef(null);
+
+  // Load categories when edit popup opens
+  useEffect(() => {
+    if (showEditPopup) {
+      dispatch(getCategories());
+    }
+  }, [showEditPopup, dispatch]);
 
   // Debug: Log order object
   useEffect(() => {
@@ -54,7 +88,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     console.log('Videos received:', videos);
   }, [order, videos]);
 
-  // Auto-hide success message after 3 seconds
+  // Auto-hide success message after 5 seconds
   useEffect(() => {
     if (uploadSuccess) {
       uploadTimeoutRef.current = setTimeout(() => {
@@ -63,7 +97,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
         if (onVideoUpdate) {
           onVideoUpdate();
         }
-      }, 3000);
+      }, 5000);
     }
     return () => {
       if (uploadTimeoutRef.current) {
@@ -77,6 +111,9 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     return () => {
       if (uploadPreview) {
         URL.revokeObjectURL(uploadPreview);
+      }
+      if (editSuccessTimeoutRef.current) {
+        clearTimeout(editSuccessTimeoutRef.current);
       }
     };
   }, [uploadPreview]);
@@ -136,7 +173,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
 
   // Get full video URL
   const getFullVideoUrl = (video) => {
-    const videoUrl = video.stitched_video_url || video.processed_video_url || video.raw_video_url;
+    const videoUrl = video.stitched_video_url || video.processed_video_url || video.raw_video_url || video.video_url;
     if (!videoUrl) return null;
     
     return videoUrl.startsWith('http') 
@@ -170,54 +207,119 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     setVideoError(null);
   };
 
-  // Handle edit video - open popup
+  // Handle edit video - open popup with categories
   const handleEditVideo = (video) => {
     setVideoToEdit(video);
+    setEditStep('categories');
+    setSelectedCategory(null);
+    setSelectedReplacementVideo(null);
     setFeedbackMessage('');
     setSelectedProblem('general_diagnosis');
     setEditError(null);
+    setEditSuccess(false);
+    setEditLoading(false);
     setShowEditPopup(true);
   };
 
-  // Handle edit submission
+  // Handle category selection
+  const handleCategorySelect = (category) => {
+    setSelectedCategory(category);
+    setEditStep('videos');
+    // Fetch videos for selected category - use category name
+    const categoryName = category.name || category;
+    dispatch(getCategoriesVideos(categoryName));
+  };
+
+  // Handle video selection
+  const handleVideoSelect = (video) => {
+    setSelectedReplacementVideo(video);
+    setEditStep('feedback');
+  };
+
+  // Go back to previous step
+  const handleBack = () => {
+    if (editStep === 'videos') {
+      setEditStep('categories');
+      setSelectedCategory(null);
+      setSelectedReplacementVideo(null);
+    } else if (editStep === 'feedback') {
+      setEditStep('videos');
+      setSelectedReplacementVideo(null);
+    }
+  };
+
+  // Handle edit submission using the videoEdit slice
   const handleEditSubmit = async () => {
     if (!videoToEdit?.id) {
       setEditError('Video ID not found');
       return;
     }
 
+    if (!selectedReplacementVideo) {
+      setEditError('Please select a replacement video');
+      return;
+    }
+
     setEditLoading(true);
     setEditError(null);
+    setEditSuccess(false);
 
     try {
-      await dispatch(updateVideo({
+      // Use the createEditVideo thunk from videoEdit slice
+      await dispatch(createEditVideo({
         videoId: videoToEdit.id,
-        user_selected_vid: videoToEdit.id,
+        user_selected_vid: selectedReplacementVideo.id,
         problem_label: selectedProblem,
         feedback_reason: feedbackMessage || 'No feedback provided'
       })).unwrap();
 
-      // Close popup and refresh
-      setShowEditPopup(false);
-      setVideoToEdit(null);
-      if (onVideoUpdate) {
-        onVideoUpdate();
+      // Show success state
+      setEditSuccess(true);
+      
+      // Clear any existing timeout
+      if (editSuccessTimeoutRef.current) {
+        clearTimeout(editSuccessTimeoutRef.current);
       }
+      
+      // Close popup after showing success message for 1.5 seconds
+      editSuccessTimeoutRef.current = setTimeout(() => {
+        setShowEditPopup(false);
+        setVideoToEdit(null);
+        setEditSuccess(false);
+        setEditLoading(false);
+        // Refresh videos
+        if (onVideoUpdate) {
+          onVideoUpdate();
+        }
+        // Also refresh videos for this order
+        dispatch(getVideosByOrderId(orderId));
+      }, 1500);
+      
     } catch (err) {
       console.error('Failed to update video:', err);
       setEditError(err.message || 'Failed to update video. Please try again.');
-    } finally {
       setEditLoading(false);
+      setEditSuccess(false);
     }
+    // Don't set loading false here on success - let the timeout handle it
   };
 
   // Close edit popup
   const handleCloseEditPopup = () => {
+    // Clear any pending timeout
+    if (editSuccessTimeoutRef.current) {
+      clearTimeout(editSuccessTimeoutRef.current);
+    }
     setShowEditPopup(false);
     setVideoToEdit(null);
+    setEditStep('categories');
+    setSelectedCategory(null);
+    setSelectedReplacementVideo(null);
     setFeedbackMessage('');
     setSelectedProblem('general_diagnosis');
     setEditError(null);
+    setEditSuccess(false);
+    setEditLoading(false);
   };
 
   // Download video function
@@ -251,6 +353,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
       
       // Extract filename from URL or use default
       const filename = video.stitched_video_url?.split('/').pop() || 
+                      video.video_url?.split('/').pop() ||
                       `video-${video.id}.mp4`;
       
       a.download = filename;
@@ -290,6 +393,9 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
       const previewUrl = URL.createObjectURL(file);
       setUploadPreview(previewUrl);
       setUploadSuccess(false);
+      setUploadProgress(0);
+      setShowUploadSection(true); // Show upload section when file is selected
+      setVideoError(null); // Clear any previous errors
     }
   };
 
@@ -299,6 +405,8 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     }
     setUploadFile(null);
     setUploadPreview(null);
+    setUploadProgress(0);
+    setShowUploadSection(false);
     
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -308,9 +416,12 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
   };
 
   const handleUploadVideo = async () => {
-    if (!uploadFile) return;
+    if (!uploadFile) {
+      setVideoError('No file selected');
+      return;
+    }
     if (!orderId) {
-      console.error('Cannot upload: No order ID');
+      setVideoError('Order ID not found');
       return;
     }
 
@@ -318,11 +429,15 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
       setIsUploadingToGCS(true);
       setVideoError(null);
       setUploadSuccess(false);
+      setUploadProgress(10); // Start progress
       
       console.log('Uploading video for order ID:', orderId);
       
+      // Get upload URL
       const result = await dispatch(getUploadUrl({ order_id: orderId })).unwrap();
       console.log('Upload URL response:', result);
+      
+      setUploadProgress(30); // Got upload URL
       
       const uploadUrl = result.uploadUrl || result.url;
       const videoId = result.video?.id || result.videoId;
@@ -337,6 +452,9 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
       
       const blob = new Blob([uploadFile], { type: uploadFile.type });
       
+      setUploadProgress(50); // Starting upload
+      
+      // Upload to GCS
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         body: blob,
@@ -346,20 +464,31 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
         mode: 'cors'
       });
       
+      setUploadProgress(80); // Upload complete
+      
       if (!uploadResponse.ok) {
         throw new Error(`Failed to upload to GCS: ${uploadResponse.status} ${uploadResponse.statusText}`);
       }
 
+      // Confirm upload
       await dispatch(confirmUpload({ videoId })).unwrap();
       
-      handleUploadCancel();
-      await dispatch(getVideosByOrderId(orderId));
+      setUploadProgress(100); // Confirmation complete
       
+      // Show success message
       setUploadSuccess(true);
+      
+      // Clear the upload section after a delay
+      setTimeout(() => {
+        handleUploadCancel();
+        // Refresh videos after successful upload
+        dispatch(getVideosByOrderId(orderId));
+      }, 3000);
       
     } catch (error) {
       console.error('Upload failed:', error);
       setVideoError(`Upload failed: ${error.message || 'Unknown error'}`);
+      setUploadProgress(0);
     } finally {
       setIsUploadingToGCS(false);
     }
@@ -432,7 +561,32 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
             <div>
               <p className="text-sm font-medium text-green-800">Upload Successful!</p>
               <p className="text-sm text-green-700">Video has been uploaded and is now processing.</p>
+              {uploadData?.video?.id && (
+                <p className="text-xs text-green-600 mt-1">Video ID: {uploadData.video.id}</p>
+              )}
             </div>
+          </div>
+        )}
+
+        {/* Upload Progress Bar */}
+        {isUploadingToGCS && uploadProgress > 0 && uploadProgress < 100 && (
+          <div className="mx-6 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-blue-800">Uploading...</span>
+              <span className="text-sm text-blue-800">{uploadProgress}%</span>
+            </div>
+            <div className="w-full bg-blue-200 rounded-full h-2.5">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">
+              {uploadProgress === 10 && "Requesting upload URL..."}
+              {uploadProgress === 30 && "Upload URL received. Preparing upload..."}
+              {uploadProgress === 50 && "Uploading video to cloud storage..."}
+              {uploadProgress === 80 && "Upload complete. Confirming..."}
+            </p>
           </div>
         )}
 
@@ -587,8 +741,8 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
               </div>
             </div>
 
-            {/* Upload Preview */}
-            {uploadPreview && (
+            {/* Upload Preview - Only show when file is selected */}
+            {showUploadSection && uploadPreview && (
               <div className="mb-6 p-4 bg-white border-2 border-blue-200 rounded-xl">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -653,7 +807,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {videos.map((video, index) => {
                   const details = getVideoDetails(video);
-                  const hasVideoUrl = video.stitched_video_url || video.processed_video_url || video.raw_video_url;
+                  const hasVideoUrl = video.stitched_video_url || video.processed_video_url || video.raw_video_url || video.video_url;
                   const thumbnailUrl = getThumbnailUrl(video);
                   
                   return (
@@ -713,9 +867,9 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                         </div>
 
                         {/* Duration Badge */}
-                        {video.duration && (
+                        {video.duration_seconds && (
                           <div className="absolute bottom-3 right-3 bg-black bg-opacity-70 text-white px-2 py-1 rounded-lg text-xs backdrop-blur-sm">
-                            {Math.round(video.duration)}s
+                            {Math.round(video.duration_seconds)}s
                           </div>
                         )}
                       </div>
@@ -723,6 +877,18 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                       {/* Video Details */}
                       <div className="p-4">
                         <div className="space-y-2">
+                          {video.title && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md whitespace-nowrap">Title:</span>
+                              <span className="text-sm text-gray-900 line-clamp-2">{video.title}</span>
+                            </div>
+                          )}
+                          {video.description && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md whitespace-nowrap">Description:</span>
+                              <span className="text-sm text-gray-600 line-clamp-2">{video.description}</span>
+                            </div>
+                          )}
                           {details.problem !== 'No problem detected' && (
                             <div className="flex items-start gap-2">
                               <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md whitespace-nowrap">Problem:</span>
@@ -851,9 +1017,9 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                   Video #{videos?.findIndex(v => v.id === selectedVideo.id) + 1}
                 </span>
-                {selectedVideo.duration && (
+                {selectedVideo.duration_seconds && (
                   <span className="text-sm text-gray-500">
-                    {Math.round(selectedVideo.duration)}s
+                    {Math.round(selectedVideo.duration_seconds)}s
                   </span>
                 )}
               </div>
@@ -894,40 +1060,129 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
         </div>
       )}
 
-      {/* Edit Video Popup */}
+      {/* Edit Video Popup - Same Design as Main Modal */}
       {showEditPopup && videoToEdit && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[80] backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-            {/* Popup Header */}
-            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-              <div className="flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            
+            {/* Popup Header - Matching main modal design */}
+            <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
+              <div>
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-indigo-100 rounded-lg">
                     <svg className="w-5 h-5 text-indigo-700" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900">Edit Video</h3>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {editStep === 'categories' && 'Select Video Category'}
+                    {editStep === 'videos' && `Videos in ${selectedCategory?.name || selectedCategory}`}
+                    {editStep === 'feedback' && 'Provide Feedback'}
+                  </h2>
                 </div>
-                <button
-                  onClick={handleCloseEditPopup}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-sm text-gray-500">
+                    {editStep === 'categories' && 'Choose a category to find replacement videos'}
+                    {editStep === 'videos' && 'Select a video to replace the current one'}
+                    {editStep === 'feedback' && 'Tell us why you\'re replacing this video'}
+                  </span>
+                </div>
+
+                {/* Progress Steps */}
+                <div className="flex items-center gap-2 mt-4">
+                  {['categories', 'videos', 'feedback'].map((step, index) => {
+                    const stepIndex = ['categories', 'videos', 'feedback'].indexOf(step);
+                    const currentStepIndex = ['categories', 'videos', 'feedback'].indexOf(editStep);
+                    
+                    return (
+                      <React.Fragment key={step}>
+                        <div className="flex items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            editStep === step 
+                              ? 'bg-indigo-600 text-white' 
+                              : currentStepIndex > stepIndex
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-200 text-gray-600'
+                          }`}>
+                            {currentStepIndex > stepIndex ? (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              stepIndex + 1
+                            )}
+                          </div>
+                          <span className={`ml-2 text-sm ${
+                            editStep === step ? 'text-gray-900 font-medium' : 'text-gray-500'
+                          }`}>
+                            {step === 'categories' && 'Category'}
+                            {step === 'videos' && 'Select Video'}
+                            {step === 'feedback' && 'Feedback'}
+                          </span>
+                        </div>
+                        {index < 2 && (
+                          <div className={`w-12 h-0.5 ${
+                            currentStepIndex > index
+                              ? 'bg-green-500'
+                              : 'bg-gray-200'
+                          }`} />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
               </div>
-              <p className="text-sm text-gray-600 mt-1">
-                Editing: <span className="font-medium text-gray-900">{videoToEdit.title || `Video #${videoToEdit.id}`}</span>
-              </p>
+              <button
+                onClick={handleCloseEditPopup}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
-            {/* Popup Content */}
-            <div className="p-6 space-y-6">
+            {/* Popup Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6">
+              
+              {/* Success Message - NEW */}
+              {editSuccess && (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3 animate-fade-in">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-green-800">Video Updated Successfully!</p>
+                    <p className="text-sm text-green-700">The video has been replaced. Closing popup...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading State - NEW */}
+              {editLoading && !editError && !editSuccess && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <svg className="animate-spin w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Updating Video...</p>
+                      <p className="text-sm text-blue-600">Please wait while we update your video.</p>
+                    </div>
+                  </div>
+                  {/* Progress bar animation */}
+                  <div className="mt-3 w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-blue-600 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                  </div>
+                </div>
+              )}
+
               {/* Error Message */}
               {editError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
                   <svg className="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -935,114 +1190,356 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 </div>
               )}
 
-              {/* Problem Label Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Problem Category
-                </label>
-                <select
-                  value={selectedProblem}
-                  onChange={(e) => setSelectedProblem(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
-                >
-                  <option value="general_diagnosis">General Diagnosis</option>
-                  <option value="engine_issue">Engine Issue</option>
-                  <option value="transmission">Transmission</option>
-                  <option value="electrical">Electrical</option>
-                  <option value="brakes">Brakes</option>
-                  <option value="suspension">Suspension</option>
-                  <option value="hvac">HVAC</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              {/* Feedback Message */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Feedback Message
-                </label>
-                
-                {/* Preset Messages */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {PRESET_MESSAGES.map((msg) => {
-                    const isSelected = feedbackMessage === msg || 
-                      (msg.startsWith("Other") && !PRESET_MESSAGES.includes(feedbackMessage) && feedbackMessage !== "");
-                    return (
-                      <button
-                        key={msg}
-                        type="button"
-                        onClick={() => {
-                          if (msg.startsWith("Other")) {
-                            setFeedbackMessage("");
-                          } else {
-                            setFeedbackMessage(msg);
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          isSelected 
-                            ? 'bg-indigo-600 text-white shadow-sm' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {msg}
-                      </button>
-                    );
-                  })}
+              {/* Step 1: Categories Grid - WITHOUT VIDEO COUNT */}
+              {editStep === 'categories' && !editLoading && !editSuccess && (
+                <div>
+                  {isFetchingCategories ? (
+                    <div className="flex justify-center py-12">
+                      <svg className="animate-spin w-8 h-8 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    </div>
+                  ) : categories && categories.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {categories.map((category) => {
+                        const categoryName = category.name || category;
+                        
+                        return (
+                          <button
+                            key={category.id || categoryName}
+                            onClick={() => handleCategorySelect(category)}
+                            disabled={editLoading}
+                            className="group p-6 bg-white border-2 border-gray-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200 text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-700">
+                                  {categoryName}
+                                </h3>
+                                {category.description && (
+                                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                                    {category.description}
+                                  </p>
+                                )}
+                              </div>
+                              <svg className="w-5 h-5 text-gray-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h7" />
+                      </svg>
+                      <p className="text-gray-600">No categories found</p>
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {/* Custom Message Input */}
-                {(!PRESET_MESSAGES.includes(feedbackMessage) || feedbackMessage === "") && (
-                  <textarea
-                    placeholder="Type your custom message here..."
-                    value={feedbackMessage}
-                    onChange={(e) => setFeedbackMessage(e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 resize-none"
-                  />
-                )}
-              </div>
+              {/* Step 2: Videos Grid */}
+              {editStep === 'videos' && !editLoading && !editSuccess && (
+                <div>
+                  {isFetchingCategoryVideos ? (
+                    <div className="flex justify-center py-12">
+                      <svg className="animate-spin w-8 h-8 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    </div>
+                  ) : categoryVideos && categoryVideos.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {categoryVideos.map((video) => {
+                        const thumbnailUrl = getThumbnailUrl(video);
+                        
+                        return (
+                          <button
+                            key={video.id}
+                            onClick={() => handleVideoSelect(video)}
+                            disabled={editLoading}
+                            className={`group flex items-start gap-4 p-4 border-2 rounded-xl transition-all duration-200 text-left ${
+                              selectedReplacementVideo?.id === video.id
+                                ? 'border-indigo-500 bg-indigo-50'
+                                : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            {/* Thumbnail */}
+                            <div className="relative w-24 h-16 bg-gray-900 rounded-lg overflow-hidden flex-shrink-0">
+                              {thumbnailUrl ? (
+                                <img 
+                                  src={thumbnailUrl} 
+                                  alt={video.title || "Video thumbnail"}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.src = 'https://via.placeholder.com/96x64?text=Video';
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
+                                  <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M4 4a2 2 0 012-2h12a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Video Info */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 group-hover:text-indigo-700 mb-1 line-clamp-2">
+                                {video.title || `Video #${video.id}`}
+                              </p>
+                              {video.description && (
+                                <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                                  {video.description}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                {video.duration_seconds && (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    {Math.round(video.duration_seconds)}s
+                                  </span>
+                                )}
+                                {video.created_at && (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    {new Date(video.created_at).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                              {video.keywords && video.keywords.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {video.keywords.slice(0, 3).map((keyword, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                      {keyword}
+                                    </span>
+                                  ))}
+                                  {video.keywords.length > 3 && (
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                      +{video.keywords.length - 3}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Selection Indicator */}
+                            {selectedReplacementVideo?.id === video.id && (
+                              <div className="flex-shrink-0">
+                                <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-gray-600 mb-4">No videos found in this category</p>
+                      <button
+                        onClick={handleBack}
+                        disabled={editLoading}
+                        className="text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50"
+                      >
+                        ← Back to categories
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {/* Video Preview */}
-              {videoToEdit.thumbnail_url && (
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                  <img 
-                    src={getThumbnailUrl(videoToEdit) || 'https://via.placeholder.com/320x180?text=Video'}
-                    alt="Video thumbnail"
-                    className="w-full h-32 object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/320x180?text=Video';
-                    }}
-                  />
+              {/* Step 3: Feedback */}
+              {editStep === 'feedback' && !editLoading && !editSuccess && (
+                <div className="max-w-2xl mx-auto space-y-6">
+                  {/* Selected Video Summary */}
+                  {selectedReplacementVideo && (
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Selected Replacement Video:</h4>
+                      <div className="flex items-center gap-4">
+                        <div className="w-20 h-14 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                          {getThumbnailUrl(selectedReplacementVideo) ? (
+                            <img 
+                              src={getThumbnailUrl(selectedReplacementVideo)} 
+                              alt={selectedReplacementVideo.title || "Selected video"}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                              <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M4 4a2 2 0 012-2h12a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {selectedReplacementVideo.title || `Video #${selectedReplacementVideo.id}`}
+                          </p>
+                          {selectedReplacementVideo.description && (
+                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                              {selectedReplacementVideo.description}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">ID: {selectedReplacementVideo.id}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Problem Label Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Problem Category
+                    </label>
+                    <select
+                      value={selectedProblem}
+                      onChange={(e) => setSelectedProblem(e.target.value)}
+                      disabled={editLoading}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="general_diagnosis">General Diagnosis</option>
+                      <option value="engine_issue">Engine Issue</option>
+                      <option value="transmission">Transmission</option>
+                      <option value="electrical">Electrical</option>
+                      <option value="brakes">Brakes</option>
+                      <option value="suspension">Suspension</option>
+                      <option value="hvac">HVAC</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  {/* Feedback Message */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Feedback Message
+                    </label>
+                    
+                    {/* Preset Messages */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {PRESET_MESSAGES.map((msg) => {
+                        const isSelected = feedbackMessage === msg || 
+                          (msg.startsWith("Other") && !PRESET_MESSAGES.includes(feedbackMessage) && feedbackMessage !== "");
+                        return (
+                          <button
+                            key={msg}
+                            type="button"
+                            onClick={() => {
+                              if (msg.startsWith("Other")) {
+                                setFeedbackMessage("");
+                              } else {
+                                setFeedbackMessage(msg);
+                              }
+                            }}
+                            disabled={editLoading}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                              isSelected 
+                                ? 'bg-indigo-600 text-white shadow-sm' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            {msg}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Custom Message Input */}
+                    {(!PRESET_MESSAGES.includes(feedbackMessage) || feedbackMessage === "") && (
+                      <textarea
+                        placeholder="Type your custom message here..."
+                        value={feedbackMessage}
+                        onChange={(e) => setFeedbackMessage(e.target.value)}
+                        disabled={editLoading}
+                        rows={4}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Popup Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+            {/* Popup Footer - Matching main modal design */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
               <button
-                onClick={handleCloseEditPopup}
-                disabled={editLoading}
-                className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-300 transition-colors font-medium text-sm disabled:opacity-50"
+                onClick={handleBack}
+                disabled={editStep === 'categories' || editLoading || editSuccess}
+                className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${
+                  editStep === 'categories' || editLoading || editSuccess
+                    ? 'opacity-50 cursor-not-allowed text-gray-400'
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                Cancel
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
               </button>
-              <button
-                onClick={handleEditSubmit}
-                disabled={editLoading}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm hover:shadow disabled:opacity-50 flex items-center gap-2"
-              >
-                {editLoading ? (
-                  <>
-                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Saving...
-                  </>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCloseEditPopup}
+                  disabled={editLoading}
+                  className="px-6 py-2 bg-white hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-300 transition-colors font-medium text-sm disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                
+                {editStep === 'feedback' ? (
+                  <button
+                    onClick={handleEditSubmit}
+                    disabled={editLoading || editSuccess || !selectedReplacementVideo}
+                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm hover:shadow disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {editLoading ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Updating...
+                      </>
+                    ) : editSuccess ? (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Updated!
+                      </>
+                    ) : (
+                      'Update Video'
+                    )}
+                  </button>
                 ) : (
-                  'Save Changes'
+                  <button
+                    onClick={() => {
+                      if (editStep === 'videos' && selectedReplacementVideo) {
+                        setEditStep('feedback');
+                      }
+                    }}
+                    disabled={editStep === 'videos' && !selectedReplacementVideo || editLoading}
+                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm hover:shadow disabled:opacity-50"
+                  >
+                    Next
+                  </button>
                 )}
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1056,6 +1553,12 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
         }
         .animate-fade-in {
           animation: fadeIn 0.3s ease-out;
+        }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
       `}</style>
     </div>
