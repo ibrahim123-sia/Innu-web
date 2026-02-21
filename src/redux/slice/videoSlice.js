@@ -7,7 +7,7 @@ import axios from "axios";
 
 // Create axios instance with base URL
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: "https://innu-api-112488489004.us-central1.run.app/api",
   headers: {
     "Content-Type": "application/json",
   },

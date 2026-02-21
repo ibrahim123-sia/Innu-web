@@ -171,7 +171,6 @@ const Analytics = () => {
   
   console.log('🔍 All Videos (shop-specific):', allVideos.length);
   console.log('🔍 Shop Edits (shop-specific):', shopEdits.length);
-  console.log('🔍 First video sample:', allVideos[0]);
   
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -216,56 +215,39 @@ const Analytics = () => {
     }
   }, [dispatch, shopId]);
 
-  // Fetch user-specific data for each user (ONE BY ONE)
-  const fetchUserData = useCallback(async (userId) => {
+  // FIXED: Fetch ONLY edit details for a user, NOT videos
+  const fetchUserEditDetails = useCallback(async (userId) => {
     setLoadingData(prev => ({ ...prev, [userId]: true }));
     try {
-      console.log(`🚀 Fetching data for user: ${userId}`);
+      console.log(`🚀 Fetching edit details for user: ${userId}`);
       
-      // Fetch user-specific data
-      await Promise.all([
-        dispatch(getVideosByUser(userId)),  // This will update state.video.videos (overwrites!)
-        dispatch(getEditDetailsByUser(userId))  // This will append to state.videoEdit.userEditDetails
-      ]);
+      // Only fetch edit details, not videos (to avoid overwriting shop videos)
+      await dispatch(getEditDetailsByUser(userId));
       
-      console.log(`✅ User ${userId} data fetched successfully`);
+      console.log(`✅ User ${userId} edit details fetched successfully`);
       return true;
     } catch (error) {
-      console.error(`❌ Error fetching data for user ${userId}:`, error);
+      console.error(`❌ Error fetching edit details for user ${userId}:`, error);
       return false;
     } finally {
       setLoadingData(prev => ({ ...prev, [userId]: false }));
     }
   }, [dispatch]);
 
-  // IMPORTANT: After fetching user data, we need to refetch shop data
-  // because getVideosByUser overwrites state.video.videos
-  const refetchShopData = useCallback(async () => {
-    if (!shopId) return;
-    
-    console.log('🔄 Refetching shop data after user fetches...');
-    await dispatch(getVideosByShop(shopId));
-    await dispatch(getEditDetailsByShop(shopId));
-    console.log('✅ Shop data refreshed');
-  }, [dispatch, shopId]);
-
-  // Fetch all users data sequentially
-  const fetchAllUsersData = useCallback(async (users) => {
+  // Fetch all users edit details sequentially
+  const fetchAllUsersEditDetails = useCallback(async (users) => {
     if (!users.length) return;
     
-    console.log(`🚀 Fetching data for ${users.length} users one by one...`);
+    console.log(`🚀 Fetching edit details for ${users.length} users one by one...`);
     
     // Fetch users one by one
     for (const user of users) {
-      await fetchUserData(user.id);
+      await fetchUserEditDetails(user.id);
     }
     
-    // After all user data is fetched, refetch shop data to restore shop videos
-    await refetchShopData();
-    
     setDataFetchComplete(true);
-    console.log('✅ All user data fetched and shop data restored');
-  }, [fetchUserData, refetchShopData]);
+    console.log('✅ All user edit details fetched successfully');
+  }, [fetchUserEditDetails]);
 
   // Fetch shop data
   useEffect(() => {
@@ -296,12 +278,12 @@ const Analytics = () => {
     }
   }, [shopUsers, shopId]);
 
-  // Fetch data for all filtered users when we have them
+  // Fetch edit details for all filtered users when we have them
   useEffect(() => {
     if (filteredShopUsers.length > 0 && !dataFetchComplete) {
-      fetchAllUsersData(filteredShopUsers);
+      fetchAllUsersEditDetails(filteredShopUsers);
     }
-  }, [filteredShopUsers, dataFetchComplete, fetchAllUsersData]);
+  }, [filteredShopUsers, dataFetchComplete, fetchAllUsersEditDetails]);
 
   // Calculate video stats from shop-level data
   useEffect(() => {
@@ -339,7 +321,7 @@ const Analytics = () => {
     const state = store.getState();
     
     const processedData = filteredShopUsers.map(user => {
-      // Get user videos by filtering from shop videos (since getVideosByUser overwrites)
+      // Get user videos by filtering from shop videos (this is safe and doesn't overwrite anything)
       const userVideos = allVideos.filter(video => video.created_by === user.id) || [];
       
       // Get user edits using selector
@@ -440,15 +422,15 @@ const Analytics = () => {
 
   console.log('📊 Final Stats:', stats);
 
-  // Handle view user analytics
+  // FIXED: Handle view user analytics - only fetch edit details, not videos
   const handleViewUserAnalytics = useCallback(async (userId) => {
     setShowUserAnalyticsModal(userId);
     
-    // Refresh user data if needed
+    // Only fetch edit details if needed (videos are already in allVideos)
     if (!loadingData[userId]) {
-      await fetchUserData(userId);
+      await fetchUserEditDetails(userId);
     }
-  }, [loadingData, fetchUserData]);
+  }, [loadingData, fetchUserEditDetails]);
 
   // Handle view all feedback for user
   const handleViewAllFeedback = useCallback((userId) => {
