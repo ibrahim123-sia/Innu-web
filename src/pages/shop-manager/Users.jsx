@@ -63,7 +63,7 @@ const TableSkeleton = () => (
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            {[1, 2, 3, 4, 5].map((i) => (
+            {[1, 2, 3, 4].map((i) => (
               <th key={i} className="px-6 py-3 text-left">
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
               </th>
@@ -73,7 +73,7 @@ const TableSkeleton = () => (
         <tbody className="bg-white divide-y divide-gray-200">
           {[1, 2, 3, 4].map((row) => (
             <tr key={row} className="hover:bg-gray-50">
-              {[1, 2, 3, 4, 5].map((col) => (
+              {[1, 2, 3, 4].map((col) => (
                 <td key={col} className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     {col === 1 && (
@@ -128,7 +128,6 @@ const Users = () => {
     first_name: '',
     last_name: '',
     email: '',
-    contact_no: '',
     role: 'technician',
     is_active: true
   });
@@ -137,12 +136,10 @@ const Users = () => {
     first_name: '',
     last_name: '',
     email: '',
-    contact_no: '',
     role: '',
     is_active: true,
     original_first_name: '',
     original_last_name: '',
-    original_contact_no: '',
     profile_pic: ''
   });
   
@@ -173,17 +170,6 @@ const Users = () => {
     }
     
     return password.split('').sort(() => Math.random() - 0.5).join('');
-  };
-
-  // Phone formatting function for USA numbers
-  const formatPhoneNumber = (value) => {
-    if (!value) return value;
-    const phoneNumber = value.replace(/[^\d]/g, '');
-    if (phoneNumber.length === 0) return '';
-    if (phoneNumber.length <= 1) return `+1${phoneNumber}`;
-    if (phoneNumber.length <= 4) return `+1 (${phoneNumber.substring(1, 4)}`;
-    if (phoneNumber.length <= 7) return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}`;
-    return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
   };
 
   // Check if email already exists
@@ -353,16 +339,13 @@ const Users = () => {
       userFormData.append('last_name', formData.last_name);
       userFormData.append('email', formData.email);
       
-      const formattedPhone = formatPhoneNumber(formData.contact_no);
-      userFormData.append('contact_no', formattedPhone || '');
-      
       // Always set role to 'technician'
       userFormData.append('role', 'technician');
       userFormData.append('shop_id', myShop.id);
       userFormData.append('brand_id', myShop.brand_id);
-       if (myShop.district_id) {
-      userFormData.append('district_id', myShop.district_id);
-    }
+      if (myShop.district_id) {
+        userFormData.append('district_id', myShop.district_id);
+      }
       userFormData.append('is_active', formData.is_active);
       
       // Add ft_password and password_type
@@ -385,7 +368,6 @@ const Users = () => {
               <p><strong>Name:</strong> ${formData.first_name} ${formData.last_name}</p>
               <p><strong>Email:</strong> ${formData.email}</p>
               <p><strong>Role:</strong> Technician</p>
-              <p><strong>Contact:</strong> ${formData.contact_no || 'Not provided'}</p>
               <br>
               <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
                 <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
@@ -440,12 +422,6 @@ const Users = () => {
       }
       if (editFormData.last_name !== editFormData.original_last_name) {
         userFormData.append('last_name', editFormData.last_name);
-        hasChanges = true;
-      }
-      
-      if (editFormData.contact_no !== editFormData.original_contact_no) {
-        const formattedPhone = formatPhoneNumber(editFormData.contact_no);
-        userFormData.append('contact_no', formattedPhone);
         hasChanges = true;
       }
       
@@ -509,7 +485,6 @@ const Users = () => {
       first_name: '',
       last_name: '',
       email: '',
-      contact_no: '',
       role: 'technician',
       is_active: true
     });
@@ -524,12 +499,10 @@ const Users = () => {
       first_name: '',
       last_name: '',
       email: '',
-      contact_no: '',
       role: '',
       is_active: true,
       original_first_name: '',
       original_last_name: '',
-      original_contact_no: '',
       profile_pic: ''
     });
     setEditProfilePicFile(null);
@@ -540,13 +513,7 @@ const Users = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'contact_no') {
-      const formattedValue = formatPhoneNumber(value);
-      setFormData(prev => ({
-        ...prev,
-        [name]: formattedValue
-      }));
-    } else if (name === 'email') {
+    if (name === 'email') {
       setFormData(prev => ({
         ...prev,
         [name]: value
@@ -563,18 +530,10 @@ const Users = () => {
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'contact_no') {
-      const formattedValue = formatPhoneNumber(value);
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: formattedValue
-      }));
-    } else {
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
-    }
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   const handleEdit = (user) => {
@@ -583,12 +542,10 @@ const Users = () => {
       first_name: user.first_name,
       last_name: user.last_name,
       email: user.email,
-      contact_no: user.contact_no || '',
       role: user.role,
       is_active: user.is_active,
       original_first_name: user.first_name,
       original_last_name: user.last_name,
-      original_contact_no: user.contact_no || '',
       profile_pic: user.profile_pic_url || DEFAULT_PROFILE_PIC
     });
     setEditProfilePicPreview(user.profile_pic_url || DEFAULT_PROFILE_PIC);
@@ -858,8 +815,6 @@ const Users = () => {
                     )}
                   </div>
 
-                 
-
                   {/* Role is fixed to Technician - hidden field */}
                   <input type="hidden" name="role" value="technician" />
 
@@ -939,9 +894,6 @@ const Users = () => {
                     Technician Details
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -983,11 +935,6 @@ const Users = () => {
                               </span>
                             )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {user.contact_no || '—'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -1170,19 +1117,6 @@ const Users = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                         />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Contact Number
-                      </label>
-                      <input
-                        type="tel"
-                        name="contact_no"
-                        value={editFormData.contact_no}
-                        onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                      />
                     </div>
 
                     {/* Email (Read-only) */}
