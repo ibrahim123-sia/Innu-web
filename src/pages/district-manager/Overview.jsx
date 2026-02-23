@@ -497,7 +497,7 @@ const Overview = () => {
             </Link>
             
             <Link
-              to="/district-manager/videos"
+              to="/district-manager/users"
               className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-red-700 transition-colors">
