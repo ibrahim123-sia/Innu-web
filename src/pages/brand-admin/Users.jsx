@@ -19,6 +19,130 @@ import Swal from 'sweetalert2';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
+// Skeleton Loader Components
+const TableRowSkeleton = () => (
+  <tr className="hover:bg-gray-50">
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex items-center">
+        <div className="w-10 h-10 bg-gray-200 rounded-full animate-pulse mr-3"></div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-40"></div>
+        </div>
+      </div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-20"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex space-x-2">
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
+      </div>
+    </td>
+  </tr>
+);
+
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {['User', 'Role', 'Assigned Shop', 'Assigned District', 'Status', 'Actions'].map((header) => (
+              <th key={header} className="px-6 py-3 text-left">
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <TableRowSkeleton key={i} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const HeaderSkeleton = () => (
+  <div className="mb-6 flex justify-between items-center">
+    <div className="flex items-center space-x-4">
+      <div className="h-8 bg-gray-200 rounded animate-pulse w-32"></div>
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+    </div>
+    <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
+  </div>
+);
+
+const FormSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div className="h-8 bg-gray-200 rounded animate-pulse w-48 mb-4"></div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="space-y-4">
+        <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
+        <div className="border-2 border-dashed border-gray-200 rounded-lg p-6">
+          <div className="space-y-4">
+            <div className="w-32 h-32 bg-gray-200 rounded-full animate-pulse mx-auto"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+        </div>
+      </div>
+      <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-4">
+          <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+              <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+            </div>
+            <div>
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+              <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+            </div>
+          </div>
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+        </div>
+        <div className="space-y-4 pt-6 border-t">
+          <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="h-5 w-5 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="mt-8 pt-6 border-t">
+      <div className="h-12 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+    </div>
+  </div>
+);
+
 const Users = () => {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.user.currentUser);
@@ -45,6 +169,7 @@ const Users = () => {
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   // File states
   const [profilePicFile, setProfilePicFile] = useState(null);
@@ -88,13 +213,16 @@ const Users = () => {
 
   const fetchData = async () => {
     setLocalLoading(true);
+    setIsInitialLoad(true);
     try {
       console.log('Fetching brand users for brand ID:', currentUser.brand_id);
       const result = await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
       console.log('Fetch result:', result);
       
-      await dispatch(getShopsByBrand(currentUser.brand_id));
-      await dispatch(getDistrictsByBrand(currentUser.brand_id));
+      await Promise.all([
+        dispatch(getShopsByBrand(currentUser.brand_id)),
+        dispatch(getDistrictsByBrand(currentUser.brand_id))
+      ]);
     } catch (error) {
       console.error('Error fetching data:', error);
       Swal.fire({
@@ -106,6 +234,7 @@ const Users = () => {
       });
     } finally {
       setLocalLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
@@ -530,6 +659,17 @@ const Users = () => {
     return districts.filter(district => district.is_active);
   };
 
+  // Show skeleton during initial load
+  if (isInitialLoad && (localLoading || loading)) {
+    return (
+      <div className="transition-opacity duration-300 ease-in-out">
+        <HeaderSkeleton />
+        {showCreateForm && <FormSkeleton />}
+        <TableSkeleton />
+      </div>
+    );
+  }
+
   // ============================================
   // RENDER
   // ============================================
@@ -539,7 +679,7 @@ const Users = () => {
   console.log('Users length:', users?.length);
 
   return (
-    <div>
+    <div className="transition-opacity duration-300 ease-in-out">
       {/* Create User Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
@@ -789,7 +929,7 @@ const Users = () => {
 
       {/* Users Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {(localLoading || loading) ? (
+        {(localLoading || loading) && !isInitialLoad ? (
           <div className="py-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading users...</p>
@@ -849,9 +989,6 @@ const Users = () => {
                             {userItem.first_name} {userItem.last_name}
                           </div>
                           <div className="text-xs text-gray-500">{userItem.email}</div>
-                          {userItem.is_first_login && (
-                            <span className="text-xs text-orange-600">🔄 First login pending</span>
-                          )}
                         </div>
                       </div>
                     </td>

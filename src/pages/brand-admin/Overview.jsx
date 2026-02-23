@@ -33,6 +33,120 @@ import {
   selectTotalEditCount,
 } from "../../redux/slice/videoEditSlice";
 
+// Skeleton Loader Components
+const StatsSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    {[1, 2, 3, 4].map((i) => (
+      <div
+        key={i}
+        className="bg-white p-6 rounded-lg shadow-md border-l-4 border-gray-200"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-8 bg-gray-300 rounded animate-pulse w-16 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+          </div>
+          <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const ShopsSummarySkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+    <div className="flex justify-between items-center mb-4">
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div key={i} className="border rounded-lg p-4">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div className="flex-1">
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+            </div>
+            <div className="w-16 h-6 bg-gray-200 rounded-full animate-pulse"></div>
+          </div>
+          <div className="flex justify-between items-center mt-2">
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-8"></div>
+          </div>
+          <div className="flex justify-end mt-3">
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const TopShopSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="flex justify-between items-center mb-4">
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-24"></div>
+    </div>
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center space-x-4 mb-3">
+        <div className="w-16 h-16 bg-gray-200 rounded-lg animate-pulse"></div>
+        <div className="flex-1">
+          <div className="h-5 bg-gray-200 rounded animate-pulse w-40 mb-1"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-24 mt-1"></div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        {[1, 2].map((i) => (
+          <div key={i} className="bg-gray-100 p-3 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+              <div className="flex-1">
+                <div className="h-5 bg-gray-200 rounded animate-pulse w-12 mb-1"></div>
+                <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {[1, 2].map((i) => (
+          <div key={i} className="bg-gray-100 p-3 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+              <div className="flex-1">
+                <div className="h-5 bg-gray-200 rounded animate-pulse w-12 mb-1"></div>
+                <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+const QuickActionsSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="h-6 bg-gray-200 rounded animate-pulse w-32 mb-4"></div>
+    <div className="space-y-4">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex items-center p-4 border rounded-lg">
+          <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse mr-4"></div>
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-48"></div>
+          </div>
+          <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const Overview = () => {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.user.currentUser);
@@ -63,6 +177,8 @@ const Overview = () => {
   const videosLoading = useSelector(selectVideoLoading);
 
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
   const [dailyOrders, setDailyOrders] = useState(0);
   const [topShop, setTopShop] = useState(null);
 
@@ -85,6 +201,7 @@ const Overview = () => {
     if (!brandId) return;
 
     setLoading(true);
+    setIsInitialLoad(true);
     console.log("🚀 Fetching brand data for brand:", brandId);
     try {
       // ✅ 1. Fetch shops for this brand
@@ -106,8 +223,13 @@ const Overview = () => {
       // ✅ 5. Fetch brand-specific edit details
       console.log("📊 Fetching brand edit details for:", brandId);
       await dispatch(getEditDetailsByBrand(brandId));
+
+      // Add a small delay to show skeletons
+      setTimeout(() => setIsInitialLoad(false), 300);
+      setIsDataReady(true);
     } catch (error) {
       console.error("💥 Error fetching data:", error);
+      setIsInitialLoad(false);
     } finally {
       setLoading(false);
     }
@@ -467,20 +589,30 @@ const Overview = () => {
     brandEditStats,
   ]);
 
-  if (isLoading) {
+  // Show skeleton during initial load
+  if (isInitialLoad || (loading && !isDataReady)) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="transition-opacity duration-300 ease-in-out">
+        <div className="mb-8">
+          <div className="h-8 bg-gray-200 rounded animate-pulse w-64 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-96"></div>
+        </div>
+        <StatsSkeleton />
+        <ShopsSummarySkeleton />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <TopShopSkeleton />
+          <QuickActionsSkeleton />
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="transition-opacity duration-300 ease-in-out">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Total Shops Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Shops</h3>
@@ -508,7 +640,7 @@ const Overview = () => {
         </div>
 
         {/* AI Video Requests Card - USING LOCAL STATE brandVideos */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">AI Video Requests</h3>
@@ -539,7 +671,7 @@ const Overview = () => {
         </div>
 
         {/* Daily Orders Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Daily Repair Orders</h3>
@@ -565,7 +697,7 @@ const Overview = () => {
         </div>
 
         {/* Orders Summary Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Repair Orders</h3>
@@ -594,7 +726,7 @@ const Overview = () => {
       </div>
 
       {/* Shops Summary Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">Your Shops</h2>
           <Link
@@ -747,7 +879,7 @@ const Overview = () => {
       {/* Top Shop & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Top Performing Shop */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">
               Top Performing Shop
@@ -915,7 +1047,7 @@ const Overview = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <h2 className="text-xl font-bold text-gray-800 mb-4">
             Quick Actions
           </h2>

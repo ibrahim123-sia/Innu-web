@@ -16,6 +16,141 @@ import {
 // Import SweetAlert for popup notifications
 import Swal from 'sweetalert2';
 
+// Skeleton Loader Components
+const TableRowSkeleton = () => (
+  <tr className="hover:bg-gray-50">
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex items-center">
+        <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse mr-4"></div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+        </div>
+      </div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-48"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-20 mb-1"></div>
+      <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex space-x-2">
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-24"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
+      </div>
+    </td>
+  </tr>
+);
+
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {['District Details', 'Description', 'Shops', 'Status', 'Actions'].map((header) => (
+              <th key={header} className="px-6 py-3 text-left">
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <TableRowSkeleton key={i} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const HeaderSkeleton = () => (
+  <div className="mb-6 flex justify-between items-center">
+    <div className="flex items-center space-x-4">
+      <div className="h-8 bg-gray-200 rounded animate-pulse w-48"></div>
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+    </div>
+    <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
+  </div>
+);
+
+const FormSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div className="h-8 bg-gray-200 rounded animate-pulse w-48 mb-4"></div>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+          <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+        </div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+          <div className="h-24 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="h-5 w-5 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
+        </div>
+      </div>
+      <div className="pt-6 border-t">
+        <div className="h-12 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const ShopsDropdownSkeleton = () => (
+  <tr className="bg-gray-50">
+    <td colSpan="5" className="px-6 py-4">
+      <div className="ml-14">
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-5 bg-gray-200 rounded animate-pulse w-48"></div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-lg border p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-start flex-1">
+                    <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse mr-3"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-40 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded animate-pulse w-64 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+                      <div className="h-5 bg-gray-200 rounded-full animate-pulse w-16"></div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+                    <div className="h-5 bg-gray-200 rounded animate-pulse w-24"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </td>
+  </tr>
+);
+
+const EmptyStateSkeleton = () => (
+  <div className="py-12 text-center">
+    <div className="w-16 h-16 bg-gray-200 rounded-full animate-pulse mx-auto mb-4"></div>
+    <div className="h-6 bg-gray-200 rounded animate-pulse w-48 mx-auto mb-2"></div>
+    <div className="h-4 bg-gray-200 rounded animate-pulse w-64 mx-auto mb-4"></div>
+    <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-40 mx-auto"></div>
+  </div>
+);
+
 const Districts = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user?.currentUser);
@@ -35,6 +170,7 @@ const Districts = () => {
   const [showEditModal, setShowEditModal] = useState(null);
   const [expandedDistrict, setExpandedDistrict] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   // Data states
   const [formData, setFormData] = useState({
@@ -54,19 +190,24 @@ const Districts = () => {
   // Fetch districts and shops on component mount
   useEffect(() => {
     if (user?.brand_id) {
-      dispatch(getDistrictsByBrand(user.brand_id))
-        .unwrap()
-        .then((result) => {
-          console.log('Districts fetched successfully:', result);
-          setRefreshKey(prev => prev + 1);
-        })
-        .catch((err) => {
-          console.error('Failed to fetch districts:', err);
-        });
-      
-      dispatch(getShopsByBrand(user.brand_id));
+      fetchData();
     }
   }, [dispatch, user?.brand_id]);
+
+  const fetchData = async () => {
+    setIsInitialLoad(true);
+    try {
+      await Promise.all([
+        dispatch(getDistrictsByBrand(user.brand_id)).unwrap(),
+        dispatch(getShopsByBrand(user.brand_id))
+      ]);
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsInitialLoad(false);
+    }
+  };
 
   // ============================================
   // HELPER FUNCTIONS FOR DATA
@@ -209,15 +350,27 @@ const Districts = () => {
       const updateData = {
         name: district.name,
         description: district.description,
-        is_active: !district.is_active
+        is_active: !district.is_active,
+        // IMPORTANT: Include the district_id in the update data
+        id: district.id
       };
 
-      await dispatch(updateDistrict({
+      console.log('Toggling district status:', {
+        id: district.id,
+        currentStatus: district.is_active,
+        newStatus: !district.is_active,
+        updateData
+      });
+
+      const result = await dispatch(updateDistrict({
         id: district.id,
         data: updateData
       })).unwrap();
 
-      dispatch(getDistrictsByBrand(user.brand_id));
+      console.log('Toggle result:', result);
+
+      // Force a fresh fetch to ensure UI is updated
+      await dispatch(getDistrictsByBrand(user.brand_id));
       
       Swal.fire({
         icon: 'success',
@@ -232,7 +385,7 @@ const Districts = () => {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Failed to update district status.',
+        text: err?.error || 'Failed to update district status.',
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
@@ -283,6 +436,21 @@ const Districts = () => {
     }));
   };
 
+  // Show skeleton during initial load
+  if (isInitialLoad && loading) {
+    return (
+      <div className="transition-opacity duration-300 ease-in-out" key={refreshKey}>
+        <HeaderSkeleton />
+        {showCreateForm && <FormSkeleton />}
+        {displayDistricts.length > 0 ? (
+          <TableSkeleton />
+        ) : (
+          <EmptyStateSkeleton />
+        )}
+      </div>
+    );
+  }
+
   // ============================================
   // RENDER
   // ============================================
@@ -291,7 +459,7 @@ const Districts = () => {
   const displayDistricts = Array.isArray(districtsByBrand) ? districtsByBrand : [];
 
   return (
-    <div key={refreshKey}>
+    <div className="transition-opacity duration-300 ease-in-out" key={refreshKey}>
       {/* Create District Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
@@ -398,7 +566,7 @@ const Districts = () => {
 
       {/* Districts Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {loading ? (
+        {loading && !isInitialLoad ? (
           <div className="py-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading districts...</p>

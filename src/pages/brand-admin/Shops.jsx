@@ -18,7 +18,122 @@ import {
 import Swal from 'sweetalert2';
 
 // Default images
-const DEFAULT_SHOP_IMAGE = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+const DEFAULT_SHOP_IMAGE = 'https://cdn-icons-png.flaticon.com/512/3047/3047928.png';
+
+// Skeleton Loader Components
+const TableRowSkeleton = () => (
+  <tr className="hover:bg-gray-50">
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex items-center">
+        <div className="w-12 h-12 rounded-lg bg-gray-200 animate-pulse mr-4"></div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-24 mb-1"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-28"></div>
+        </div>
+      </div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-40 mb-2"></div>
+      <div className="h-3 bg-gray-200 rounded animate-pulse w-32"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex space-x-2">
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
+      </div>
+    </td>
+  </tr>
+);
+
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {['Shop Details', 'Location', 'District', 'Status', 'Actions'].map((header) => (
+              <th key={header} className="px-6 py-3 text-left">
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <TableRowSkeleton key={i} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const HeaderSkeleton = () => (
+  <div className="mb-6 flex justify-between items-center">
+    <div className="flex items-center space-x-4">
+      <div className="h-8 bg-gray-200 rounded animate-pulse w-32"></div>
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+    </div>
+    <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
+  </div>
+);
+
+const FormSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div className="h-8 bg-gray-200 rounded animate-pulse w-48 mb-4"></div>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+        </div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+          <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+        </div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+          <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+        </div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+          <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="h-5 w-5 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
+        </div>
+      </div>
+      <div className="pt-6 border-t">
+        <div className="h-12 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+      </div>
+    </div>
+  </div>
+);
 
 const Shops = () => {
   const dispatch = useDispatch();
@@ -34,6 +149,7 @@ const Shops = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   // Updated formData to match backend requirements
   const [formData, setFormData] = useState({
@@ -76,10 +192,23 @@ const Shops = () => {
 
   useEffect(() => {
     if (user?.brand_id) {
-      dispatch(getShopsByBrand(user.brand_id));
-      dispatch(getDistrictsByBrand(user.brand_id));
+      fetchData();
     }
   }, [dispatch, user?.brand_id]);
+
+  const fetchData = async () => {
+    setIsInitialLoad(true);
+    try {
+      await Promise.all([
+        dispatch(getShopsByBrand(user.brand_id)),
+        dispatch(getDistrictsByBrand(user.brand_id))
+      ]);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsInitialLoad(false);
+    }
+  };
 
   // ============================================
   // HELPER FUNCTIONS
@@ -194,106 +323,103 @@ const Shops = () => {
   };
 
   // ============================================
-  // EDIT SHOP
+  // EDIT SHOP - FIXED VERSION
   // ============================================
-  // ============================================
-// EDIT SHOP - FIXED VERSION
-// ============================================
-const handleEditSubmit = async (e) => {
-  e.preventDefault();
-  setFormError('');
-  setFormSuccess('');
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setFormSuccess('');
 
-  // Validate required fields
-  if (!editFormData.street_address) {
-    setFormError('Street address is required');
-    return;
-  }
-
-  if (!editFormData.city) {
-    setFormError('City is required');
-    return;
-  }
-
-  if (!editFormData.state) {
-    setFormError('State is required');
-    return;
-  }
-
-  if (!editFormData.timezone) {
-    setFormError('Timezone is required');
-    return;
-  }
-
-  if (!editFormData.tekmetric_shop_id || editFormData.tekmetric_shop_id.trim() === '') {
-    setFormError('Tekmetric Shop ID is required');
-    return;
-  }
-
-  try {
-    // Prepare update data - handle district_id properly
-    const updateData = {
-      name: editFormData.name,
-      tekmetric_shop_id: editFormData.tekmetric_shop_id,
-      street_address: editFormData.street_address,
-      city: editFormData.city,
-      state: editFormData.state,
-      timezone: editFormData.timezone,
-      is_active: editFormData.is_active
-    };
-
-    // Handle district_id properly - send null for "None", otherwise send the ID
-    if (editFormData.district_id && editFormData.district_id !== '') {
-      updateData.district_id = editFormData.district_id;
-    } else {
-      updateData.district_id = null; // Explicitly set to null for no district
+    // Validate required fields
+    if (!editFormData.street_address) {
+      setFormError('Street address is required');
+      return;
     }
 
-    console.log('Sending update data:', updateData);
-    console.log('Shop ID:', showEditModal);
+    if (!editFormData.city) {
+      setFormError('City is required');
+      return;
+    }
 
-    // FIXED: Pass as { id, data } object
-    const result = await dispatch(updateShop({
-      id: showEditModal,
-      data: updateData
-    })).unwrap();
+    if (!editFormData.state) {
+      setFormError('State is required');
+      return;
+    }
 
-    console.log('Update result:', result);
+    if (!editFormData.timezone) {
+      setFormError('Timezone is required');
+      return;
+    }
 
-    // Verify the update was successful
-    if (result.success) {
-      // Show success message
+    if (!editFormData.tekmetric_shop_id || editFormData.tekmetric_shop_id.trim() === '') {
+      setFormError('Tekmetric Shop ID is required');
+      return;
+    }
+
+    try {
+      // Prepare update data - handle district_id properly
+      const updateData = {
+        name: editFormData.name,
+        tekmetric_shop_id: editFormData.tekmetric_shop_id,
+        street_address: editFormData.street_address,
+        city: editFormData.city,
+        state: editFormData.state,
+        timezone: editFormData.timezone,
+        is_active: editFormData.is_active
+      };
+
+      // Handle district_id properly - send null for "None", otherwise send the ID
+      if (editFormData.district_id && editFormData.district_id !== '') {
+        updateData.district_id = editFormData.district_id;
+      } else {
+        updateData.district_id = null; // Explicitly set to null for no district
+      }
+
+      console.log('Sending update data:', updateData);
+      console.log('Shop ID:', showEditModal);
+
+      // FIXED: Pass as { id, data } object
+      const result = await dispatch(updateShop({
+        id: showEditModal,
+        data: updateData
+      })).unwrap();
+
+      console.log('Update result:', result);
+
+      // Verify the update was successful
+      if (result.success) {
+        // Show success message
+        Swal.fire({
+          icon: 'success',
+          title: 'Success!',
+          text: 'Shop updated successfully!',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#4CAF50',
+          timer: 2000
+        });
+        
+        resetEditForm();
+        
+        // Force a fresh fetch of shops to ensure we have the latest data
+        await dispatch(getShopsByBrand(user.brand_id));
+        
+        setTimeout(() => {
+          setShowEditModal(null);
+        }, 100);
+      }
+      
+    } catch (err) {
+      console.error('Shop update failed:', err);
+      setFormError(err?.error || 'Failed to update shop. Please try again.');
       Swal.fire({
-        icon: 'success',
-        title: 'Success!',
-        text: 'Shop updated successfully!',
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to update shop. Please try again.',
         confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50',
-        timer: 2000
+        confirmButtonColor: '#d33'
       });
-      
-      resetEditForm();
-      
-      // Force a fresh fetch of shops to ensure we have the latest data
-      await dispatch(getShopsByBrand(user.brand_id));
-      
-      setTimeout(() => {
-        setShowEditModal(null);
-      }, 100);
     }
-    
-  } catch (err) {
-    console.error('Shop update failed:', err);
-    setFormError(err?.error || 'Failed to update shop. Please try again.');
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: err?.error || 'Failed to update shop. Please try again.',
-      confirmButtonText: 'OK',
-      confirmButtonColor: '#d33'
-    });
-  }
-};
+  };
 
   // Toggle shop status
   const handleToggleStatus = async (shop) => {
@@ -389,12 +515,23 @@ const handleEditSubmit = async (e) => {
     });
   };
 
+  // Show skeleton during initial load
+  if (isInitialLoad && loading) {
+    return (
+      <div className="transition-opacity duration-300 ease-in-out">
+        <HeaderSkeleton />
+        {showCreateForm && <FormSkeleton />}
+        <TableSkeleton />
+      </div>
+    );
+  }
+
   // ============================================
   // RENDER
   // ============================================
 
   return (
-    <div>
+    <div className="transition-opacity duration-300 ease-in-out">
       {/* Create Shop Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
@@ -590,7 +727,7 @@ const handleEditSubmit = async (e) => {
 
       {/* Shops Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {loading ? (
+        {loading && !isInitialLoad ? (
           <div className="py-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading shops...</p>
