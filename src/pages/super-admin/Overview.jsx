@@ -6,7 +6,6 @@ import {
   selectShopsByBrand,
 } from "../../redux/slice/shopSlice";
 import { getOrdersByBrand } from "../../redux/slice/orderSlice";
-
 import { getAllVideos, selectVideos } from "../../redux/slice/videoSlice";
 import { Link } from "react-router-dom";
 
@@ -117,7 +116,6 @@ const Overview = () => {
   const dispatch = useDispatch();
   const brands = useSelector(selectAllBrands);
   const shopsByBrand = useSelector(selectShopsByBrand);
-  // ✅ Get videos from Redux state using correct selector from videoSlice
   const videos = useSelector(selectVideos);
 
   const [loading, setLoading] = useState(true);
@@ -130,10 +128,17 @@ const Overview = () => {
   const [allOrders, setAllOrders] = useState([]);
   const [totalShops, setTotalShops] = useState(0);
   const [activeShops, setActiveShops] = useState(0);
+  const [dataLoaded, setDataLoaded] = useState({
+    brands: false,
+    videos: false,
+    shops: false,
+    orders: false
+  });
 
+  // Calculate videos by brand whenever videos change
   useEffect(() => {
     if (videos && videos.length > 0) {
-      // Set total video count
+      console.log("📹 Videos received:", videos.length);
       setTotalVideos(videos.length);
 
       // Calculate videos by brand
@@ -152,6 +157,7 @@ const Overview = () => {
 
       const videosByBrandArray = Object.values(videosByBrandMap);
       setVideosByBrand(videosByBrandArray);
+      setDataLoaded(prev => ({ ...prev, videos: true }));
     } else {
       setTotalVideos(0);
       setVideosByBrand([]);
@@ -161,18 +167,31 @@ const Overview = () => {
   // Calculate shop stats whenever Redux shopsByBrand changes
   useEffect(() => {
     calculateShopStats(shopsByBrand);
+    if (Object.keys(shopsByBrand).length > 0) {
+      setDataLoaded(prev => ({ ...prev, shops: true }));
+    }
   }, [shopsByBrand]);
+
+  // Update dataLoaded when brands change
+  useEffect(() => {
+    if (brands && brands.length > 0) {
+      setDataLoaded(prev => ({ ...prev, brands: true }));
+    }
+  }, [brands]);
+
+  // Update dataLoaded when orders change
+  useEffect(() => {
+    if (allOrders && allOrders.length > 0) {
+      setDataLoaded(prev => ({ ...prev, orders: true }));
+    }
+  }, [allOrders]);
 
   const fetchShopsForBrand = useCallback(
     async (brandId) => {
       try {
         console.log(`🔍 Fetching shops for brand: ${brandId}`);
         const result = await dispatch(getShopsByBrand(brandId));
-
-        if (result.payload?.data?.data) {
-          return result.payload.data.data;
-        }
-        return [];
+        return result.payload?.data?.data || [];
       } catch (error) {
         console.error(`❌ Error fetching shops for brand ${brandId}:`, error);
         return [];
@@ -206,38 +225,28 @@ const Overview = () => {
     fetchData();
   }, []);
 
-  const calculateStats = useCallback(() => {
-    // Calculate daily orders
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const todayOrders =
-      allOrders?.filter((order) => {
-        if (!order.created_at) return false;
-        const orderDate = new Date(order.created_at);
-        return orderDate >= yesterday;
-      }).length || 0;
-
-    setDailyOrders(todayOrders);
-
-    // Find top brand based on video count
-    console.log("Calculating top brand with:", {
-      videos: videos,
-      videosByBrand: videosByBrand,
-      brands: brands
+  // Calculate top brand whenever videos or brands change
+  useEffect(() => {
+    console.log("🔍 Checking for top brand calculation:", {
+      hasVideos: videos && videos.length > 0,
+      hasBrands: brands && brands.length > 0,
+      videoCount: videos?.length,
+      brandCount: brands?.length
     });
 
     if (videos && videos.length > 0 && brands && brands.length > 0) {
-      // Calculate videos per brand directly from videos array
+      console.log("✅ Calculating top brand now...");
+      
+      // Calculate videos per brand
       const videoCountByBrand = {};
       videos.forEach((video) => {
         if (video.brand_id) {
-          videoCountByBrand[video.brand_id] = (videoCountByBrand[video.brand_id] || 0) + 1;
+          const brandId = String(video.brand_id);
+          videoCountByBrand[brandId] = (videoCountByBrand[brandId] || 0) + 1;
         }
       });
 
-      console.log("Video count by brand:", videoCountByBrand);
+      console.log("📊 Video count by brand:", videoCountByBrand);
 
       // Find brand with most videos
       let topBrandId = null;
@@ -254,6 +263,7 @@ const Overview = () => {
         const brandInfo = brands.find((b) => String(b.id) === String(topBrandId));
         
         if (brandInfo) {
+          console.log("🏆 Top brand found:", brandInfo.name, "with", maxVideos, "videos");
           setTopBrand({
             ...brandInfo,
             totalVideos: maxVideos,
@@ -262,43 +272,84 @@ const Overview = () => {
               shopsByBrand[brandInfo.id]?.filter((shop) => shop.is_active)
                 .length || 0,
           });
+        } else {
+          console.log("❌ Brand info not found for ID:", topBrandId);
+          setTopBrand(null);
         }
       } else {
+        console.log("❌ No top brand found - no videos with valid brand_ids");
         setTopBrand(null);
       }
     } else {
-      console.log("No videos or brands available for top brand calculation");
+      console.log("❌ Cannot calculate top brand - missing data");
       setTopBrand(null);
     }
-  }, [allOrders, videos, brands, shopsByBrand, videosByBrand]);
+  }, [videos, brands, shopsByBrand]);
 
+  // Calculate daily orders
   useEffect(() => {
-    calculateStats();
-  }, [calculateStats, allOrders, videos, brands, shopsByBrand, videosByBrand]);
+    if (allOrders && allOrders.length > 0) {
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const todayOrders = allOrders.filter((order) => {
+        if (!order.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        return orderDate >= yesterday;
+      }).length || 0;
+
+      setDailyOrders(todayOrders);
+    }
+  }, [allOrders]);
 
   const fetchData = async () => {
     setLoading(true);
     setIsInitialLoad(true);
     console.log("🚀 Fetching data...");
+    
     try {
-      // ✅ 1. Fetch all brands FIRST
-      const brandsResult = await dispatch(getAllBrands());
-      const brandsData = brandsResult.payload || brandsResult.data || [];
+      // Reset data loaded state
+      setDataLoaded({
+        brands: false,
+        videos: false,
+        shops: false,
+        orders: false
+      });
 
-      // ✅ 2. Fetch ALL videos using correct thunk from videoSlice
+      // 1. Fetch all brands
+      console.log("🏢 Fetching brands...");
+      const brandsResult = await dispatch(getAllBrands());
+      const brandsData = brandsResult.payload?.data || brandsResult.data || [];
+      console.log("Brands fetched:", brandsData.length);
+
+      // 2. Fetch ALL videos
       console.log("🎬 Fetching all videos...");
       const videosResult = await dispatch(getAllVideos());
       console.log("Videos API response:", videosResult);
+      
+      // Check where videos are in the response
+      let videosData = [];
+      if (videosResult.payload?.data) {
+        videosData = videosResult.payload.data;
+      } else if (videosResult.payload) {
+        videosData = videosResult.payload;
+      } else if (videosResult.data) {
+        videosData = videosResult.data;
+      }
+      console.log("Videos fetched:", videosData.length);
 
-      // ✅ 3. Fetch shops for each brand
+      // 3. Fetch shops for each brand
       if (brandsData && brandsData.length > 0) {
         console.log("🏪 Fetching shops for each brand...");
-
         for (const brand of brandsData) {
           await fetchShopsForBrand(brand.id);
         }
+      }
 
-        // ✅ 4. Fetch orders for each brand
+      // 4. Fetch orders for each brand
+      if (brandsData && brandsData.length > 0) {
+        console.log("📦 Fetching orders for each brand...");
         const ordersPromises = brandsData.map((brand) =>
           dispatch(getOrdersByBrand(brand.id)),
         );
@@ -310,12 +361,16 @@ const Overview = () => {
           return [...acc, ...orders];
         }, []);
 
+        console.log("Orders fetched:", combinedOrders.length);
         setAllOrders(combinedOrders);
       }
 
       // Add a small delay to show skeletons
-      setTimeout(() => setIsInitialLoad(false), 300);
-      setIsDataReady(true);
+      setTimeout(() => {
+        setIsInitialLoad(false);
+        setIsDataReady(true);
+      }, 300);
+
     } catch (error) {
       console.error("💥 Error fetching data:", error);
       setIsInitialLoad(false);
@@ -333,13 +388,17 @@ const Overview = () => {
   useEffect(() => {
     console.log("📊 Current state:", {
       totalVideos: videos?.length,
-      totalVideos,
+      totalVideosState: totalVideos,
       videosByBrandCount: videosByBrand?.length,
       brandsCount: brands?.length,
       totalShops,
       activeShops,
       dailyOrders,
-      topBrand: topBrand
+      topBrand: topBrand ? {
+        name: topBrand.name,
+        totalVideos: topBrand.totalVideos
+      } : null,
+      dataLoaded
     });
   }, [
     videos,
@@ -350,6 +409,7 @@ const Overview = () => {
     activeShops,
     dailyOrders,
     topBrand,
+    dataLoaded,
   ]);
 
   // Show skeleton during initial load
@@ -760,7 +820,9 @@ const Overview = () => {
               </svg>
               <p className="text-gray-500">No video data available</p>
               <p className="text-sm text-gray-400 mt-1">
-                Upload videos to see company performance
+                {videos && videos.length > 0 
+                  ? "Processing video data..." 
+                  : "Upload videos to see company performance"}
               </p>
             </div>
           )}
@@ -826,7 +888,7 @@ const Overview = () => {
               <div className="flex-1">
                 <h3 className="font-medium text-gray-800">View Analytics</h3>
                 <p className="text-sm text-gray-500">
-                  View analytics for all companies
+                  View analytics for all companies and shops
                 </p>
               </div>
               <svg
