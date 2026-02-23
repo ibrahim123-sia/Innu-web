@@ -271,10 +271,15 @@ const shopSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(getShopsByDistrict.fulfilled, (state, action) => {
-        state.loading = false;
-        state.shopsByDistrict = action.payload?.data || [];
-      })
+     // In your shopSlice.js, update the fulfilled case for getShopsByDistrict
+.addCase(getShopsByDistrict.fulfilled, (state, action) => {
+  state.loading = false;
+  // Handle both possible response structures
+  state.shopsByDistrict = action.payload?.data || action.payload || [];
+})
+
+// Create a proper selector
+
       .addCase(getShopsByDistrict.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.error || 'Failed to fetch shops by district';
@@ -292,6 +297,7 @@ export const {
 } = shopSlice.actions;
 
 // Selectors
+
 export const selectAllShops = (state) => state.shop.shops;
 export const selectCurrentShop = (state) => state.shop.currentShop;
 export const selectShopsByBrand = (state) => state.shop.shopsByBrand;
