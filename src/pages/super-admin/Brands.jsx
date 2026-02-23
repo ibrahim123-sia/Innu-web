@@ -1267,12 +1267,7 @@ const Brands = () => {
                           </div>
                         </div>
 
-                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-800">
-                            <strong>Note:</strong> Password management is handled by users themselves.
-                            Admins can reset their password using the "Forgot Password" feature.
-                          </p>
-                        </div>
+                       
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">

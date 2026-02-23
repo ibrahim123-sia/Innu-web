@@ -6,7 +6,6 @@ import {
   selectShopsByBrand,
 } from "../../redux/slice/shopSlice";
 import { getOrdersByBrand } from "../../redux/slice/orderSlice";
-
 import { getAllVideos, selectVideos } from "../../redux/slice/videoSlice";
 import { Link } from "react-router-dom";
 
@@ -117,7 +116,6 @@ const Overview = () => {
   const dispatch = useDispatch();
   const brands = useSelector(selectAllBrands);
   const shopsByBrand = useSelector(selectShopsByBrand);
-  // ✅ Get videos from Redux state using correct selector from videoSlice
   const videos = useSelector(selectVideos);
 
   const [loading, setLoading] = useState(true);
@@ -131,6 +129,7 @@ const Overview = () => {
   const [totalShops, setTotalShops] = useState(0);
   const [activeShops, setActiveShops] = useState(0);
 
+  // Calculate videos by brand whenever videos change
   useEffect(() => {
     if (videos && videos.length > 0) {
       // Set total video count
@@ -202,36 +201,17 @@ const Overview = () => {
     setActiveShops(active);
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const calculateStats = useCallback(() => {
-    // Calculate daily orders
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const todayOrders =
-      allOrders?.filter((order) => {
-        if (!order.created_at) return false;
-        const orderDate = new Date(order.created_at);
-        return orderDate >= yesterday;
-      }).length || 0;
-
-    setDailyOrders(todayOrders);
-
-    // Find top brand based on video count
+  // Separate function for top brand calculation
+  const calculateTopBrand = useCallback((videosData, brandsData, shopsData) => {
     console.log("Calculating top brand with:", {
-      videos: videos,
-      videosByBrand: videosByBrand,
-      brands: brands
+      videos: videosData?.length,
+      brands: brandsData?.length
     });
 
-    if (videos && videos.length > 0 && brands && brands.length > 0) {
+    if (videosData && videosData.length > 0 && brandsData && brandsData.length > 0) {
       // Calculate videos per brand directly from videos array
       const videoCountByBrand = {};
-      videos.forEach((video) => {
+      videosData.forEach((video) => {
         if (video.brand_id) {
           videoCountByBrand[video.brand_id] = (videoCountByBrand[video.brand_id] || 0) + 1;
         }
@@ -251,15 +231,15 @@ const Overview = () => {
       });
 
       if (topBrandId) {
-        const brandInfo = brands.find((b) => String(b.id) === String(topBrandId));
+        const brandInfo = brandsData.find((b) => String(b.id) === String(topBrandId));
         
         if (brandInfo) {
           setTopBrand({
             ...brandInfo,
             totalVideos: maxVideos,
-            shopCount: shopsByBrand[brandInfo.id]?.length || 0,
+            shopCount: shopsData[brandInfo.id]?.length || 0,
             activeShopCount:
-              shopsByBrand[brandInfo.id]?.filter((shop) => shop.is_active)
+              shopsData[brandInfo.id]?.filter((shop) => shop.is_active)
                 .length || 0,
           });
         }
@@ -270,11 +250,32 @@ const Overview = () => {
       console.log("No videos or brands available for top brand calculation");
       setTopBrand(null);
     }
-  }, [allOrders, videos, brands, shopsByBrand, videosByBrand]);
+  }, []);
 
+  // Calculate daily orders
   useEffect(() => {
-    calculateStats();
-  }, [calculateStats, allOrders, videos, brands, shopsByBrand, videosByBrand]);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const todayOrders =
+      allOrders?.filter((order) => {
+        if (!order.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        return orderDate >= yesterday;
+      }).length || 0;
+
+    setDailyOrders(todayOrders);
+  }, [allOrders]);
+
+  // Calculate top brand when dependencies change
+  useEffect(() => {
+    if (videos && videos.length > 0 && brands && brands.length > 0) {
+      calculateTopBrand(videos, brands, shopsByBrand);
+    } else {
+      setTopBrand(null);
+    }
+  }, [videos, brands, shopsByBrand, calculateTopBrand]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -284,11 +285,13 @@ const Overview = () => {
       // ✅ 1. Fetch all brands FIRST
       const brandsResult = await dispatch(getAllBrands());
       const brandsData = brandsResult.payload || brandsResult.data || [];
+      console.log("Brands fetched:", brandsData);
 
       // ✅ 2. Fetch ALL videos using correct thunk from videoSlice
       console.log("🎬 Fetching all videos...");
       const videosResult = await dispatch(getAllVideos());
       console.log("Videos API response:", videosResult);
+      console.log("Videos data:", videosResult.payload || videosResult.data);
 
       // ✅ 3. Fetch shops for each brand
       if (brandsData && brandsData.length > 0) {
@@ -339,7 +342,10 @@ const Overview = () => {
       totalShops,
       activeShops,
       dailyOrders,
-      topBrand: topBrand
+      topBrand: topBrand ? {
+        name: topBrand.name,
+        totalVideos: topBrand.totalVideos
+      } : null
     });
   }, [
     videos,
