@@ -19,6 +19,90 @@ import {
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
 
+// Skeleton Components (copied from Analytics.jsx and adapted)
+const StatsSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    {[1, 2, 3, 4].map((i) => (
+      <div
+        key={i}
+        className="bg-white p-6 rounded-lg shadow-md border-l-4 border-gray-200"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-8 bg-gray-300 rounded animate-pulse w-16 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+          </div>
+          <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const TopShopSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="h-6 bg-gray-200 rounded animate-pulse w-48 mb-4"></div>
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center space-x-4 mb-3">
+        <div className="w-16 h-16 rounded-lg bg-gray-200 animate-pulse"></div>
+        <div className="flex-1">
+          <div className="h-5 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-40"></div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="bg-gray-100 p-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+            <div className="flex-1">
+              <div className="h-6 bg-gray-200 rounded animate-pulse w-8 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-12"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gray-100 p-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+            <div className="flex-1">
+              <div className="h-6 bg-gray-200 rounded animate-pulse w-12 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-12"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
+          <div className="h-6 bg-gray-200 rounded animate-pulse w-16"></div>
+        </div>
+        <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const QuickActionsSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="h-6 bg-gray-200 rounded animate-pulse w-32 mb-4"></div>
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center p-4 border rounded-lg">
+          <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse mr-4"></div>
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-32"></div>
+          </div>
+          <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const Overview = () => {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.user.currentUser);
@@ -35,6 +119,8 @@ const Overview = () => {
   const [districtVideos, setDistrictVideos] = useState([]);
   const [topShopVideos, setTopShopVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   
   // Get shops for this district
@@ -125,6 +211,7 @@ const Overview = () => {
     if (!districtId) return;
     
     setLoading(true);
+    setIsInitialLoad(true);
     setDataFetched(false);
     
     try {
@@ -137,6 +224,7 @@ const Overview = () => {
       
     } catch (error) {
       console.error('Error fetching base data:', error);
+      setIsInitialLoad(false);
       setLoading(false);
     }
   };
@@ -172,7 +260,11 @@ const Overview = () => {
       console.error(`Error fetching videos for district ${districtId}:`, error);
       setDistrictVideos([]);
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setIsInitialLoad(false);
+        setIsDataReady(true);
+        setLoading(false);
+      }, 300);
     }
   };
 
@@ -205,19 +297,24 @@ const Overview = () => {
     }
   };
 
-  if (loading || orderLoading || videoLoading) {
+  // Show skeleton during initial load (following Analytics pattern)
+  if (isInitialLoad || (loading && !isDataReady)) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="p-6 transition-opacity duration-300 ease-in-out">
+        <StatsSkeleton />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <TopShopSkeleton />
+          <QuickActionsSkeleton />
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="p-6 transition-opacity duration-300 ease-in-out">
       {/* Stats Grid - All showing DAILY numbers */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Shops</h3>
@@ -234,7 +331,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Video Requests</h3>
@@ -251,7 +348,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Daily Orders</h3>
@@ -268,7 +365,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Active Shops</h3>
@@ -289,15 +386,13 @@ const Overview = () => {
         </div>
       </div>
 
-     
-
       {/* Top Shop & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Top Performing Shop</h2>
           
           {topShop ? (
-            <div className="border rounded-lg p-4">
+            <div className="border rounded-lg p-4 hover:bg-gray-50 transition-colors duration-150">
               <div className="flex items-center space-x-4 mb-3">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
                   {topShop.logo_url ? (
@@ -380,7 +475,7 @@ const Overview = () => {
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
           <div className="space-y-4">
             <Link
@@ -437,12 +532,8 @@ const Overview = () => {
               </svg>
             </Link>
           </div>
-
-        
         </div>
       </div>
-
-      
     </div>
   );
 };

@@ -19,6 +19,63 @@ import Swal from 'sweetalert2';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
+// Skeleton Components
+const TableRowSkeleton = () => (
+  <tr className="hover:bg-gray-50">
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex items-center">
+        <div className="w-10 h-10 bg-gray-200 rounded-full animate-pulse mr-3"></div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-40"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-24 mt-1"></div>
+        </div>
+      </div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-20"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-28"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-28"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex space-x-2">
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
+      </div>
+    </td>
+  </tr>
+);
+
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <th key={i} className="px-6 py-3">
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <TableRowSkeleton key={i} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
 const Users = () => {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.user.currentUser);
@@ -32,13 +89,9 @@ const Users = () => {
   const shops = useSelector(selectShopsForBrand(brandId)) || [];
   const districts = useSelector(selectDistrictsByBrand) || [];
   
-  // Debug logging
-  useEffect(() => {
-    console.log('Current brand users from state:', users);
-    console.log('Brand ID:', brandId);
-    console.log('Loading state:', loading);
-    console.log('Error state:', error);
-  }, [users, brandId, loading, error]);
+  // Add initial load state (following Analytics pattern)
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
   
   // UI States
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -87,8 +140,21 @@ const Users = () => {
     }
   }, [dispatch, currentUser?.brand_id]);
 
+  // Handle loading completion
+  useEffect(() => {
+    if (!loading && !localLoading && users) {
+      setTimeout(() => {
+        setIsInitialLoad(false);
+        setIsDataReady(true);
+      }, 300);
+    }
+  }, [loading, localLoading, users]);
+
   const fetchData = async () => {
     setLocalLoading(true);
+    setIsInitialLoad(true);
+    setIsDataReady(false);
+    
     try {
       console.log('Fetching brand users for brand ID:', currentUser.brand_id);
       const result = await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
@@ -98,6 +164,7 @@ const Users = () => {
       await dispatch(getDistrictsByBrand(currentUser.brand_id));
     } catch (error) {
       console.error('Error fetching data:', error);
+      setIsInitialLoad(false);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -546,8 +613,27 @@ const Users = () => {
   console.log('Rendering with users:', users);
   console.log('Users length:', users?.length);
 
+  // Show skeleton during initial load (following Analytics pattern)
+  if (isInitialLoad || ((localLoading || loading) && !isDataReady)) {
+    return (
+      <div className="p-6 transition-opacity duration-300 ease-in-out">
+        {/* Header Skeleton */}
+        <div className="mb-6 flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <div className="h-8 bg-gray-200 rounded animate-pulse w-32"></div>
+            <div className="h-6 bg-gray-200 rounded-full animate-pulse w-20"></div>
+          </div>
+          <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
+        </div>
+
+        {/* Table Skeleton */}
+        <TableSkeleton />
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div className="transition-opacity duration-300 ease-in-out">
       {/* Create User Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
@@ -573,7 +659,7 @@ const Users = () => {
 
       {/* Create User Form */}
       {showCreateForm && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6 animate-fadeIn">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Create New User</h2>
           
           {formError && (
@@ -801,18 +887,13 @@ const Users = () => {
       )}
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {(localLoading || loading) ? (
-          <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Loading users...</p>
-          </div>
-        ) : error ? (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
+        {error ? (
           <div className="py-12 text-center">
             <p className="text-red-600 mb-4">{typeof error === 'string' ? error : 'Failed to load users'}</p>
             <button
               onClick={fetchData}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Retry
             </button>
@@ -844,7 +925,7 @@ const Users = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((userItem) => (
-                  <tr key={userItem.id} className="hover:bg-gray-50">
+                  <tr key={userItem.id} className="hover:bg-gray-50 transition-colors duration-150">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 rounded-full overflow-hidden mr-3 border bg-gray-100">
@@ -896,13 +977,13 @@ const Users = () => {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEdit(userItem)}
-                          className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
+                          className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm transition-colors"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleToggleStatus(userItem)}
-                          className={`px-3 py-1 rounded text-sm ${
+                          className={`px-3 py-1 rounded text-sm transition-colors ${
                             userItem.is_active 
                               ? 'bg-red-100 text-red-700 hover:bg-red-200' 
                               : 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -928,7 +1009,7 @@ const Users = () => {
             <p className="text-gray-500 mb-4">Create your first user to get started</p>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Create First User
             </button>
@@ -938,7 +1019,7 @@ const Users = () => {
 
       {/* Edit User Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-blue-600 mb-4">Edit User</h2>
@@ -1133,13 +1214,13 @@ const Users = () => {
                   <button
                     type="button"
                     onClick={() => setShowEditModal(null)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
                   >
                     Update User
                   </button>

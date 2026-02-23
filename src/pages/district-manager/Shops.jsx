@@ -20,6 +20,61 @@ import Swal from 'sweetalert2';
 // Default images
 const DEFAULT_SHOP_IMAGE = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 
+// Skeleton Components
+const TableRowSkeleton = () => (
+  <tr className="hover:bg-gray-50">
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex items-center">
+        <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse mr-4"></div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-24 mb-1"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-28"></div>
+        </div>
+      </div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-40 mb-2"></div>
+      <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-28"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="flex space-x-2">
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
+      </div>
+    </td>
+  </tr>
+);
+
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <th key={i} className="px-6 py-3">
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <TableRowSkeleton key={i} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
 const Shops = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
@@ -34,6 +89,10 @@ const Shops = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Add initial load state (following Analytics pattern)
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
   
   // Updated formData to match backend requirements
   const [formData, setFormData] = useState({
@@ -76,10 +135,34 @@ const Shops = () => {
 
   useEffect(() => {
     if (user?.brand_id) {
-      dispatch(getShopsByBrand(user.brand_id));
-      dispatch(getDistrictsByBrand(user.brand_id));
+      fetchData();
     }
   }, [dispatch, user?.brand_id]);
+
+  // Handle loading completion
+  useEffect(() => {
+    if (!loading && shops) {
+      setTimeout(() => {
+        setIsInitialLoad(false);
+        setIsDataReady(true);
+      }, 300);
+    }
+  }, [loading, shops]);
+
+  const fetchData = async () => {
+    setIsInitialLoad(true);
+    setIsDataReady(false);
+    
+    try {
+      await Promise.all([
+        dispatch(getShopsByBrand(user?.brand_id)).unwrap(),
+        dispatch(getDistrictsByBrand(user?.brand_id)).unwrap()
+      ]);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setIsInitialLoad(false);
+    }
+  };
 
   // ============================================
   // HELPER FUNCTIONS
@@ -194,106 +277,103 @@ const Shops = () => {
   };
 
   // ============================================
-  // EDIT SHOP
+  // EDIT SHOP - FIXED VERSION
   // ============================================
-  // ============================================
-// EDIT SHOP - FIXED VERSION
-// ============================================
-const handleEditSubmit = async (e) => {
-  e.preventDefault();
-  setFormError('');
-  setFormSuccess('');
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setFormSuccess('');
 
-  // Validate required fields
-  if (!editFormData.street_address) {
-    setFormError('Street address is required');
-    return;
-  }
-
-  if (!editFormData.city) {
-    setFormError('City is required');
-    return;
-  }
-
-  if (!editFormData.state) {
-    setFormError('State is required');
-    return;
-  }
-
-  if (!editFormData.timezone) {
-    setFormError('Timezone is required');
-    return;
-  }
-
-  if (!editFormData.tekmetric_shop_id || editFormData.tekmetric_shop_id.trim() === '') {
-    setFormError('Tekmetric Shop ID is required');
-    return;
-  }
-
-  try {
-    // Prepare update data - handle district_id properly
-    const updateData = {
-      name: editFormData.name,
-      tekmetric_shop_id: editFormData.tekmetric_shop_id,
-      street_address: editFormData.street_address,
-      city: editFormData.city,
-      state: editFormData.state,
-      timezone: editFormData.timezone,
-      is_active: editFormData.is_active
-    };
-
-    // Handle district_id properly - send null for "None", otherwise send the ID
-    if (editFormData.district_id && editFormData.district_id !== '') {
-      updateData.district_id = editFormData.district_id;
-    } else {
-      updateData.district_id = null; // Explicitly set to null for no district
+    // Validate required fields
+    if (!editFormData.street_address) {
+      setFormError('Street address is required');
+      return;
     }
 
-    console.log('Sending update data:', updateData);
-    console.log('Shop ID:', showEditModal);
+    if (!editFormData.city) {
+      setFormError('City is required');
+      return;
+    }
 
-    // FIXED: Pass as { id, data } object
-    const result = await dispatch(updateShop({
-      id: showEditModal,
-      data: updateData
-    })).unwrap();
+    if (!editFormData.state) {
+      setFormError('State is required');
+      return;
+    }
 
-    console.log('Update result:', result);
+    if (!editFormData.timezone) {
+      setFormError('Timezone is required');
+      return;
+    }
 
-    // Verify the update was successful
-    if (result.success) {
-      // Show success message
+    if (!editFormData.tekmetric_shop_id || editFormData.tekmetric_shop_id.trim() === '') {
+      setFormError('Tekmetric Shop ID is required');
+      return;
+    }
+
+    try {
+      // Prepare update data - handle district_id properly
+      const updateData = {
+        name: editFormData.name,
+        tekmetric_shop_id: editFormData.tekmetric_shop_id,
+        street_address: editFormData.street_address,
+        city: editFormData.city,
+        state: editFormData.state,
+        timezone: editFormData.timezone,
+        is_active: editFormData.is_active
+      };
+
+      // Handle district_id properly - send null for "None", otherwise send the ID
+      if (editFormData.district_id && editFormData.district_id !== '') {
+        updateData.district_id = editFormData.district_id;
+      } else {
+        updateData.district_id = null; // Explicitly set to null for no district
+      }
+
+      console.log('Sending update data:', updateData);
+      console.log('Shop ID:', showEditModal);
+
+      // FIXED: Pass as { id, data } object
+      const result = await dispatch(updateShop({
+        id: showEditModal,
+        data: updateData
+      })).unwrap();
+
+      console.log('Update result:', result);
+
+      // Verify the update was successful
+      if (result.success) {
+        // Show success message
+        Swal.fire({
+          icon: 'success',
+          title: 'Success!',
+          text: 'Shop updated successfully!',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#4CAF50',
+          timer: 2000
+        });
+        
+        resetEditForm();
+        
+        // Force a fresh fetch of shops to ensure we have the latest data
+        await dispatch(getShopsByBrand(user.brand_id));
+        
+        setTimeout(() => {
+          setShowEditModal(null);
+        }, 100);
+      }
+      
+    } catch (err) {
+      console.error('Shop update failed:', err);
+      setFormError(err?.error || 'Failed to update shop. Please try again.');
       Swal.fire({
-        icon: 'success',
-        title: 'Success!',
-        text: 'Shop updated successfully!',
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to update shop. Please try again.',
         confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50',
-        timer: 2000
+        confirmButtonColor: '#d33'
       });
-      
-      resetEditForm();
-      
-      // Force a fresh fetch of shops to ensure we have the latest data
-      await dispatch(getShopsByBrand(user.brand_id));
-      
-      setTimeout(() => {
-        setShowEditModal(null);
-      }, 100);
     }
-    
-  } catch (err) {
-    console.error('Shop update failed:', err);
-    setFormError(err?.error || 'Failed to update shop. Please try again.');
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: err?.error || 'Failed to update shop. Please try again.',
-      confirmButtonText: 'OK',
-      confirmButtonColor: '#d33'
-    });
-  }
-};
+  };
 
   // Toggle shop status
   const handleToggleStatus = async (shop) => {
@@ -393,8 +473,27 @@ const handleEditSubmit = async (e) => {
   // RENDER
   // ============================================
 
+  // Show skeleton during initial load (following Analytics pattern)
+  if (isInitialLoad || (loading && !isDataReady)) {
+    return (
+      <div className="p-6 transition-opacity duration-300 ease-in-out">
+        {/* Header Skeleton */}
+        <div className="mb-6 flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <div className="h-8 bg-gray-200 rounded animate-pulse w-32"></div>
+            <div className="h-6 bg-gray-200 rounded-full animate-pulse w-20"></div>
+          </div>
+          <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
+        </div>
+
+        {/* Table Skeleton */}
+        <TableSkeleton />
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div className="transition-opacity duration-300 ease-in-out">
       {/* Create Shop Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
@@ -419,7 +518,7 @@ const handleEditSubmit = async (e) => {
 
       {/* Create Shop Form */}
       {showCreateForm && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6 animate-fadeIn">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Create New Shop</h2>
           
           {formError && (
@@ -589,15 +688,16 @@ const handleEditSubmit = async (e) => {
       )}
 
       {/* Shops Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {loading ? (
-          <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Loading shops...</p>
-          </div>
-        ) : error ? (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
+        {error ? (
           <div className="py-12 text-center">
             <p className="text-red-600">{error}</p>
+            <button
+              onClick={fetchData}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Retry
+            </button>
           </div>
         ) : shops && shops.length > 0 ? (
           <div className="overflow-x-auto">
@@ -624,7 +724,7 @@ const handleEditSubmit = async (e) => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {shops.map((shop) => {
                   return (
-                    <tr key={shop.id} className="hover:bg-gray-50">
+                    <tr key={shop.id} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
@@ -663,13 +763,13 @@ const handleEditSubmit = async (e) => {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEdit(shop)}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
+                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm transition-colors"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleToggleStatus(shop)}
-                            className={`px-3 py-1 rounded text-sm ${
+                            className={`px-3 py-1 rounded text-sm transition-colors ${
                               shop.is_active 
                                 ? 'bg-red-100 text-red-700 hover:bg-red-200' 
                                 : 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -696,7 +796,7 @@ const handleEditSubmit = async (e) => {
             <p className="text-gray-500 mb-4">Create your first shop to get started</p>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Create First Shop
             </button>
@@ -706,7 +806,7 @@ const handleEditSubmit = async (e) => {
 
       {/* Edit Shop Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Shop</h2>
@@ -861,13 +961,13 @@ const handleEditSubmit = async (e) => {
                   <button
                     type="button"
                     onClick={() => setShowEditModal(null)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
                   >
                     Update Shop
                   </button>
