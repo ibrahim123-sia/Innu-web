@@ -123,13 +123,47 @@ const Overview = () => {
   const [isDataReady, setIsDataReady] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   
-  // Get shops for this district
+  // Debug: Log shopsByDistrict
+  useEffect(() => {
+    console.log('shopsByDistrict from selector:', shopsByDistrict);
+    console.log('Is shopsByDistrict array?', Array.isArray(shopsByDistrict));
+    console.log('shopsByDistrict length:', shopsByDistrict?.length);
+  }, [shopsByDistrict]);
+  
+  // Get shops for this district - FIXED: Handle different data structures
   const filteredShops = useMemo(() => {
-    if (shopsByDistrict && districtId) {
+    if (!shopsByDistrict) return [];
+    
+    // If shopsByDistrict is already an array
+    if (Array.isArray(shopsByDistrict)) {
+      console.log('shopsByDistrict is array with length:', shopsByDistrict.length);
       return shopsByDistrict;
     }
+    
+    // If shopsByDistrict has a data property that is an array
+    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
+      console.log('shopsByDistrict.data is array with length:', shopsByDistrict.data.length);
+      return shopsByDistrict.data;
+    }
+    
+    // If shopsByDistrict has a shops property that is an array
+    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
+      console.log('shopsByDistrict.shops is array with length:', shopsByDistrict.shops.length);
+      return shopsByDistrict.shops;
+    }
+    
+    // If it's an object with numeric keys (like a dictionary)
+    if (typeof shopsByDistrict === 'object') {
+      const values = Object.values(shopsByDistrict);
+      if (values.length > 0 && Array.isArray(values[0])) {
+        console.log('Found array in object values');
+        return values[0];
+      }
+    }
+    
+    console.log('No valid shops data found, returning empty array');
     return [];
-  }, [shopsByDistrict, districtId]);
+  }, [shopsByDistrict]);
 
   // ✅ Calculate DAILY ORDERS (last 24 hours)
   const dailyOrders = useMemo(() => {
@@ -217,10 +251,10 @@ const Overview = () => {
     try {
       console.log('Fetching base data for district:', districtId);
       
-      await Promise.all([
-        dispatch(getShopsByDistrict(districtId)).unwrap(),
-        dispatch(getOrdersByDistrict(districtId)).unwrap()
-      ]);
+      const shopResult = await dispatch(getShopsByDistrict(districtId)).unwrap();
+      console.log('Shop fetch result:', shopResult);
+      
+      await dispatch(getOrdersByDistrict(districtId)).unwrap();
       
     } catch (error) {
       console.error('Error fetching base data:', error);
