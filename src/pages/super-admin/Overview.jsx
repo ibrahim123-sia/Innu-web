@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { selectAllBrands, getAllBrands } from "../../redux/slice/brandSlice";
@@ -132,10 +131,7 @@ const Overview = () => {
   const [totalShops, setTotalShops] = useState(0);
   const [activeShops, setActiveShops] = useState(0);
 
- 
   useEffect(() => {
-    
-
     if (videos && videos.length > 0) {
       // Set total video count
       setTotalVideos(videos.length);
@@ -210,9 +206,75 @@ const Overview = () => {
     fetchData();
   }, []);
 
+  const calculateStats = useCallback(() => {
+    // Calculate daily orders
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const todayOrders =
+      allOrders?.filter((order) => {
+        if (!order.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        return orderDate >= yesterday;
+      }).length || 0;
+
+    setDailyOrders(todayOrders);
+
+    // Find top brand based on video count
+    console.log("Calculating top brand with:", {
+      videos: videos,
+      videosByBrand: videosByBrand,
+      brands: brands
+    });
+
+    if (videos && videos.length > 0 && brands && brands.length > 0) {
+      // Calculate videos per brand directly from videos array
+      const videoCountByBrand = {};
+      videos.forEach((video) => {
+        if (video.brand_id) {
+          videoCountByBrand[video.brand_id] = (videoCountByBrand[video.brand_id] || 0) + 1;
+        }
+      });
+
+      console.log("Video count by brand:", videoCountByBrand);
+
+      // Find brand with most videos
+      let topBrandId = null;
+      let maxVideos = 0;
+
+      Object.entries(videoCountByBrand).forEach(([brandId, count]) => {
+        if (count > maxVideos) {
+          maxVideos = count;
+          topBrandId = brandId;
+        }
+      });
+
+      if (topBrandId) {
+        const brandInfo = brands.find((b) => String(b.id) === String(topBrandId));
+        
+        if (brandInfo) {
+          setTopBrand({
+            ...brandInfo,
+            totalVideos: maxVideos,
+            shopCount: shopsByBrand[brandInfo.id]?.length || 0,
+            activeShopCount:
+              shopsByBrand[brandInfo.id]?.filter((shop) => shop.is_active)
+                .length || 0,
+          });
+        }
+      } else {
+        setTopBrand(null);
+      }
+    } else {
+      console.log("No videos or brands available for top brand calculation");
+      setTopBrand(null);
+    }
+  }, [allOrders, videos, brands, shopsByBrand, videosByBrand]);
+
   useEffect(() => {
     calculateStats();
-  }, [allOrders, videosByBrand, brands, shopsByBrand]);
+  }, [calculateStats, allOrders, videos, brands, shopsByBrand, videosByBrand]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -250,7 +312,7 @@ const Overview = () => {
 
         setAllOrders(combinedOrders);
       }
-      
+
       // Add a small delay to show skeletons
       setTimeout(() => setIsInitialLoad(false), 300);
       setIsDataReady(true);
@@ -259,50 +321,6 @@ const Overview = () => {
       setIsInitialLoad(false);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const calculateStats = () => {
-    // Calculate daily orders
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const todayOrders =
-      allOrders?.filter((order) => {
-        if (!order.created_at) return false;
-        const orderDate = new Date(order.created_at);
-        return orderDate >= yesterday;
-      }).length || 0;
-
-    setDailyOrders(todayOrders);
-
-    // Find top brand based on video count
-    if (
-      videosByBrand &&
-      videosByBrand.length > 0 &&
-      brands &&
-      brands.length > 0
-    ) {
-      const sortedBrands = [...videosByBrand].sort(
-        (a, b) => (b.total_videos || 0) - (a.total_videos || 0),
-      );
-
-      if (sortedBrands.length > 0) {
-        const topBrandData = sortedBrands[0];
-        const brandInfo = brands?.find((b) => b.id === topBrandData.brand_id);
-
-        if (brandInfo) {
-          setTopBrand({
-            ...brandInfo,
-            totalVideos: topBrandData.total_videos || 0,
-            shopCount: shopsByBrand[brandInfo.id]?.length || 0,
-            activeShopCount:
-              shopsByBrand[brandInfo.id]?.filter((shop) => shop.is_active)
-                .length || 0,
-          });
-        }
-      }
     }
   };
 
@@ -321,6 +339,7 @@ const Overview = () => {
       totalShops,
       activeShops,
       dailyOrders,
+      topBrand: topBrand
     });
   }, [
     videos,
@@ -330,6 +349,7 @@ const Overview = () => {
     totalShops,
     activeShops,
     dailyOrders,
+    topBrand,
   ]);
 
   // Show skeleton during initial load
@@ -468,7 +488,9 @@ const Overview = () => {
 
       {/* Brand Shops Summary */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Shops by Company</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-4">
+          Shops by Company
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {brands && brands.length > 0 ? (
             brands.slice(0, 6).map((brand) => (
@@ -508,7 +530,6 @@ const Overview = () => {
                     <h3 className="font-medium text-gray-800 truncate">
                       {brand.name}
                     </h3>
-                   
                   </div>
                 </div>
                 <div className="flex justify-between items-center mt-2">
@@ -590,7 +611,6 @@ const Overview = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">{topBrand.name}</h3>
-                  
                 </div>
               </div>
 
@@ -614,9 +634,7 @@ const Overview = () => {
                       <div className="text-xl font-bold text-red-600">
                         {topBrand.totalVideos}
                       </div>
-                      <div className="text-xs text-red-500">
-                        Total Videos
-                      </div>
+                      <div className="text-xs text-red-500">Total Videos</div>
                     </div>
                   </div>
                 </div>
@@ -740,9 +758,7 @@ const Overview = () => {
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <p className="text-gray-500">
-                No video data available
-              </p>
+              <p className="text-gray-500">No video data available</p>
               <p className="text-sm text-gray-400 mt-1">
                 Upload videos to see company performance
               </p>
@@ -791,7 +807,7 @@ const Overview = () => {
             </Link>
 
             <Link
-              to="/super-admin/shops"
+              to="/super-admin/analytics"
               className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-all duration-200 group"
             >
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
@@ -808,49 +824,9 @@ const Overview = () => {
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-gray-800">Manage Shops</h3>
+                <h3 className="font-medium text-gray-800">View Analytics</h3>
                 <p className="text-sm text-gray-500">
-                  View and manage all shops by company
-                </p>
-              </div>
-              <svg
-                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
-
-            <Link
-              to="/super-admin/videos"
-              className="flex items-center p-4 border rounded-lg hover:bg-red-50 transition-all duration-200 group"
-            >
-              <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-red-700 transition-colors">
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium text-gray-800">View All Videos</h3>
-                <p className="text-sm text-gray-500">
-                  Check all uploaded videos
+                  View analytics for all companies
                 </p>
               </div>
               <svg
@@ -868,8 +844,6 @@ const Overview = () => {
               </svg>
             </Link>
           </div>
-
-          
         </div>
       </div>
     </div>
