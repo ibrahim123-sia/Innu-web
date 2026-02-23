@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
+  selectAllShops, 
   getShopsByDistrict,
   selectShopsByDistrict 
 } from '../../redux/slice/shopSlice';
@@ -11,51 +12,44 @@ import {
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
-  // ✅ CORRECT SELECTORS - exactly as in reference file
-  getVideosByDistrict,
-  selectVideos
+  // ✅ CORRECT SELECTORS FROM VIDEO SLICE - remove getVideoStats
+  selectVideos,
+  // selectDerivedVideoStats, // This doesn't exist either
+  // selectStatusDistribution, // This doesn't exist either
+  selectVideoLoading,
+  getAllVideos
+  // getVideoStats // REMOVE THIS - doesn't exist
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
-
-const DEFAULT_SHOP_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 
 const Overview = () => {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.user.currentUser);
   const districtId = currentUser?.district_id;
   
-  // ✅ Get data from Redux with correct selectors (exactly as in reference)
-  const shopsByDistrict = useSelector(selectShopsByDistrict) || [];
+  // Get data from Redux with correct selectors
+  const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
+  
+  // ✅ FIXED: Use only existing video selectors
   const allVideos = useSelector(selectVideos) || [];
+  const videoLoading = useSelector(selectVideoLoading);
   
   const orderLoading = useSelector(selectOrderLoading);
   
   // Local state
   const [loading, setLoading] = useState(true);
-  const [videosByDistrict, setVideosByDistrict] = useState([]);
-  const [dataFetched, setDataFetched] = useState(false);
   
-  // Filter shops for this district
+  // Get shops for this district
   const filteredShops = useMemo(() => {
-    if (shopsByDistrict && Array.isArray(shopsByDistrict)) {
+    if (shopsByDistrict && districtId) {
+      // shopsByDistrict should already be filtered by district from the API
       return shopsByDistrict;
     }
     return [];
-  }, [shopsByDistrict]);
+  }, [shopsByDistrict, districtId]);
 
-  // Filter videos for this district's shops
-  useEffect(() => {
-    if (filteredShops.length > 0 && allVideos.length > 0) {
-      const shopIds = filteredShops.map(shop => shop.id);
-      const filtered = allVideos.filter(video => shopIds.includes(video.shop_id));
-      setVideosByDistrict(filtered);
-    } else {
-      setVideosByDistrict([]);
-    }
-  }, [filteredShops, allVideos]);
-
-  // Calculate daily orders (last 24 hours)
+  // ✅ SIMPLE: Calculate DAILY ORDERS (last 24 hours)
   const dailyOrders = useMemo(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -67,12 +61,18 @@ const Overview = () => {
     }).length;
   }, [districtOrders]);
 
-  // Calculate video stats
-  const totalVideos = videosByDistrict.length;
-  const completedVideos = videosByDistrict.filter(v => v.status === 'completed').length;
-  const processingVideos = videosByDistrict.filter(v => v.status === 'processing').length;
-  const uploadedVideos = videosByDistrict.filter(v => v.status === 'uploaded').length;
-  const failedVideos = videosByDistrict.filter(v => v.status === 'failed').length;
+  // Get videos for this district
+  const districtVideos = useMemo(() => {
+    const shopIds = filteredShops.map(shop => shop.id);
+    return allVideos.filter(video => shopIds.includes(video.shop_id));
+  }, [filteredShops, allVideos]);
+
+  // Calculate video stats from district videos
+  const totalVideos = districtVideos.length;
+  const completedVideos = districtVideos.filter(v => v.status === 'completed').length;
+  const processingVideos = districtVideos.filter(v => v.status === 'processing').length;
+  const uploadedVideos = districtVideos.filter(v => v.status === 'uploaded').length;
+  const failedVideos = districtVideos.filter(v => v.status === 'failed').length;
   
   const completionRate = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
   
@@ -80,74 +80,48 @@ const Overview = () => {
   const totalShops = filteredShops.length;
   const activeShops = filteredShops.filter(shop => shop.is_active).length;
 
-  // Find top performing shop based on video count
-  const topPerformingShop = useMemo(() => {
-    if (!filteredShops.length || !videosByDistrict.length) return null;
-    
-    const shopVideoCounts = filteredShops.map(shop => ({
-      shop,
-      videoCount: videosByDistrict.filter(v => v.shop_id === shop.id).length
-    }));
-    
-    const sorted = shopVideoCounts.sort((a, b) => b.videoCount - a.videoCount);
-    return sorted[0];
-  }, [filteredShops, videosByDistrict]);
-
   // Videos created today
   const videosToday = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    return videosByDistrict.filter(video => {
+    return districtVideos.filter(video => {
       if (!video.created_at) return false;
       const videoDate = new Date(video.created_at);
       return videoDate >= today;
     }).length;
-  }, [videosByDistrict]);
+  }, [districtVideos]);
 
   // Videos completed today
   const completedToday = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    return videosByDistrict.filter(video => {
+    return districtVideos.filter(video => {
       if (!video.updated_at) return false;
       const updatedDate = new Date(video.updated_at);
       return updatedDate >= today && video.status === 'completed';
     }).length;
-  }, [videosByDistrict]);
+  }, [districtVideos]);
 
-  // Get shop logo helper
-  const getShopLogo = (shopId) => {
-    if (!filteredShops || !Array.isArray(filteredShops)) return DEFAULT_SHOP_LOGO;
-    const shop = filteredShops.find(s => String(s.id) === String(shopId));
-    return shop?.logo_url?.trim() ? shop.logo_url : DEFAULT_SHOP_LOGO;
-  };
-
-  // Fetch initial data - EXACT pattern from reference file
+  // Fetch initial data
   useEffect(() => {
-    if (districtId && !dataFetched) {
+    if (districtId) {
       fetchData();
     }
-  }, [districtId, dataFetched]);
+  }, [districtId]);
 
   const fetchData = async () => {
     if (!districtId) return;
     
     setLoading(true);
     try {
-      console.log('Fetching data for district:', districtId);
-      
-      // ✅ Use district-specific endpoints exactly as in reference
       await Promise.all([
-        dispatch(getShopsByDistrict(districtId)).unwrap(),
-        dispatch(getOrdersByDistrict(districtId)).unwrap(),
-        dispatch(getVideosByDistrict(districtId)).unwrap()
+        dispatch(getShopsByDistrict(districtId)),
+        dispatch(getOrdersByDistrict(districtId)),
+        dispatch(getAllVideos()) // ✅ Fetch all videos - this exists
+        // dispatch(getVideoStats()) // REMOVED - doesn't exist
       ]);
-      
-      console.log('All district data fetched successfully');
-      setDataFetched(true);
-      
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -155,7 +129,7 @@ const Overview = () => {
     }
   };
 
-  if (loading || orderLoading) {
+  if (loading || orderLoading || videoLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -165,9 +139,8 @@ const Overview = () => {
 
   return (
     <div>
-      {/* Stats Grid */}
+      {/* Stats Grid - All showing DAILY numbers */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Shops Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
           <div className="flex items-center justify-between">
             <div>
@@ -185,7 +158,6 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* Video Requests Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600">
           <div className="flex items-center justify-between">
             <div>
@@ -203,7 +175,6 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* Daily Orders Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600">
           <div className="flex items-center justify-between">
             <div>
@@ -221,7 +192,6 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* Active Shops Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600">
           <div className="flex items-center justify-between">
             <div>
@@ -326,24 +296,18 @@ const Overview = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Top Performing Shop</h2>
           
-          {topPerformingShop ? (
+          {filteredShops.length > 0 ? (
             <div className="border rounded-lg p-4">
               <div className="flex items-center space-x-4 mb-3">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
-                  <img 
-                    src={getShopLogo(topPerformingShop.shop.id)}
-                    alt={topPerformingShop.shop.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = DEFAULT_SHOP_LOGO;
-                    }}
-                  />
+                  <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm3 6a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                  </svg>
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">{topPerformingShop.shop.name}</h3>
+                  <h3 className="font-bold text-lg">{filteredShops[0]?.name}</h3>
                   <p className="text-sm text-gray-500">
-                    {topPerformingShop.shop.city}{topPerformingShop.shop.state ? `, ${topPerformingShop.shop.state}` : ''}
+                    {filteredShops[0]?.city}{filteredShops[0]?.state ? `, ${filteredShops[0]?.state}` : ''}
                   </p>
                 </div>
               </div>
@@ -356,7 +320,7 @@ const Overview = () => {
                     </svg>
                     <div>
                       <div className="text-xl font-bold text-blue-600">
-                        {topPerformingShop.videoCount}
+                        {districtVideos.filter(v => v.shop_id === filteredShops[0]?.id).length}
                       </div>
                       <div className="text-xs text-blue-500">Videos</div>
                     </div>
@@ -370,7 +334,7 @@ const Overview = () => {
                     </svg>
                     <div>
                       <div className="text-xl font-bold text-green-600">
-                        {topPerformingShop.shop.is_active ? 'Active' : 'Inactive'}
+                        {filteredShops[0]?.is_active ? 'Active' : 'Inactive'}
                       </div>
                       <div className="text-xs text-green-500">Status</div>
                     </div>
@@ -382,16 +346,16 @@ const Overview = () => {
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium">Status:</span>
                   <span className={`px-2 py-1 rounded text-xs ${
-                    topPerformingShop.shop.is_active 
+                    filteredShops[0]?.is_active 
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {topPerformingShop.shop.is_active ? 'Active' : 'Inactive'}
+                    {filteredShops[0]?.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <div className="text-sm">
                   <span className="font-medium">Tekmetric ID:</span>{' '}
-                  {topPerformingShop.shop.tekmetric_shop_id || 'Not set'}
+                  {filteredShops[0]?.tekmetric_shop_id || 'Not set'}
                 </div>
               </div>
             </div>
@@ -463,7 +427,7 @@ const Overview = () => {
             </Link>
           </div>
 
-          {/* Today's Summary */}
+          {/* Simple District Summary */}
           <div className="mt-6 pt-6 border-t">
             <h3 className="font-medium text-gray-800 mb-3">Today's Summary</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -476,6 +440,30 @@ const Overview = () => {
                 <div className="text-xl font-bold text-gray-800">{videosToday}</div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity - Only Daily Stats */}
+      <div className="mt-8 bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Activity</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-sm text-gray-600 font-medium">Daily Orders</h3>
+            <p className="text-2xl font-bold text-gray-800 mt-1">{dailyOrders}</p>
+            <p className="text-xs text-gray-500">Last 24 hours</p>
+          </div>
+          
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h3 className="text-sm text-blue-600 font-medium">Processing Videos</h3>
+            <p className="text-2xl font-bold text-blue-700 mt-1">{processingVideos}</p>
+            <p className="text-xs text-blue-600">Currently processing</p>
+          </div>
+          
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h3 className="text-sm text-green-600 font-medium">Completed Today</h3>
+            <p className="text-2xl font-bold text-green-700 mt-1">{completedToday}</p>
+            <p className="text-xs text-green-600">Last 24 hours</p>
           </div>
         </div>
       </div>
