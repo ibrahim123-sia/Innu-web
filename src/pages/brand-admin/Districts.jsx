@@ -183,6 +183,9 @@ const Districts = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Ensure districtsByBrand is an array
+  const displayDistricts = Array.isArray(districtsByBrand) ? districtsByBrand : [];
+
   // ============================================
   // EFFECTS
   // ============================================
@@ -454,9 +457,6 @@ const Districts = () => {
   // ============================================
   // RENDER
   // ============================================
-
-  // Ensure districtsByBrand is an array
-  const displayDistricts = Array.isArray(districtsByBrand) ? districtsByBrand : [];
 
   return (
     <div className="transition-opacity duration-300 ease-in-out" key={refreshKey}>
