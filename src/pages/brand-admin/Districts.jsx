@@ -347,52 +347,66 @@ const Districts = () => {
     }
   };
 
-  // Toggle district status
- // Toggle district status
+// Toggle district status
 const handleToggleStatus = async (district) => {
   try {
-    // ✅ CORRECT: Only include the fields you want to update
+    // Show loading state if needed
+    setIsSubmitting(true);
+
+    // Prepare update data - only include fields that can be updated
     const updateData = {
       name: district.name,
-      description: district.description,
+      description: district.description || '',
       is_active: !district.is_active
-      // ❌ REMOVE: id: district.id  // Don't include id in updateData
+      // DO NOT include manager_id or brand_id here unless you want to update them
     };
 
-    console.log('Toggling district status:', {
-      id: district.id,
-      currentStatus: district.is_active,
-      newStatus: !district.is_active,
-      updateData
+    console.log('Sending update request:', {
+      districtId: district.id,
+      updateData: updateData
     });
 
+    // Dispatch the update action
     const result = await dispatch(updateDistrict({
-      id: district.id,  // ✅ id goes here as separate property
-      data: updateData   // ✅ updateData contains only the fields to update
+      id: district.id,
+      data: updateData
     })).unwrap();
 
-    console.log('Toggle result:', result);
+    console.log('Update response:', result);
 
-    // Force a fresh fetch to ensure UI is updated
-    await dispatch(getDistrictsByBrand(user.brand_id));
-    
-    Swal.fire({
-      icon: 'success',
-      title: 'Status Updated',
-      text: `${district.name} has been ${!district.is_active ? 'activated' : 'deactivated'} successfully.`,
-      confirmButtonText: 'OK',
-      confirmButtonColor: '#4CAF50',
-      timer: 2000
-    });
+    // Check if the update was successful
+    if (result && result.success) {
+      // Instead of refetching all districts, update the local state
+      // This will be more efficient and avoid race conditions
+      
+      // Option 1: Refresh the districts list (safer approach)
+      await dispatch(getDistrictsByBrand(user.brand_id));
+      
+      // Show success message
+      Swal.fire({
+        icon: 'success',
+        title: 'Status Updated',
+        text: `${district.name} has been ${!district.is_active ? 'activated' : 'deactivated'} successfully.`,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
+      });
+    } else {
+      throw new Error(result?.error || 'Failed to update status');
+    }
   } catch (err) {
     console.error('Failed to toggle district status:', err);
+    
+    // Show error message
     Swal.fire({
       icon: 'error',
       title: 'Error',
-      text: err?.error || 'Failed to update district status.',
+      text: err?.error || err?.message || 'Failed to update district status.',
       confirmButtonText: 'OK',
       confirmButtonColor: '#d33'
     });
+  } finally {
+    setIsSubmitting(false);
   }
 };
 
