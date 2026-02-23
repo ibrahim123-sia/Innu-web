@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  selectAllShops, 
   getShopsByDistrict,
   selectShopsByDistrict 
 } from '../../redux/slice/shopSlice';
@@ -12,52 +11,51 @@ import {
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
-  // ✅ CORRECT SELECTORS FOR DISTRICT MANAGER
+  // ✅ CORRECT SELECTORS - exactly as in reference file
   getVideosByDistrict,
-  selectVideos,
-  selectVideoLoading
+  selectVideos
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
+
+const DEFAULT_SHOP_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 
 const Overview = () => {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.user.currentUser);
   const districtId = currentUser?.district_id;
   
-  // Get data from Redux with correct selectors
-  const shopsByDistrict = useSelector(selectShopsByDistrict);
+  // ✅ Get data from Redux with correct selectors (exactly as in reference)
+  const shopsByDistrict = useSelector(state => selectShopsByDistrict(districtId)(state)) || [];
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
-  
-  // ✅ FIXED: Use videos from Redux (will be populated by getVideosByDistrict)
   const allVideos = useSelector(selectVideos) || [];
-  const videoLoading = useSelector(selectVideoLoading);
   
   const orderLoading = useSelector(selectOrderLoading);
   
   // Local state
   const [loading, setLoading] = useState(true);
-  const [districtVideos, setDistrictVideos] = useState([]);
+  const [videosByDistrict, setVideosByDistrict] = useState([]);
+  const [dataFetched, setDataFetched] = useState(false);
   
-  // Get shops for this district
+  // Filter shops for this district
   const filteredShops = useMemo(() => {
-    if (shopsByDistrict && districtId) {
+    if (shopsByDistrict && Array.isArray(shopsByDistrict)) {
       return shopsByDistrict;
     }
     return [];
-  }, [shopsByDistrict, districtId]);
+  }, [shopsByDistrict]);
 
-  // ✅ CORRECT: Filter videos that belong to this district's shops
+  // Filter videos for this district's shops
   useEffect(() => {
     if (filteredShops.length > 0 && allVideos.length > 0) {
       const shopIds = filteredShops.map(shop => shop.id);
       const filtered = allVideos.filter(video => shopIds.includes(video.shop_id));
-      setDistrictVideos(filtered);
+      setVideosByDistrict(filtered);
     } else {
-      setDistrictVideos([]);
+      setVideosByDistrict([]);
     }
   }, [filteredShops, allVideos]);
 
-  // Calculate daily orders
+  // Calculate daily orders (last 24 hours)
   const dailyOrders = useMemo(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -69,12 +67,12 @@ const Overview = () => {
     }).length;
   }, [districtOrders]);
 
-  // Calculate video stats from district videos
-  const totalVideos = districtVideos.length;
-  const completedVideos = districtVideos.filter(v => v.status === 'completed').length;
-  const processingVideos = districtVideos.filter(v => v.status === 'processing').length;
-  const uploadedVideos = districtVideos.filter(v => v.status === 'uploaded').length;
-  const failedVideos = districtVideos.filter(v => v.status === 'failed').length;
+  // Calculate video stats
+  const totalVideos = videosByDistrict.length;
+  const completedVideos = videosByDistrict.filter(v => v.status === 'completed').length;
+  const processingVideos = videosByDistrict.filter(v => v.status === 'processing').length;
+  const uploadedVideos = videosByDistrict.filter(v => v.status === 'uploaded').length;
+  const failedVideos = videosByDistrict.filter(v => v.status === 'failed').length;
   
   const completionRate = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
   
@@ -82,62 +80,74 @@ const Overview = () => {
   const totalShops = filteredShops.length;
   const activeShops = filteredShops.filter(shop => shop.is_active).length;
 
-  // ✅ CORRECT: Find top performing shop based on video count
+  // Find top performing shop based on video count
   const topPerformingShop = useMemo(() => {
-    if (!filteredShops.length || !districtVideos.length) return null;
+    if (!filteredShops.length || !videosByDistrict.length) return null;
     
-    // Calculate video count per shop
     const shopVideoCounts = filteredShops.map(shop => ({
       shop,
-      videoCount: districtVideos.filter(v => v.shop_id === shop.id).length
+      videoCount: videosByDistrict.filter(v => v.shop_id === shop.id).length
     }));
     
-    // Sort by video count and get the top shop
     const sorted = shopVideoCounts.sort((a, b) => b.videoCount - a.videoCount);
     return sorted[0];
-  }, [filteredShops, districtVideos]);
+  }, [filteredShops, videosByDistrict]);
 
   // Videos created today
   const videosToday = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    return districtVideos.filter(video => {
+    return videosByDistrict.filter(video => {
       if (!video.created_at) return false;
       const videoDate = new Date(video.created_at);
       return videoDate >= today;
     }).length;
-  }, [districtVideos]);
+  }, [videosByDistrict]);
 
   // Videos completed today
   const completedToday = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    return districtVideos.filter(video => {
+    return videosByDistrict.filter(video => {
       if (!video.updated_at) return false;
       const updatedDate = new Date(video.updated_at);
       return updatedDate >= today && video.status === 'completed';
     }).length;
-  }, [districtVideos]);
+  }, [videosByDistrict]);
 
-  // Fetch initial data
+  // Get shop logo helper
+  const getShopLogo = (shopId) => {
+    if (!filteredShops || !Array.isArray(filteredShops)) return DEFAULT_SHOP_LOGO;
+    const shop = filteredShops.find(s => String(s.id) === String(shopId));
+    return shop?.logo_url?.trim() ? shop.logo_url : DEFAULT_SHOP_LOGO;
+  };
+
+  // Fetch initial data - EXACT pattern from reference file
   useEffect(() => {
-    if (districtId) {
+    if (districtId && !dataFetched) {
       fetchData();
     }
-  }, [districtId]);
+  }, [districtId, dataFetched]);
 
   const fetchData = async () => {
     if (!districtId) return;
     
     setLoading(true);
     try {
+      console.log('Fetching data for district:', districtId);
+      
+      // ✅ Use district-specific endpoints exactly as in reference
       await Promise.all([
-        dispatch(getShopsByDistrict(districtId)),
-        dispatch(getOrdersByDistrict(districtId)),
-        dispatch(getVideosByDistrict(districtId)) // ✅ Use district-specific video fetch
+        dispatch(getShopsByDistrict(districtId)).unwrap(),
+        dispatch(getOrdersByDistrict(districtId)).unwrap(),
+        dispatch(getVideosByDistrict(districtId)).unwrap()
       ]);
+      
+      console.log('All district data fetched successfully');
+      setDataFetched(true);
+      
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -145,7 +155,7 @@ const Overview = () => {
     }
   };
 
-  if (loading || orderLoading || videoLoading) {
+  if (loading || orderLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -157,6 +167,7 @@ const Overview = () => {
     <div>
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total Shops Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
           <div className="flex items-center justify-between">
             <div>
@@ -174,6 +185,7 @@ const Overview = () => {
           </div>
         </div>
 
+        {/* Video Requests Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600">
           <div className="flex items-center justify-between">
             <div>
@@ -191,6 +203,7 @@ const Overview = () => {
           </div>
         </div>
 
+        {/* Daily Orders Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600">
           <div className="flex items-center justify-between">
             <div>
@@ -208,6 +221,7 @@ const Overview = () => {
           </div>
         </div>
 
+        {/* Active Shops Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600">
           <div className="flex items-center justify-between">
             <div>
@@ -316,21 +330,15 @@ const Overview = () => {
             <div className="border rounded-lg p-4">
               <div className="flex items-center space-x-4 mb-3">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
-                  {topPerformingShop.shop.logo_url ? (
-                    <img 
-                      src={topPerformingShop.shop.logo_url} 
-                      alt={topPerformingShop.shop.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
-                      }}
-                    />
-                  ) : (
-                    <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm3 6a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                    </svg>
-                  )}
+                  <img 
+                    src={getShopLogo(topPerformingShop.shop.id)}
+                    alt={topPerformingShop.shop.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = DEFAULT_SHOP_LOGO;
+                    }}
+                  />
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">{topPerformingShop.shop.name}</h3>
@@ -455,7 +463,7 @@ const Overview = () => {
             </Link>
           </div>
 
-          {/* Simple District Summary */}
+          {/* Today's Summary */}
           <div className="mt-6 pt-6 border-t">
             <h3 className="font-medium text-gray-800 mb-3">Today's Summary</h3>
             <div className="grid grid-cols-2 gap-3">
