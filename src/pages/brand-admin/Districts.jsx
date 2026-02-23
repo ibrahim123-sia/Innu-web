@@ -348,52 +348,53 @@ const Districts = () => {
   };
 
   // Toggle district status
-  const handleToggleStatus = async (district) => {
-    try {
-      const updateData = {
-        name: district.name,
-        description: district.description,
-        is_active: !district.is_active,
-        // IMPORTANT: Include the district_id in the update data
-        id: district.id
-      };
+ // Toggle district status
+const handleToggleStatus = async (district) => {
+  try {
+    // ✅ CORRECT: Only include the fields you want to update
+    const updateData = {
+      name: district.name,
+      description: district.description,
+      is_active: !district.is_active
+      // ❌ REMOVE: id: district.id  // Don't include id in updateData
+    };
 
-      console.log('Toggling district status:', {
-        id: district.id,
-        currentStatus: district.is_active,
-        newStatus: !district.is_active,
-        updateData
-      });
+    console.log('Toggling district status:', {
+      id: district.id,
+      currentStatus: district.is_active,
+      newStatus: !district.is_active,
+      updateData
+    });
 
-      const result = await dispatch(updateDistrict({
-        id: district.id,
-        data: updateData
-      })).unwrap();
+    const result = await dispatch(updateDistrict({
+      id: district.id,  // ✅ id goes here as separate property
+      data: updateData   // ✅ updateData contains only the fields to update
+    })).unwrap();
 
-      console.log('Toggle result:', result);
+    console.log('Toggle result:', result);
 
-      // Force a fresh fetch to ensure UI is updated
-      await dispatch(getDistrictsByBrand(user.brand_id));
-      
-      Swal.fire({
-        icon: 'success',
-        title: 'Status Updated',
-        text: `${district.name} has been ${!district.is_active ? 'activated' : 'deactivated'} successfully.`,
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50',
-        timer: 2000
-      });
-    } catch (err) {
-      console.error('Failed to toggle district status:', err);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: err?.error || 'Failed to update district status.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
-      });
-    }
-  };
+    // Force a fresh fetch to ensure UI is updated
+    await dispatch(getDistrictsByBrand(user.brand_id));
+    
+    Swal.fire({
+      icon: 'success',
+      title: 'Status Updated',
+      text: `${district.name} has been ${!district.is_active ? 'activated' : 'deactivated'} successfully.`,
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#4CAF50',
+      timer: 2000
+    });
+  } catch (err) {
+    console.error('Failed to toggle district status:', err);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: err?.error || 'Failed to update district status.',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#d33'
+    });
+  }
+};
 
   // Edit district
   const handleEdit = (district) => {
