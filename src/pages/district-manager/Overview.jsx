@@ -25,7 +25,7 @@ const Overview = () => {
   const districtId = currentUser?.district_id;
   
   // ✅ Get data from Redux with correct selectors (exactly as in reference)
-  const shopsByDistrict = useSelector(state => selectShopsByDistrict(districtId)(state)) || [];
+  const shopsByDistrict = useSelector(selectShopsByDistrict) || [];
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
   const allVideos = useSelector(selectVideos) || [];
   
