@@ -225,7 +225,7 @@ const Overview = () => {
     console.log("Calculating top brand with:", {
       videos: videos,
       videosByBrand: videosByBrand,
-      brands: brands
+      brands: brands,
     });
 
     if (videos && videos.length > 0 && brands && brands.length > 0) {
@@ -233,7 +233,8 @@ const Overview = () => {
       const videoCountByBrand = {};
       videos.forEach((video) => {
         if (video.brand_id) {
-          videoCountByBrand[video.brand_id] = (videoCountByBrand[video.brand_id] || 0) + 1;
+          videoCountByBrand[video.brand_id] =
+            (videoCountByBrand[video.brand_id] || 0) + 1;
         }
       });
 
@@ -251,8 +252,10 @@ const Overview = () => {
       });
 
       if (topBrandId) {
-        const brandInfo = brands.find((b) => String(b.id) === String(topBrandId));
-        
+        const brandInfo = brands.find(
+          (b) => String(b.id) === String(topBrandId),
+        );
+
         if (brandInfo) {
           setTopBrand({
             ...brandInfo,
@@ -339,7 +342,7 @@ const Overview = () => {
       totalShops,
       activeShops,
       dailyOrders,
-      topBrand: topBrand
+      topBrand: topBrand,
     });
   }, [
     videos,
@@ -562,91 +565,6 @@ const Overview = () => {
             </Link>
           </div>
         )}
-      </div>
-
-      {/* Top Brand & Quick Actions Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-       
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
-            Quick Actions
-          </h2>
-          <div className="space-y-4">
-            <Link
-              to="/super-admin/brands"
-              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
-            >
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-blue-700 transition-colors">
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium text-gray-800">Manage Companies</h3>
-                <p className="text-sm text-gray-500">
-                  View and manage all Companies
-                </p>
-              </div>
-              <svg
-                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
-
-            <Link
-              to="/super-admin/analytics"
-              className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-all duration-200 group"
-            >
-              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium text-gray-800">View Analytics</h3>
-                <p className="text-sm text-gray-500">
-                  View analytics for all companies
-                </p>
-              </div>
-              <svg
-                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
-          </div>
-        </div>
       </div>
     </div>
   );
