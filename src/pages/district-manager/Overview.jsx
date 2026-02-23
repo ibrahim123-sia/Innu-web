@@ -1,6 +1,107 @@
 // src/components/DistrictManager/Overview.jsx
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { 
+  selectAllShops, 
+  getShopsByDistrict,
+  selectShopsByDistrict 
+} from '../../redux/slice/shopSlice';
+import { 
+  selectOrdersByDistrict,
+  getOrdersByDistrict,
+  selectOrderLoading
+} from '../../redux/slice/orderSlice';
+import { 
+  // ✅ CORRECT SELECTORS FROM VIDEO SLICE
+  getVideosByDistrict,  // For main section
+  getVideosByShop,      // For top shop
+  selectVideoLoading,
+} from '../../redux/slice/videoSlice';
+import { Link } from 'react-router-dom';
 
-// ... (all imports remain the same)
+// Skeleton Components (copied from Analytics.jsx and adapted)
+const StatsSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    {[1, 2, 3, 4].map((i) => (
+      <div
+        key={i}
+        className="bg-white p-6 rounded-lg shadow-md border-l-4 border-gray-200"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-8 bg-gray-300 rounded animate-pulse w-16 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+          </div>
+          <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const TopShopSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="h-6 bg-gray-200 rounded animate-pulse w-48 mb-4"></div>
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center space-x-4 mb-3">
+        <div className="w-16 h-16 rounded-lg bg-gray-200 animate-pulse"></div>
+        <div className="flex-1">
+          <div className="h-5 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-40"></div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="bg-gray-100 p-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+            <div className="flex-1">
+              <div className="h-6 bg-gray-200 rounded animate-pulse w-8 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-12"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gray-100 p-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+            <div className="flex-1">
+              <div className="h-6 bg-gray-200 rounded animate-pulse w-12 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-12"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
+          <div className="h-6 bg-gray-200 rounded animate-pulse w-16"></div>
+        </div>
+        <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const QuickActionsSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="h-6 bg-gray-200 rounded animate-pulse w-32 mb-4"></div>
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center p-4 border rounded-lg">
+          <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse mr-4"></div>
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-32"></div>
+          </div>
+          <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 const Overview = () => {
   const dispatch = useDispatch();
@@ -8,7 +109,6 @@ const Overview = () => {
   const districtId = currentUser?.district_id;
   
   // Get data from Redux with correct selectors
-  // Now shopsByDistrict is ALWAYS an array of shops
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
   
@@ -30,18 +130,35 @@ const Overview = () => {
     console.log('shopsByDistrict length:', shopsByDistrict?.length);
   }, [shopsByDistrict]);
   
-  // ✅ SIMPLIFIED: shopsByDistrict is now always an array of shops
+  // ✅ FIXED: Extract shops from the data object structure
   const filteredShops = useMemo(() => {
-    // shopsByDistrict should now be a clean array from the reducer
+    if (!shopsByDistrict) return [];
+    
+    // If shopsByDistrict has a data property that is an array (most common case)
+    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
+      console.log('Found shops in shopsByDistrict.data:', shopsByDistrict.data.length);
+      return shopsByDistrict.data;
+    }
+    
+    // If shopsByDistrict is already an array
     if (Array.isArray(shopsByDistrict)) {
-      console.log('Using shopsByDistrict array with length:', shopsByDistrict.length);
+      console.log('shopsByDistrict is array with length:', shopsByDistrict.length);
       return shopsByDistrict;
     }
     
-    // Fallback for any unexpected structure
-    if (shopsByDistrict?.data && Array.isArray(shopsByDistrict.data)) {
-      console.log('Fallback: found shops in shopsByDistrict.data');
-      return shopsByDistrict.data;
+    // If shopsByDistrict has a shops property that is an array
+    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
+      console.log('shopsByDistrict.shops is array with length:', shopsByDistrict.shops.length);
+      return shopsByDistrict.shops;
+    }
+    
+    // If it's an object with numeric keys (like a dictionary)
+    if (typeof shopsByDistrict === 'object') {
+      const values = Object.values(shopsByDistrict);
+      if (values.length > 0 && Array.isArray(values[0])) {
+        console.log('Found array in object values');
+        return values[0];
+      }
     }
     
     console.log('No valid shops data found, returning empty array');
@@ -67,7 +184,9 @@ const Overview = () => {
   const uploadedVideos = districtVideos.filter(v => v.status === 'uploaded' || v.status === 'uploading').length;
   const failedVideos = districtVideos.filter(v => v.status === 'failed').length;
   
-  // Shop stats - now using filteredShops directly
+  const completionRate = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
+  
+  // Shop stats
   const totalShops = filteredShops.length;
   const activeShops = filteredShops.filter(shop => shop.is_active).length;
 
@@ -80,6 +199,18 @@ const Overview = () => {
       if (!video.created_at) return false;
       const videoDate = new Date(video.created_at);
       return videoDate >= today;
+    }).length;
+  }, [districtVideos]);
+
+  // Videos completed today
+  const completedToday = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return districtVideos.filter(video => {
+      if (!video.updated_at) return false;
+      const updatedDate = new Date(video.updated_at);
+      return updatedDate >= today && video.status === 'completed';
     }).length;
   }, [districtVideos]);
 
@@ -102,7 +233,7 @@ const Overview = () => {
     }
   }, [districtId]);
 
-  // Fetch videos when shops are loaded (for refresh case)
+  // Fetch data when shops are loaded (for refresh case) - following Analytics pattern
   useEffect(() => {
     if (filteredShops && filteredShops.length > 0 && !dataFetched) {
       console.log('Shops loaded, fetching video data for district');
@@ -132,7 +263,7 @@ const Overview = () => {
     }
   };
 
-  // ✅ Fetch videos for district
+  // ✅ Fetch videos for district - following Analytics pattern exactly
   const fetchVideosForDistrict = async () => {
     if (!districtId) return;
     
@@ -143,11 +274,16 @@ const Overview = () => {
       
       let videosData = [];
       
-      // Extract videos from data property first
+      // ✅ FIXED: Extract videos from data property first (most common case)
       if (result?.data && Array.isArray(result.data)) {
         videosData = result.data;
       } else if (Array.isArray(result)) {
         videosData = result;
+      } else if (result && typeof result === 'object') {
+        const possibleArray = Object.values(result).find(val => Array.isArray(val));
+        if (possibleArray) {
+          videosData = possibleArray;
+        }
       }
       
       console.log(`Setting ${videosData.length} videos for district ${districtId}`);
@@ -166,7 +302,7 @@ const Overview = () => {
     }
   };
 
-  // ✅ Fetch videos for top shop
+  // ✅ Fetch videos for top shop - following Analytics pattern
   const fetchTopShopVideos = async (shopId) => {
     try {
       console.log(`Fetching videos for top shop: ${shopId}`);
@@ -175,11 +311,16 @@ const Overview = () => {
       
       let videosData = [];
       
-      // Extract videos from data property first
+      // ✅ FIXED: Extract videos from data property first
       if (result?.data && Array.isArray(result.data)) {
         videosData = result.data;
       } else if (Array.isArray(result)) {
         videosData = result;
+      } else if (result && typeof result === 'object') {
+        const possibleArray = Object.values(result).find(val => Array.isArray(val));
+        if (possibleArray) {
+          videosData = possibleArray;
+        }
       }
       
       console.log(`Setting ${videosData.length} videos for top shop ${shopId}`);
@@ -190,7 +331,7 @@ const Overview = () => {
     }
   };
 
-  // Show skeleton during initial load
+  // Show skeleton during initial load (following Analytics pattern)
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
