@@ -89,12 +89,13 @@ const Shops = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentUserDistrict, setCurrentUserDistrict] = useState(null);
   
-  // Add initial load state (following Analytics pattern)
+  // Add initial load state
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   
-  // Updated formData to match backend requirements
+  // Updated formData with district auto-selection
   const [formData, setFormData] = useState({
     name: '',
     street_address: '',
@@ -139,6 +140,30 @@ const Shops = () => {
     }
   }, [dispatch, user?.brand_id]);
 
+  // Find current user's district from loaded districts
+  useEffect(() => {
+    if (districts.length > 0 && user) {
+      // Try to find the district where current user is the manager
+      // Check different possible field names for manager ID
+      const userDistrict = districts.find(district => 
+        district.manager_id === user.id || 
+        district.manager === user.id ||
+        district.district_manager_id === user.id ||
+        district.districtManagerId === user.id ||
+        district.managerId === user.id
+      );
+      
+      if (userDistrict) {
+        setCurrentUserDistrict(userDistrict);
+        // Auto-set the district in form data
+        setFormData(prev => ({
+          ...prev,
+          district_id: userDistrict.id
+        }));
+      }
+    }
+  }, [districts, user]);
+
   // Handle loading completion
   useEffect(() => {
     if (!loading && shops) {
@@ -172,6 +197,17 @@ const Shops = () => {
     if (!districtId) return 'None';
     const district = districts.find(d => d.id === districtId);
     return district ? district.name : 'Unknown District';
+  };
+
+  const isCurrentUserDistrictManager = (districtId) => {
+    const district = districts.find(d => d.id === districtId);
+    if (!district) return false;
+    
+    return district.manager_id === user?.id || 
+           district.manager === user?.id ||
+           district.district_manager_id === user?.id ||
+           district.districtManagerId === user?.id ||
+           district.managerId === user?.id;
   };
 
   // ============================================
@@ -277,7 +313,7 @@ const Shops = () => {
   };
 
   // ============================================
-  // EDIT SHOP - FIXED VERSION
+  // EDIT SHOP
   // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
@@ -311,7 +347,7 @@ const Shops = () => {
     }
 
     try {
-      // Prepare update data - handle district_id properly
+      // Prepare update data
       const updateData = {
         name: editFormData.name,
         tekmetric_shop_id: editFormData.tekmetric_shop_id,
@@ -322,27 +358,19 @@ const Shops = () => {
         is_active: editFormData.is_active
       };
 
-      // Handle district_id properly - send null for "None", otherwise send the ID
+      // Handle district_id properly
       if (editFormData.district_id && editFormData.district_id !== '') {
         updateData.district_id = editFormData.district_id;
       } else {
-        updateData.district_id = null; // Explicitly set to null for no district
+        updateData.district_id = null;
       }
 
-      console.log('Sending update data:', updateData);
-      console.log('Shop ID:', showEditModal);
-
-      // FIXED: Pass as { id, data } object
       const result = await dispatch(updateShop({
         id: showEditModal,
         data: updateData
       })).unwrap();
 
-      console.log('Update result:', result);
-
-      // Verify the update was successful
       if (result.success) {
-        // Show success message
         Swal.fire({
           icon: 'success',
           title: 'Success!',
@@ -353,8 +381,6 @@ const Shops = () => {
         });
         
         resetEditForm();
-        
-        // Force a fresh fetch of shops to ensure we have the latest data
         await dispatch(getShopsByBrand(user.brand_id));
         
         setTimeout(() => {
@@ -428,7 +454,7 @@ const Shops = () => {
       state: '',
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       tekmetric_shop_id: '',
-      district_id: '',
+      district_id: currentUserDistrict?.id || '',
       is_active: true
     });
   };
@@ -473,7 +499,7 @@ const Shops = () => {
   // RENDER
   // ============================================
 
-  // Show skeleton during initial load (following Analytics pattern)
+  // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
@@ -506,6 +532,9 @@ const Shops = () => {
           onClick={() => {
             setShowCreateForm(!showCreateForm);
             setFormError('');
+            if (!showCreateForm) {
+              resetForm();
+            }
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
@@ -649,9 +678,15 @@ const Shops = () => {
                     {districts.map(district => (
                       <option key={district.id} value={district.id}>
                         {district.name}
+                        {isCurrentUserDistrictManager(district.id) && ' (Your District)'}
                       </option>
                     ))}
                   </select>
+                  {currentUserDistrict && formData.district_id === currentUserDistrict.id && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Auto-selected your district: {currentUserDistrict.name}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500 mt-1">
                     District is optional for shops
                   </p>
@@ -749,6 +784,9 @@ const Shops = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {getDistrictName(shop.district_id)}
+                        {isCurrentUserDistrictManager(shop.district_id) && (
+                          <span className="ml-2 text-xs text-green-600">(Your District)</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -939,6 +977,7 @@ const Shops = () => {
                         {districts.map(district => (
                           <option key={district.id} value={district.id}>
                             {district.name}
+                            {isCurrentUserDistrictManager(district.id) && ' (Your District)'}
                           </option>
                         ))}
                       </select>
