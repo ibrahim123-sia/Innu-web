@@ -6,6 +6,7 @@ import {
   selectShopsByBrand,
 } from "../../redux/slice/shopSlice";
 import { getOrdersByBrand } from "../../redux/slice/orderSlice";
+
 import { getAllVideos, selectVideos } from "../../redux/slice/videoSlice";
 import { Link } from "react-router-dom";
 
@@ -116,6 +117,7 @@ const Overview = () => {
   const dispatch = useDispatch();
   const brands = useSelector(selectAllBrands);
   const shopsByBrand = useSelector(selectShopsByBrand);
+  // ✅ Get videos from Redux state using correct selector from videoSlice
   const videos = useSelector(selectVideos);
 
   const [loading, setLoading] = useState(true);
@@ -129,7 +131,6 @@ const Overview = () => {
   const [totalShops, setTotalShops] = useState(0);
   const [activeShops, setActiveShops] = useState(0);
 
-  // Calculate videos by brand whenever videos change
   useEffect(() => {
     if (videos && videos.length > 0) {
       // Set total video count
@@ -201,17 +202,36 @@ const Overview = () => {
     setActiveShops(active);
   }, []);
 
-  // Separate function for top brand calculation
-  const calculateTopBrand = useCallback((videosData, brandsData, shopsData) => {
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const calculateStats = useCallback(() => {
+    // Calculate daily orders
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const todayOrders =
+      allOrders?.filter((order) => {
+        if (!order.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        return orderDate >= yesterday;
+      }).length || 0;
+
+    setDailyOrders(todayOrders);
+
+    // Find top brand based on video count
     console.log("Calculating top brand with:", {
-      videos: videosData?.length,
-      brands: brandsData?.length
+      videos: videos,
+      videosByBrand: videosByBrand,
+      brands: brands
     });
 
-    if (videosData && videosData.length > 0 && brandsData && brandsData.length > 0) {
+    if (videos && videos.length > 0 && brands && brands.length > 0) {
       // Calculate videos per brand directly from videos array
       const videoCountByBrand = {};
-      videosData.forEach((video) => {
+      videos.forEach((video) => {
         if (video.brand_id) {
           videoCountByBrand[video.brand_id] = (videoCountByBrand[video.brand_id] || 0) + 1;
         }
@@ -231,15 +251,15 @@ const Overview = () => {
       });
 
       if (topBrandId) {
-        const brandInfo = brandsData.find((b) => String(b.id) === String(topBrandId));
+        const brandInfo = brands.find((b) => String(b.id) === String(topBrandId));
         
         if (brandInfo) {
           setTopBrand({
             ...brandInfo,
             totalVideos: maxVideos,
-            shopCount: shopsData[brandInfo.id]?.length || 0,
+            shopCount: shopsByBrand[brandInfo.id]?.length || 0,
             activeShopCount:
-              shopsData[brandInfo.id]?.filter((shop) => shop.is_active)
+              shopsByBrand[brandInfo.id]?.filter((shop) => shop.is_active)
                 .length || 0,
           });
         }
@@ -250,32 +270,11 @@ const Overview = () => {
       console.log("No videos or brands available for top brand calculation");
       setTopBrand(null);
     }
-  }, []);
+  }, [allOrders, videos, brands, shopsByBrand, videosByBrand]);
 
-  // Calculate daily orders
   useEffect(() => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const todayOrders =
-      allOrders?.filter((order) => {
-        if (!order.created_at) return false;
-        const orderDate = new Date(order.created_at);
-        return orderDate >= yesterday;
-      }).length || 0;
-
-    setDailyOrders(todayOrders);
-  }, [allOrders]);
-
-  // Calculate top brand when dependencies change
-  useEffect(() => {
-    if (videos && videos.length > 0 && brands && brands.length > 0) {
-      calculateTopBrand(videos, brands, shopsByBrand);
-    } else {
-      setTopBrand(null);
-    }
-  }, [videos, brands, shopsByBrand, calculateTopBrand]);
+    calculateStats();
+  }, [calculateStats, allOrders, videos, brands, shopsByBrand, videosByBrand]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -285,13 +284,11 @@ const Overview = () => {
       // ✅ 1. Fetch all brands FIRST
       const brandsResult = await dispatch(getAllBrands());
       const brandsData = brandsResult.payload || brandsResult.data || [];
-      console.log("Brands fetched:", brandsData);
 
       // ✅ 2. Fetch ALL videos using correct thunk from videoSlice
       console.log("🎬 Fetching all videos...");
       const videosResult = await dispatch(getAllVideos());
       console.log("Videos API response:", videosResult);
-      console.log("Videos data:", videosResult.payload || videosResult.data);
 
       // ✅ 3. Fetch shops for each brand
       if (brandsData && brandsData.length > 0) {
@@ -342,10 +339,7 @@ const Overview = () => {
       totalShops,
       activeShops,
       dailyOrders,
-      topBrand: topBrand ? {
-        name: topBrand.name,
-        totalVideos: topBrand.totalVideos
-      } : null
+      topBrand: topBrand
     });
   }, [
     videos,
@@ -572,205 +566,7 @@ const Overview = () => {
 
       {/* Top Brand & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Top Performing Brand */}
-        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800">
-              Top Performing Company
-            </h2>
-            {topBrand && (
-              <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
-                #1 in Video Uploads
-              </span>
-            )}
-          </div>
-
-          {topBrand ? (
-            <div className="border rounded-lg p-4">
-              <div className="flex items-center space-x-4 mb-3">
-                <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100">
-                  {topBrand.logo_url ? (
-                    <img
-                      src={topBrand.logo_url}
-                      alt={topBrand.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src =
-                          "https://cdn-icons-png.flaticon.com/512/891/891419.png";
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-blue-50">
-                      <svg
-                        className="w-8 h-8 text-blue-300"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg">{topBrand.name}</h3>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="bg-red-50 p-3 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-red-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <div>
-                      <div className="text-xl font-bold text-red-600">
-                        {topBrand.totalVideos}
-                      </div>
-                      <div className="text-xs text-red-500">Total Videos</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <div>
-                      <div className="text-xl font-bold text-green-600">
-                        {totalVideos > 0
-                          ? `${((topBrand.totalVideos / totalVideos) * 100).toFixed(1)}%`
-                          : "0%"}
-                      </div>
-                      <div className="text-xs text-green-500">
-                        of Total Videos
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-blue-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <div>
-                      <div className="text-xl font-bold text-blue-600">
-                        {topBrand.shopCount || 0}
-                      </div>
-                      <div className="text-xs text-blue-500">Total Shops</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-purple-50 p-3 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-purple-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
-                    </svg>
-                    <div>
-                      <div className="text-xl font-bold text-purple-600">
-                        {topBrand.activeShopCount || 0}
-                      </div>
-                      <div className="text-xs text-purple-500">
-                        Active Shops
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-gray-600">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium">Status:</span>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      topBrand.is_active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {topBrand.is_active ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                {topBrand.created_at && (
-                  <div className="text-sm">
-                    <span className="font-medium">Created:</span>{" "}
-                    {new Date(topBrand.created_at).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-              <svg
-                className="w-12 h-12 text-gray-300 mx-auto mb-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <p className="text-gray-500">No video data available</p>
-              <p className="text-sm text-gray-400 mt-1">
-                Upload videos to see company performance
-              </p>
-            </div>
-          )}
-        </div>
+       
 
         {/* Quick Actions */}
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
