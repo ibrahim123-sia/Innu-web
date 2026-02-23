@@ -1,37 +1,25 @@
 // src/components/DistrictManager/Overview.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import axios from 'axios';
+import { 
+  selectAllShops, 
+  getShopsByDistrict,
+  selectShopsByDistrict 
+} from '../../redux/slice/shopSlice';
 import { 
   selectOrdersByDistrict,
   getOrdersByDistrict,
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
-  getVideosByDistrict,
-  getVideosByShop,
+  // ✅ CORRECT SELECTORS FROM VIDEO SLICE
+  getVideosByDistrict,  // For main section
+  getVideosByShop,      // For top shop
   selectVideoLoading,
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
 
-// Create axios instance
-const API = axios.create({
-  baseURL: 'https://innu-api-112488489004.us-central1.run.app/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add request interceptor to attach token
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Skeleton Components
+// Skeleton Components (copied from Analytics.jsx and adapted)
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -118,206 +106,66 @@ const QuickActionsSkeleton = () => (
 const Overview = () => {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.user.currentUser);
-  
-  // Get district_id directly from currentUser
   const districtId = currentUser?.district_id;
   
-  // Log user info for debugging
-  useEffect(() => {
-    console.log('Current User:', currentUser);
-    console.log('District ID:', districtId);
-  }, [currentUser, districtId]);
-  
-  // Local state for shops (direct API)
-  const [shops, setShops] = useState([]);
-  const [shopsLoading, setShopsLoading] = useState(true);
-  const [shopsError, setShopsError] = useState(null);
-  
-  // Get data from Redux
+  // Get data from Redux with correct selectors
+  const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
   
   const videoLoading = useSelector(selectVideoLoading);
   const orderLoading = useSelector(selectOrderLoading);
   
-  // Local state for videos
+  // Local state for videos (following Analytics pattern)
   const [districtVideos, setDistrictVideos] = useState([]);
   const [topShopVideos, setTopShopVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
-  const [videosFetched, setVideosFetched] = useState(false);
+  const [dataFetched, setDataFetched] = useState(false);
   
-  // Fetch shops directly from API
-  const fetchShops = async () => {
-    if (!districtId) {
-      console.log('No district ID available');
-      setShopsLoading(false);
-      return;
+  // Debug: Log shopsByDistrict
+  useEffect(() => {
+    console.log('shopsByDistrict from selector:', shopsByDistrict);
+    console.log('Is shopsByDistrict array?', Array.isArray(shopsByDistrict));
+    console.log('shopsByDistrict length:', shopsByDistrict?.length);
+  }, [shopsByDistrict]);
+  
+  // ✅ FIXED: Extract shops from the data object structure
+  const filteredShops = useMemo(() => {
+    if (!shopsByDistrict) return [];
+    
+    // If shopsByDistrict has a data property that is an array (most common case)
+    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
+      console.log('Found shops in shopsByDistrict.data:', shopsByDistrict.data.length);
+      return shopsByDistrict.data;
     }
     
-    setShopsLoading(true);
+    // If shopsByDistrict is already an array
+    if (Array.isArray(shopsByDistrict)) {
+      console.log('shopsByDistrict is array with length:', shopsByDistrict.length);
+      return shopsByDistrict;
+    }
     
-    try {
-      console.log(`Fetching shops for district: ${districtId}`);
-      const response = await API.get(`/shops/district/${districtId}/shops`);
-      console.log('Shops API response:', response.data);
-      
-      // Extract shops from response
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        setShops(response.data.data);
-      } else if (Array.isArray(response.data)) {
-        setShops(response.data);
-      } else {
-        setShops([]);
+    // If shopsByDistrict has a shops property that is an array
+    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
+      console.log('shopsByDistrict.shops is array with length:', shopsByDistrict.shops.length);
+      return shopsByDistrict.shops;
+    }
+    
+    // If it's an object with numeric keys (like a dictionary)
+    if (typeof shopsByDistrict === 'object') {
+      const values = Object.values(shopsByDistrict);
+      if (values.length > 0 && Array.isArray(values[0])) {
+        console.log('Found array in object values');
+        return values[0];
       }
-      
-      setShopsError(null);
-    } catch (error) {
-      console.error('Error fetching shops:', error);
-      setShopsError(error.response?.data?.message || error.message);
-      setShops([]);
-    } finally {
-      setShopsLoading(false);
     }
-  };
-
-  // Fetch orders from Redux
-  const fetchOrders = async () => {
-    if (!districtId) return;
     
-    try {
-      await dispatch(getOrdersByDistrict(districtId)).unwrap();
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    }
-  };
+    console.log('No valid shops data found, returning empty array');
+    return [];
+  }, [shopsByDistrict]);
 
-  // Fetch videos for district
-  const fetchVideosForDistrict = async () => {
-    if (!districtId) return;
-    
-    try {
-      console.log(`Fetching videos for district: ${districtId}`);
-      const result = await dispatch(getVideosByDistrict(districtId)).unwrap();
-      console.log(`Videos response for district ${districtId}:`, result);
-      
-      let videosData = [];
-      
-      // Extract videos from data property first
-      if (result?.data && Array.isArray(result.data)) {
-        videosData = result.data;
-      } else if (Array.isArray(result)) {
-        videosData = result;
-      }
-      
-      console.log(`Setting ${videosData.length} videos for district ${districtId}`);
-      setDistrictVideos(videosData);
-      setVideosFetched(true);
-      
-    } catch (error) {
-      console.error(`Error fetching videos for district ${districtId}:`, error);
-      setDistrictVideos([]);
-    }
-  };
-
-  // Fetch videos for top shop
-  const fetchTopShopVideos = async (shopId) => {
-    try {
-      console.log(`Fetching videos for top shop: ${shopId}`);
-      const result = await dispatch(getVideosByShop(shopId)).unwrap();
-      console.log(`Videos response for shop ${shopId}:`, result);
-      
-      let videosData = [];
-      
-      // Extract videos from data property first
-      if (result?.data && Array.isArray(result.data)) {
-        videosData = result.data;
-      } else if (Array.isArray(result)) {
-        videosData = result;
-      }
-      
-      console.log(`Setting ${videosData.length} videos for top shop ${shopId}`);
-      setTopShopVideos(videosData);
-    } catch (error) {
-      console.error('Error fetching top shop videos:', error);
-      setTopShopVideos([]);
-    }
-  };
-
-  // Fetch all data on mount or when districtId changes
-  useEffect(() => {
-    if (districtId) {
-      const fetchAllData = async () => {
-        setLoading(true);
-        setIsInitialLoad(true);
-        setVideosFetched(false);
-        
-        await fetchShops();
-        await fetchOrders();
-        
-        setLoading(false);
-      };
-      
-      fetchAllData();
-    } else {
-      // If no district ID, still need to stop loading
-      setShopsLoading(false);
-      setLoading(false);
-      setIsInitialLoad(false);
-    }
-  }, [districtId]);
-
-  // Fetch videos when shops are loaded
-  useEffect(() => {
-    if (shops.length > 0 && !videosFetched) {
-      fetchVideosForDistrict();
-    }
-  }, [shops, videosFetched]);
-
-  // Fetch videos for top shop when it changes
-  useEffect(() => {
-    if (topShop?.id) {
-      fetchTopShopVideos(topShop.id);
-    }
-  }, [topShop]);
-
-  // Update data ready state
-  useEffect(() => {
-    if (!shopsLoading && !loading && shops.length > 0) {
-      setTimeout(() => {
-        setIsInitialLoad(false);
-        setIsDataReady(true);
-      }, 300);
-    } else if (!districtId) {
-      // If no district ID, mark as ready with empty state
-      setIsInitialLoad(false);
-      setIsDataReady(true);
-    }
-  }, [shopsLoading, loading, shops, districtId]);
-
-  // Shop stats
-  const totalShops = shops.length;
-  const activeShops = shops.filter(shop => shop.is_active).length;
-
-  // Get top shop (first shop for now - you might want to sort by performance)
-  const topShop = useMemo(() => {
-    return shops.length > 0 ? shops[0] : null;
-  }, [shops]);
-
-  // Calculate video stats from district videos
-  const totalVideos = districtVideos.length;
-  const videosToday = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    return districtVideos.filter(video => {
-      if (!video.created_at) return false;
-      const videoDate = new Date(video.created_at);
-      return videoDate >= today;
-    }).length;
-  }, [districtVideos]);
-
-  // Calculate DAILY ORDERS (last 24 hours)
+  // ✅ Calculate DAILY ORDERS (last 24 hours)
   const dailyOrders = useMemo(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -329,30 +177,162 @@ const Overview = () => {
     }).length;
   }, [districtOrders]);
 
-  // If no district ID, show message
-  if (!districtId) {
-    return (
-      <div className="p-6">
-        <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-yellow-700">
-                No district assigned to this user. Please contact an administrator.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Calculate video stats from district videos
+  const totalVideos = districtVideos.length;
+  const completedVideos = districtVideos.filter(v => v.status === 'completed').length;
+  const processingVideos = districtVideos.filter(v => v.status === 'processing').length;
+  const uploadedVideos = districtVideos.filter(v => v.status === 'uploaded' || v.status === 'uploading').length;
+  const failedVideos = districtVideos.filter(v => v.status === 'failed').length;
+  
+  const completionRate = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
+  
+  // Shop stats
+  const totalShops = filteredShops.length;
+  const activeShops = filteredShops.filter(shop => shop.is_active).length;
 
-  // Show skeleton during initial load
-  if (isInitialLoad || shopsLoading || (loading && !isDataReady)) {
+  // Videos created today
+  const videosToday = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return districtVideos.filter(video => {
+      if (!video.created_at) return false;
+      const videoDate = new Date(video.created_at);
+      return videoDate >= today;
+    }).length;
+  }, [districtVideos]);
+
+  // Videos completed today
+  const completedToday = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return districtVideos.filter(video => {
+      if (!video.updated_at) return false;
+      const updatedDate = new Date(video.updated_at);
+      return updatedDate >= today && video.status === 'completed';
+    }).length;
+  }, [districtVideos]);
+
+  // Get top shop (first shop for now - you might want to sort by performance)
+  const topShop = useMemo(() => {
+    return filteredShops.length > 0 ? filteredShops[0] : null;
+  }, [filteredShops]);
+
+  // Fetch videos for top shop when it changes
+  useEffect(() => {
+    if (topShop?.id) {
+      fetchTopShopVideos(topShop.id);
+    }
+  }, [topShop]);
+
+  // Fetch initial data when districtId changes
+  useEffect(() => {
+    if (districtId) {
+      fetchData();
+    }
+  }, [districtId]);
+
+  // Fetch data when shops are loaded (for refresh case) - following Analytics pattern
+  useEffect(() => {
+    if (filteredShops && filteredShops.length > 0 && !dataFetched) {
+      console.log('Shops loaded, fetching video data for district');
+      fetchVideosForDistrict();
+    }
+  }, [filteredShops, dataFetched]);
+
+  const fetchData = async () => {
+    if (!districtId) return;
+    
+    setLoading(true);
+    setIsInitialLoad(true);
+    setDataFetched(false);
+    
+    try {
+      console.log('Fetching base data for district:', districtId);
+      
+      const shopResult = await dispatch(getShopsByDistrict(districtId)).unwrap();
+      console.log('Shop fetch result:', shopResult);
+      
+      await dispatch(getOrdersByDistrict(districtId)).unwrap();
+      
+    } catch (error) {
+      console.error('Error fetching base data:', error);
+      setIsInitialLoad(false);
+      setLoading(false);
+    }
+  };
+
+  // ✅ Fetch videos for district - following Analytics pattern exactly
+  const fetchVideosForDistrict = async () => {
+    if (!districtId) return;
+    
+    try {
+      console.log(`Fetching videos for district: ${districtId}`);
+      const result = await dispatch(getVideosByDistrict(districtId)).unwrap();
+      console.log(`Videos response for district ${districtId}:`, result);
+      
+      let videosData = [];
+      
+      // ✅ FIXED: Extract videos from data property first (most common case)
+      if (result?.data && Array.isArray(result.data)) {
+        videosData = result.data;
+      } else if (Array.isArray(result)) {
+        videosData = result;
+      } else if (result && typeof result === 'object') {
+        const possibleArray = Object.values(result).find(val => Array.isArray(val));
+        if (possibleArray) {
+          videosData = possibleArray;
+        }
+      }
+      
+      console.log(`Setting ${videosData.length} videos for district ${districtId}`);
+      setDistrictVideos(videosData);
+      setDataFetched(true);
+      
+    } catch (error) {
+      console.error(`Error fetching videos for district ${districtId}:`, error);
+      setDistrictVideos([]);
+    } finally {
+      setTimeout(() => {
+        setIsInitialLoad(false);
+        setIsDataReady(true);
+        setLoading(false);
+      }, 300);
+    }
+  };
+
+  // ✅ Fetch videos for top shop - following Analytics pattern
+  const fetchTopShopVideos = async (shopId) => {
+    try {
+      console.log(`Fetching videos for top shop: ${shopId}`);
+      const result = await dispatch(getVideosByShop(shopId)).unwrap();
+      console.log(`Videos response for shop ${shopId}:`, result);
+      
+      let videosData = [];
+      
+      // ✅ FIXED: Extract videos from data property first
+      if (result?.data && Array.isArray(result.data)) {
+        videosData = result.data;
+      } else if (Array.isArray(result)) {
+        videosData = result;
+      } else if (result && typeof result === 'object') {
+        const possibleArray = Object.values(result).find(val => Array.isArray(val));
+        if (possibleArray) {
+          videosData = possibleArray;
+        }
+      }
+      
+      console.log(`Setting ${videosData.length} videos for top shop ${shopId}`);
+      setTopShopVideos(videosData);
+    } catch (error) {
+      console.error('Error fetching top shop videos:', error);
+      setTopShopVideos([]);
+    }
+  };
+
+  // Show skeleton during initial load (following Analytics pattern)
+  if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
         <StatsSkeleton />
@@ -364,35 +344,9 @@ const Overview = () => {
     );
   }
 
-  // Show error state
-  if (shopsError) {
-    return (
-      <div className="p-6">
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">Error loading shops: {shopsError}</p>
-              <button 
-                onClick={fetchShops}
-                className="mt-2 text-sm text-red-700 underline hover:text-red-900"
-              >
-                Try again
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
-      {/* Stats Grid */}
+      {/* Stats Grid - All showing DAILY numbers */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
@@ -577,7 +531,7 @@ const Overview = () => {
             </Link>
             
             <Link
-              to="/district-manager/videos"
+              to="/district-manager/users"
               className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-red-700 transition-colors">
