@@ -300,25 +300,43 @@ const Districts = () => {
   // ============================================
   // EDIT DISTRICT
   // ============================================
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    setFormError('');
-    setFormSuccess('');
+  // ============================================
+// EDIT DISTRICT - FIXED VERSION
+// ============================================
+const handleEditSubmit = async (e) => {
+  e.preventDefault();
+  setFormError('');
+  setFormSuccess('');
 
-    try {
-      // Prepare district update data
-      const districtUpdateData = {
-        name: editFormData.name,
-        description: editFormData.description,
-        is_active: editFormData.is_active
-      };
+  // Validate required fields
+  if (!editFormData.name) {
+    setFormError('District name is required');
+    return;
+  }
 
-      // Update district only
-      const districtResult = await dispatch(updateDistrict({
-        id: showEditModal,
-        data: districtUpdateData
-      })).unwrap();
+  console.log('Edit form data before submit:', editFormData);
 
+  try {
+    // Prepare district update data - make sure description is included
+    const districtUpdateData = {
+      name: editFormData.name,
+      description: editFormData.description || '', // Ensure empty string if no description
+      is_active: editFormData.is_active
+    };
+
+    console.log('Sending update data:', districtUpdateData);
+    console.log('District ID:', showEditModal);
+
+    // Update district only
+    const districtResult = await dispatch(updateDistrict({
+      id: showEditModal,
+      data: districtUpdateData
+    })).unwrap();
+
+    console.log('Update result:', districtResult);
+
+    // Check if the update was successful
+    if (districtResult && districtResult.success) {
       Swal.fire({
         icon: 'success',
         title: 'Success!',
@@ -329,23 +347,29 @@ const Districts = () => {
       });
       
       resetEditForm();
-      dispatch(getDistrictsByBrand(user.brand_id));
+      
+      // Force a fresh fetch to ensure UI is updated
+      await dispatch(getDistrictsByBrand(user.brand_id));
+      
       setTimeout(() => {
         setShowEditModal(null);
       }, 100);
-      
-    } catch (err) {
-      console.error('District update failed:', err);
-      setFormError(err?.error || 'Failed to update district. Please try again.');
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: err?.error || 'Failed to update district. Please try again.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
-      });
+    } else {
+      throw new Error(districtResult?.error || 'Update failed');
     }
-  };
+    
+  } catch (err) {
+    console.error('District update failed:', err);
+    setFormError(err?.error || 'Failed to update district. Please try again.');
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: err?.error || 'Failed to update district. Please try again.',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#d33'
+    });
+  }
+};
 
 // Toggle district status
 const handleToggleStatus = async (district) => {
