@@ -410,6 +410,11 @@ const handleToggleStatus = async (district) => {
   }
 };
 
+// Add this near the top of your Districts component, after your other useEffects
+useEffect(() => {
+  console.log('districtsByBrand updated:', districtsByBrand);
+}, [districtsByBrand]);
+
   // Edit district
   const handleEdit = (district) => {
     setShowEditModal(district.id);

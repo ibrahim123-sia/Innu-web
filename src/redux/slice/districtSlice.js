@@ -222,65 +222,63 @@ const districtSlice = createSlice({
       })
       // In your districtSlice.js, update the updateDistrict reducer:
 
-      .addCase(updateDistrict.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
+      // In your districtSlice.js, update the updateDistrict.fulfilled case:
 
-        console.log("Update fulfilled - action payload:", action.payload); // Add this for debugging
-
-        // Handle different response structures
-        let updatedDistrict = null;
-
-        if (action.payload?.data) {
-          // Response format: { success: true, data: {...} }
-          updatedDistrict = action.payload.data;
-        } else if (
-          action.payload &&
-          typeof action.payload === "object" &&
-          !action.payload.error
-        ) {
-          // Direct object response
-          updatedDistrict = action.payload;
-        }
-
-        if (updatedDistrict && updatedDistrict.id) {
-          // Update in districts array
-          const index = state.districts.findIndex(
-            (district) => district.id === updatedDistrict.id,
-          );
-          if (index !== -1) {
-            state.districts[index] = {
-              ...state.districts[index],
-              ...updatedDistrict,
-            };
-          }
-
-          // Update in districtsByBrand array
-          const brandIndex = state.districtsByBrand.findIndex(
-            (district) => district.id === updatedDistrict.id,
-          );
-          if (brandIndex !== -1) {
-            state.districtsByBrand[brandIndex] = {
-              ...state.districtsByBrand[brandIndex],
-              ...updatedDistrict,
-            };
-          }
-
-          // Update current district if it's the one being updated
-          if (
-            state.currentDistrict &&
-            state.currentDistrict.id === updatedDistrict.id
-          ) {
-            state.currentDistrict = {
-              ...state.currentDistrict,
-              ...updatedDistrict,
-            };
-          }
-        }
-
-        state.message =
-          action.payload?.message || "District updated successfully";
-      })
+.addCase(updateDistrict.fulfilled, (state, action) => {
+  state.loading = false;
+  state.success = true;
+  
+  console.log('Update fulfilled - action payload:', action.payload); // Debug log
+  
+  // Handle response with data wrapper - FIXED VERSION
+  let updatedDistrict = null;
+  
+  // Check the structure of the response
+  if (action.payload?.data) {
+    // Response format: { success: true, data: {...} }
+    updatedDistrict = action.payload.data;
+  } else if (action.payload && typeof action.payload === 'object') {
+    // Direct object response from your backend
+    // Your backend returns: { success: true, message: "...", data: districtObject }
+    // OR sometimes: { success: true, data: districtObject }
+    if (action.payload.data) {
+      updatedDistrict = action.payload.data;
+    } else if (action.payload.id) {
+      // If the payload itself is the district object
+      updatedDistrict = action.payload;
+    }
+  }
+  
+  console.log('Extracted updated district:', updatedDistrict);
+  
+  if (updatedDistrict && updatedDistrict.id) {
+    // Update in districts array
+    const index = state.districts.findIndex(district => district.id === updatedDistrict.id);
+    if (index !== -1) {
+      state.districts[index] = { ...state.districts[index], ...updatedDistrict };
+    }
+    
+    // Update in districtsByBrand array - THIS IS THE CRITICAL PART
+    const brandIndex = state.districtsByBrand.findIndex(district => district.id === updatedDistrict.id);
+    if (brandIndex !== -1) {
+      // Merge the updated district with existing data
+      state.districtsByBrand[brandIndex] = { 
+        ...state.districtsByBrand[brandIndex], 
+        ...updatedDistrict 
+      };
+      console.log('Updated districtsByBrand at index', brandIndex, ':', state.districtsByBrand[brandIndex]);
+    }
+    
+    // Update current district if it's the one being updated
+    if (state.currentDistrict && state.currentDistrict.id === updatedDistrict.id) {
+      state.currentDistrict = { ...state.currentDistrict, ...updatedDistrict };
+    }
+  } else {
+    console.warn('No valid updated district found in payload:', action.payload);
+  }
+  
+  state.message = action.payload?.message || 'District updated successfully';
+})
       .addCase(updateDistrict.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.error || "Failed to update district";
