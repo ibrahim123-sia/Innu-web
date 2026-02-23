@@ -27,9 +27,6 @@ const TableRowSkeleton = () => (
         </div>
       </div>
     </td>
-    <td className="px-6 py-4">
-      <div className="h-4 bg-gray-200 rounded animate-pulse w-48"></div>
-    </td>
     <td className="px-6 py-4 whitespace-nowrap">
       <div className="h-4 bg-gray-200 rounded animate-pulse w-20 mb-1"></div>
       <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
@@ -53,7 +50,7 @@ const TableSkeleton = () => (
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            {['District Details', 'Description', 'Shops', 'Status', 'Actions'].map((header) => (
+            {['District Details', 'Shops', 'Status', 'Actions'].map((header) => (
               <th key={header} className="px-6 py-3 text-left">
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
               </th>
@@ -90,10 +87,6 @@ const FormSkeleton = () => (
           <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
           <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
         </div>
-        <div>
-          <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
-          <div className="h-24 bg-gray-200 rounded-lg animate-pulse w-full"></div>
-        </div>
         <div className="flex items-center space-x-2">
           <div className="h-5 w-5 bg-gray-200 rounded animate-pulse"></div>
           <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
@@ -108,7 +101,7 @@ const FormSkeleton = () => (
 
 const ShopsDropdownSkeleton = () => (
   <tr className="bg-gray-50">
-    <td colSpan="5" className="px-6 py-4">
+    <td colSpan="4" className="px-6 py-4">
       <div className="ml-14">
         <div className="mb-3">
           <div className="flex items-center justify-between mb-4">
@@ -172,10 +165,9 @@ const Districts = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
-  // Data states
+  // Data states - REMOVED description
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     is_active: true
   });
   const [editFormData, setEditFormData] = useState({});
@@ -250,10 +242,9 @@ const Districts = () => {
     setIsSubmitting(true);
 
     try {
-      // Create district only - no manager creation
+      // Create district only - REMOVED description
       const districtData = {
         name: formData.name,
-        description: formData.description,
         is_active: formData.is_active,
         brand_id: user.brand_id
         // No manager_id field - manager assignment will be done in Users page
@@ -268,7 +259,6 @@ const Districts = () => {
           html: `
             <div style="text-align: left;">
               <p><strong>District:</strong> ${formData.name}</p>
-              <p><strong>Description:</strong> ${formData.description || 'No description'}</p>
             </div>
           `,
           confirmButtonText: 'OK',
@@ -298,153 +288,133 @@ const Districts = () => {
   };
 
   // ============================================
-  // EDIT DISTRICT
+  // EDIT DISTRICT - REMOVED DESCRIPTION
   // ============================================
-  // ============================================
-// EDIT DISTRICT - FIXED VERSION
-// ============================================
-const handleEditSubmit = async (e) => {
-  e.preventDefault();
-  setFormError('');
-  setFormSuccess('');
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setFormSuccess('');
 
-  // Validate required fields
-  if (!editFormData.name) {
-    setFormError('District name is required');
-    return;
-  }
-
-  console.log('Edit form data before submit:', editFormData);
-
-  try {
-    // Prepare district update data - make sure description is included
-    const districtUpdateData = {
-      name: editFormData.name,
-      description: editFormData.description || '', // Ensure empty string if no description
-      is_active: editFormData.is_active
-    };
-
-    console.log('Sending update data:', districtUpdateData);
-    console.log('District ID:', showEditModal);
-
-    // Update district only
-    const districtResult = await dispatch(updateDistrict({
-      id: showEditModal,
-      data: districtUpdateData
-    })).unwrap();
-
-    console.log('Update result:', districtResult);
-
-    // Check if the update was successful
-    if (districtResult && districtResult.success) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Success!',
-        text: 'District updated successfully!',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50',
-        timer: 2000
-      });
-      
-      resetEditForm();
-      
-      // Force a fresh fetch to ensure UI is updated
-      await dispatch(getDistrictsByBrand(user.brand_id));
-      
-      setTimeout(() => {
-        setShowEditModal(null);
-      }, 100);
-    } else {
-      throw new Error(districtResult?.error || 'Update failed');
+    // Validate required fields
+    if (!editFormData.name) {
+      setFormError('District name is required');
+      return;
     }
-    
-  } catch (err) {
-    console.error('District update failed:', err);
-    setFormError(err?.error || 'Failed to update district. Please try again.');
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: err?.error || 'Failed to update district. Please try again.',
-      confirmButtonText: 'OK',
-      confirmButtonColor: '#d33'
-    });
-  }
-};
 
-// Toggle district status
-const handleToggleStatus = async (district) => {
-  try {
-    // Show loading state if needed
-    setIsSubmitting(true);
+    console.log('Edit form data before submit:', editFormData);
 
-    // Prepare update data - only include fields that can be updated
-    const updateData = {
-      name: district.name,
-      description: district.description || '',
-      is_active: !district.is_active
-      // DO NOT include manager_id or brand_id here unless you want to update them
-    };
+    try {
+      // Prepare district update data - REMOVED description
+      const districtUpdateData = {
+        name: editFormData.name,
+        is_active: editFormData.is_active
+      };
 
-    console.log('Sending update request:', {
-      districtId: district.id,
-      updateData: updateData
-    });
+      console.log('Sending update data:', districtUpdateData);
+      console.log('District ID:', showEditModal);
 
-    // Dispatch the update action
-    const result = await dispatch(updateDistrict({
-      id: district.id,
-      data: updateData
-    })).unwrap();
+      // Update district only
+      const districtResult = await dispatch(updateDistrict({
+        id: showEditModal,
+        data: districtUpdateData
+      })).unwrap();
 
-    console.log('Update response:', result);
+      console.log('Update result:', districtResult);
 
-    // Check if the update was successful
-    if (result && result.success) {
-      // Instead of refetching all districts, update the local state
-      // This will be more efficient and avoid race conditions
+      // Check if the update was successful
+      if (districtResult && districtResult.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Success!',
+          text: 'District updated successfully!',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#4CAF50',
+          timer: 2000
+        });
+        
+        resetEditForm();
+        
+        // Force a fresh fetch to ensure UI is updated
+        await dispatch(getDistrictsByBrand(user.brand_id));
+        
+        setTimeout(() => {
+          setShowEditModal(null);
+        }, 100);
+      } else {
+        throw new Error(districtResult?.error || 'Update failed');
+      }
       
-      // Option 1: Refresh the districts list (safer approach)
-      await dispatch(getDistrictsByBrand(user.brand_id));
-      
-      // Show success message
+    } catch (err) {
+      console.error('District update failed:', err);
+      setFormError(err?.error || 'Failed to update district. Please try again.');
       Swal.fire({
-        icon: 'success',
-        title: 'Status Updated',
-        text: `${district.name} has been ${!district.is_active ? 'activated' : 'deactivated'} successfully.`,
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to update district. Please try again.',
         confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50',
-        timer: 2000
+        confirmButtonColor: '#d33'
       });
-    } else {
-      throw new Error(result?.error || 'Failed to update status');
     }
-  } catch (err) {
-    console.error('Failed to toggle district status:', err);
-    
-    // Show error message
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: err?.error || err?.message || 'Failed to update district status.',
-      confirmButtonText: 'OK',
-      confirmButtonColor: '#d33'
-    });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
-// Add this near the top of your Districts component, after your other useEffects
-useEffect(() => {
-  console.log('districtsByBrand updated:', districtsByBrand);
-}, [districtsByBrand]);
+  // Toggle district status - REMOVED description
+  const handleToggleStatus = async (district) => {
+    try {
+      setIsSubmitting(true);
 
-  // Edit district
+      // Prepare update data - only include fields that can be updated
+      const updateData = {
+        name: district.name,
+        is_active: !district.is_active
+      };
+
+      console.log('Sending update request:', {
+        districtId: district.id,
+        updateData: updateData
+      });
+
+      const result = await dispatch(updateDistrict({
+        id: district.id,
+        data: updateData
+      })).unwrap();
+
+      console.log('Update response:', result);
+
+      if (result && result.success) {
+        await dispatch(getDistrictsByBrand(user.brand_id));
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Status Updated',
+          text: `${district.name} has been ${!district.is_active ? 'activated' : 'deactivated'} successfully.`,
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#4CAF50',
+          timer: 2000
+        });
+      } else {
+        throw new Error(result?.error || 'Failed to update status');
+      }
+    } catch (err) {
+      console.error('Failed to toggle district status:', err);
+      
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || err?.message || 'Failed to update district status.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Edit district - REMOVED description
   const handleEdit = (district) => {
+    console.log('Editing district:', district);
     setShowEditModal(district.id);
     setEditFormData({
       name: district.name,
-      description: district.description || '',
       is_active: district.is_active
     });
   };
@@ -456,7 +426,6 @@ useEffect(() => {
   const resetForm = () => {
     setFormData({
       name: '',
-      description: '',
       is_active: true
     });
   };
@@ -482,6 +451,11 @@ useEffect(() => {
       [name]: type === 'checkbox' ? checked : value
     }));
   };
+
+  // Add this for debugging
+  useEffect(() => {
+    console.log('districtsByBrand updated:', districtsByBrand);
+  }, [districtsByBrand]);
 
   // Show skeleton during initial load
   if (isInitialLoad && loading) {
@@ -526,7 +500,7 @@ useEffect(() => {
         </button>
       </div>
 
-      {/* Create District Form */}
+      {/* Create District Form - REMOVED description */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Create New District</h2>
@@ -564,20 +538,6 @@ useEffect(() => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Optional description about this district"
-                  />
-                </div>
-
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -608,7 +568,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Districts Table */}
+      {/* Districts Table - REMOVED Description column */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading && !isInitialLoad ? (
           <div className="py-12 text-center">
@@ -632,9 +592,6 @@ useEffect(() => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     District Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Shops
@@ -666,11 +623,6 @@ useEffect(() => {
                             <div>
                               <div className="font-medium text-gray-900">{district.name}</div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 max-w-xs truncate">
-                            {district.description || 'No description'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -729,10 +681,10 @@ useEffect(() => {
                         </td>
                       </tr>
 
-                      {/* Expanded Shops Dropdown Row */}
+                      {/* Expanded Shops Dropdown Row - Updated colSpan */}
                       {isExpanded && (
                         <tr className="bg-gray-50">
-                          <td colSpan="5" className="px-6 py-4">
+                          <td colSpan="4" className="px-6 py-4">
                             <div className="ml-14">
                               <div className="mb-3">
                                 <div className="flex items-center justify-between mb-4">
@@ -829,7 +781,7 @@ useEffect(() => {
         )}
       </div>
 
-      {/* Edit District Modal */}
+      {/* Edit District Modal - REMOVED description */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -866,20 +818,6 @@ useEffect(() => {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter district name"
                         required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Description
-                      </label>
-                      <textarea
-                        name="description"
-                        value={editFormData.description || ''}
-                        onChange={handleEditInputChange}
-                        rows="3"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Optional description about this district"
                       />
                     </div>
 
