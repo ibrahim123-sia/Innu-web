@@ -406,15 +406,11 @@ const Overview = () => {
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Total Videos</h3>
+              <h3 className="text-sm text-gray-500">Total AI Videos</h3>
               <p className="text-3xl font-bold text-red-600 mt-2">
                 {getTotalVideos()}
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                {videosByBrand && videosByBrand.length > 0
-                  ? `${videosByBrand.length} brands with videos`
-                  : "No videos yet"}
-              </p>
+             
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
               <svg
