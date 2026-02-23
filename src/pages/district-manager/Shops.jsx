@@ -13,9 +13,27 @@ import {
   selectDistrictsByBrand,
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
+import axios from 'axios';
 
 // Import SweetAlert for popup notifications
 import Swal from 'sweetalert2';
+
+// Create axios instance
+const API = axios.create({
+  baseURL: 'https://innu-api-112488489004.us-central1.run.app/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add request interceptor to attach token
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // Default images
 const DEFAULT_SHOP_IMAGE = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
@@ -90,6 +108,7 @@ const Shops = () => {
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentUserDistrict, setCurrentUserDistrict] = useState(null);
+  const [isLoadingUserDistrict, setIsLoadingUserDistrict] = useState(false);
   
   // Add initial load state
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -131,6 +150,72 @@ const Shops = () => {
   ];
 
   // ============================================
+  // DIRECT API CALL TO GET CURRENT USER'S DISTRICT
+  // ============================================
+  const fetchCurrentUserDistrict = async () => {
+    if (!user?.id) return;
+    
+    setIsLoadingUserDistrict(true);
+    try {
+      // Try to get district where current user is the manager
+      // This endpoint should return the district(s) managed by this user
+      const response = await API.get(`/districts/manager/${user.id}`);
+      
+      if (response.data && response.data.data) {
+        // If the API returns a single district
+        const districtData = response.data.data;
+        setCurrentUserDistrict(districtData);
+        
+        // Auto-set the district in form data
+        setFormData(prev => ({
+          ...prev,
+          district_id: districtData.id
+        }));
+        
+        console.log('Current user district loaded:', districtData);
+      } else if (Array.isArray(response.data) && response.data.length > 0) {
+        // If the API returns an array of districts
+        const districtData = response.data[0];
+        setCurrentUserDistrict(districtData);
+        
+        setFormData(prev => ({
+          ...prev,
+          district_id: districtData.id
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user district:', error);
+      
+      // Alternative: Try to get district by user ID from a different endpoint
+      try {
+        // Fallback: Try to get all districts and find the one where this user is manager
+        const districtsResponse = await API.get(`/districts/brand/${user.brand_id}`);
+        
+        if (districtsResponse.data && districtsResponse.data.data) {
+          const districtsList = districtsResponse.data.data;
+          const userDistrict = districtsList.find(district => 
+            district.manager_id === user.id || 
+            district.manager === user.id ||
+            district.district_manager_id === user.id
+          );
+          
+          if (userDistrict) {
+            setCurrentUserDistrict(userDistrict);
+            setFormData(prev => ({
+              ...prev,
+              district_id: userDistrict.id
+            }));
+          }
+        }
+      } catch (fallbackError) {
+        console.error('Fallback district fetch also failed:', fallbackError);
+      }
+    } finally {
+      setIsLoadingUserDistrict(false);
+    }
+  };
+
+  // ============================================
   // EFFECTS
   // ============================================
 
@@ -140,29 +225,12 @@ const Shops = () => {
     }
   }, [dispatch, user?.brand_id]);
 
-  // Find current user's district from loaded districts
+  // Fetch current user's district after user is loaded
   useEffect(() => {
-    if (districts.length > 0 && user) {
-      // Try to find the district where current user is the manager
-      // Check different possible field names for manager ID
-      const userDistrict = districts.find(district => 
-        district.manager_id === user.id || 
-        district.manager === user.id ||
-        district.district_manager_id === user.id ||
-        district.districtManagerId === user.id ||
-        district.managerId === user.id
-      );
-      
-      if (userDistrict) {
-        setCurrentUserDistrict(userDistrict);
-        // Auto-set the district in form data
-        setFormData(prev => ({
-          ...prev,
-          district_id: userDistrict.id
-        }));
-      }
+    if (user?.id) {
+      fetchCurrentUserDistrict();
     }
-  }, [districts, user]);
+  }, [user?.id]);
 
   // Handle loading completion
   useEffect(() => {
@@ -199,15 +267,8 @@ const Shops = () => {
     return district ? district.name : 'Unknown District';
   };
 
-  const isCurrentUserDistrictManager = (districtId) => {
-    const district = districts.find(d => d.id === districtId);
-    if (!district) return false;
-    
-    return district.manager_id === user?.id || 
-           district.manager === user?.id ||
-           district.district_manager_id === user?.id ||
-           district.districtManagerId === user?.id ||
-           district.managerId === user?.id;
+  const isCurrentUserDistrict = (districtId) => {
+    return currentUserDistrict?.id === districtId;
   };
 
   // ============================================
@@ -500,7 +561,7 @@ const Shops = () => {
   // ============================================
 
   // Show skeleton during initial load
-  if (isInitialLoad || (loading && !isDataReady)) {
+  if (isInitialLoad || (loading && !isDataReady) || isLoadingUserDistrict) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
         {/* Header Skeleton */}
@@ -673,18 +734,24 @@ const Shops = () => {
                     value={formData.district_id}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={isLoadingUserDistrict}
                   >
                     <option value="">None (Shop without district)</option>
                     {districts.map(district => (
                       <option key={district.id} value={district.id}>
                         {district.name}
-                        {isCurrentUserDistrictManager(district.id) && ' (Your District)'}
+                        {isCurrentUserDistrict(district.id) && ' (Your District)'}
                       </option>
                     ))}
                   </select>
                   {currentUserDistrict && formData.district_id === currentUserDistrict.id && (
                     <p className="text-xs text-green-600 mt-1">
                       ✓ Auto-selected your district: {currentUserDistrict.name}
+                    </p>
+                  )}
+                  {isLoadingUserDistrict && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Loading your district...
                     </p>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
@@ -708,14 +775,14 @@ const Shops = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingUserDistrict}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  isSubmitting
+                  isSubmitting || isLoadingUserDistrict
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isSubmitting ? 'Creating Shop...' : 'Create Shop'}
+                {isSubmitting ? 'Creating Shop...' : isLoadingUserDistrict ? 'Loading Your District...' : 'Create Shop'}
               </button>
             </div>
           </form>
@@ -784,7 +851,7 @@ const Shops = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {getDistrictName(shop.district_id)}
-                        {isCurrentUserDistrictManager(shop.district_id) && (
+                        {isCurrentUserDistrict(shop.district_id) && (
                           <span className="ml-2 text-xs text-green-600">(Your District)</span>
                         )}
                       </td>
@@ -977,7 +1044,7 @@ const Shops = () => {
                         {districts.map(district => (
                           <option key={district.id} value={district.id}>
                             {district.name}
-                            {isCurrentUserDistrictManager(district.id) && ' (Your District)'}
+                            {isCurrentUserDistrict(district.id) && ' (Your District)'}
                           </option>
                         ))}
                       </select>
