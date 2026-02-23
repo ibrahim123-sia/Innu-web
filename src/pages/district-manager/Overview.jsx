@@ -130,20 +130,20 @@ const Overview = () => {
     console.log('shopsByDistrict length:', shopsByDistrict?.length);
   }, [shopsByDistrict]);
   
-  // Get shops for this district - FIXED: Handle different data structures
+  // ✅ FIXED: Extract shops from the data object structure
   const filteredShops = useMemo(() => {
     if (!shopsByDistrict) return [];
+    
+    // If shopsByDistrict has a data property that is an array (most common case)
+    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
+      console.log('Found shops in shopsByDistrict.data:', shopsByDistrict.data.length);
+      return shopsByDistrict.data;
+    }
     
     // If shopsByDistrict is already an array
     if (Array.isArray(shopsByDistrict)) {
       console.log('shopsByDistrict is array with length:', shopsByDistrict.length);
       return shopsByDistrict;
-    }
-    
-    // If shopsByDistrict has a data property that is an array
-    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
-      console.log('shopsByDistrict.data is array with length:', shopsByDistrict.data.length);
-      return shopsByDistrict.data;
     }
     
     // If shopsByDistrict has a shops property that is an array
@@ -274,7 +274,7 @@ const Overview = () => {
       
       let videosData = [];
       
-      // Extract videos data following the pattern from Analytics.jsx
+      // ✅ FIXED: Extract videos from data property first (most common case)
       if (result?.data && Array.isArray(result.data)) {
         videosData = result.data;
       } else if (Array.isArray(result)) {
@@ -311,7 +311,7 @@ const Overview = () => {
       
       let videosData = [];
       
-      // Extract videos data following the pattern from Analytics.jsx
+      // ✅ FIXED: Extract videos from data property first
       if (result?.data && Array.isArray(result.data)) {
         videosData = result.data;
       } else if (Array.isArray(result)) {
