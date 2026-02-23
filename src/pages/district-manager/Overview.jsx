@@ -12,13 +12,10 @@ import {
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
-  // ✅ CORRECT SELECTORS FROM VIDEO SLICE - remove getVideoStats
+  // ✅ CORRECT SELECTORS FOR DISTRICT MANAGER
+  getVideosByDistrict,
   selectVideos,
-  // selectDerivedVideoStats, // This doesn't exist either
-  // selectStatusDistribution, // This doesn't exist either
-  selectVideoLoading,
-  getAllVideos
-  // getVideoStats // REMOVE THIS - doesn't exist
+  selectVideoLoading
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
 
@@ -31,7 +28,7 @@ const Overview = () => {
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
   
-  // ✅ FIXED: Use only existing video selectors
+  // ✅ FIXED: Use videos from Redux (will be populated by getVideosByDistrict)
   const allVideos = useSelector(selectVideos) || [];
   const videoLoading = useSelector(selectVideoLoading);
   
@@ -39,17 +36,28 @@ const Overview = () => {
   
   // Local state
   const [loading, setLoading] = useState(true);
+  const [districtVideos, setDistrictVideos] = useState([]);
   
   // Get shops for this district
   const filteredShops = useMemo(() => {
     if (shopsByDistrict && districtId) {
-      // shopsByDistrict should already be filtered by district from the API
       return shopsByDistrict;
     }
     return [];
   }, [shopsByDistrict, districtId]);
 
-  // ✅ SIMPLE: Calculate DAILY ORDERS (last 24 hours)
+  // ✅ CORRECT: Filter videos that belong to this district's shops
+  useEffect(() => {
+    if (filteredShops.length > 0 && allVideos.length > 0) {
+      const shopIds = filteredShops.map(shop => shop.id);
+      const filtered = allVideos.filter(video => shopIds.includes(video.shop_id));
+      setDistrictVideos(filtered);
+    } else {
+      setDistrictVideos([]);
+    }
+  }, [filteredShops, allVideos]);
+
+  // Calculate daily orders
   const dailyOrders = useMemo(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -60,12 +68,6 @@ const Overview = () => {
       return orderDate >= yesterday;
     }).length;
   }, [districtOrders]);
-
-  // Get videos for this district
-  const districtVideos = useMemo(() => {
-    const shopIds = filteredShops.map(shop => shop.id);
-    return allVideos.filter(video => shopIds.includes(video.shop_id));
-  }, [filteredShops, allVideos]);
 
   // Calculate video stats from district videos
   const totalVideos = districtVideos.length;
@@ -79,6 +81,21 @@ const Overview = () => {
   // Shop stats
   const totalShops = filteredShops.length;
   const activeShops = filteredShops.filter(shop => shop.is_active).length;
+
+  // ✅ CORRECT: Find top performing shop based on video count
+  const topPerformingShop = useMemo(() => {
+    if (!filteredShops.length || !districtVideos.length) return null;
+    
+    // Calculate video count per shop
+    const shopVideoCounts = filteredShops.map(shop => ({
+      shop,
+      videoCount: districtVideos.filter(v => v.shop_id === shop.id).length
+    }));
+    
+    // Sort by video count and get the top shop
+    const sorted = shopVideoCounts.sort((a, b) => b.videoCount - a.videoCount);
+    return sorted[0];
+  }, [filteredShops, districtVideos]);
 
   // Videos created today
   const videosToday = useMemo(() => {
@@ -119,8 +136,7 @@ const Overview = () => {
       await Promise.all([
         dispatch(getShopsByDistrict(districtId)),
         dispatch(getOrdersByDistrict(districtId)),
-        dispatch(getAllVideos()) // ✅ Fetch all videos - this exists
-        // dispatch(getVideoStats()) // REMOVED - doesn't exist
+        dispatch(getVideosByDistrict(districtId)) // ✅ Use district-specific video fetch
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -139,7 +155,7 @@ const Overview = () => {
 
   return (
     <div>
-      {/* Stats Grid - All showing DAILY numbers */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
           <div className="flex items-center justify-between">
@@ -296,18 +312,30 @@ const Overview = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Top Performing Shop</h2>
           
-          {filteredShops.length > 0 ? (
+          {topPerformingShop ? (
             <div className="border rounded-lg p-4">
               <div className="flex items-center space-x-4 mb-3">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm3 6a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                  </svg>
+                  {topPerformingShop.shop.logo_url ? (
+                    <img 
+                      src={topPerformingShop.shop.logo_url} 
+                      alt={topPerformingShop.shop.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+                      }}
+                    />
+                  ) : (
+                    <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm3 6a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                    </svg>
+                  )}
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">{filteredShops[0]?.name}</h3>
+                  <h3 className="font-bold text-lg">{topPerformingShop.shop.name}</h3>
                   <p className="text-sm text-gray-500">
-                    {filteredShops[0]?.city}{filteredShops[0]?.state ? `, ${filteredShops[0]?.state}` : ''}
+                    {topPerformingShop.shop.city}{topPerformingShop.shop.state ? `, ${topPerformingShop.shop.state}` : ''}
                   </p>
                 </div>
               </div>
@@ -320,7 +348,7 @@ const Overview = () => {
                     </svg>
                     <div>
                       <div className="text-xl font-bold text-blue-600">
-                        {districtVideos.filter(v => v.shop_id === filteredShops[0]?.id).length}
+                        {topPerformingShop.videoCount}
                       </div>
                       <div className="text-xs text-blue-500">Videos</div>
                     </div>
@@ -334,7 +362,7 @@ const Overview = () => {
                     </svg>
                     <div>
                       <div className="text-xl font-bold text-green-600">
-                        {filteredShops[0]?.is_active ? 'Active' : 'Inactive'}
+                        {topPerformingShop.shop.is_active ? 'Active' : 'Inactive'}
                       </div>
                       <div className="text-xs text-green-500">Status</div>
                     </div>
@@ -346,16 +374,16 @@ const Overview = () => {
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium">Status:</span>
                   <span className={`px-2 py-1 rounded text-xs ${
-                    filteredShops[0]?.is_active 
+                    topPerformingShop.shop.is_active 
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {filteredShops[0]?.is_active ? 'Active' : 'Inactive'}
+                    {topPerformingShop.shop.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <div className="text-sm">
                   <span className="font-medium">Tekmetric ID:</span>{' '}
-                  {filteredShops[0]?.tekmetric_shop_id || 'Not set'}
+                  {topPerformingShop.shop.tekmetric_shop_id || 'Not set'}
                 </div>
               </div>
             </div>
@@ -440,30 +468,6 @@ const Overview = () => {
                 <div className="text-xl font-bold text-gray-800">{videosToday}</div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activity - Only Daily Stats */}
-      <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Activity</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-sm text-gray-600 font-medium">Daily Orders</h3>
-            <p className="text-2xl font-bold text-gray-800 mt-1">{dailyOrders}</p>
-            <p className="text-xs text-gray-500">Last 24 hours</p>
-          </div>
-          
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="text-sm text-blue-600 font-medium">Processing Videos</h3>
-            <p className="text-2xl font-bold text-blue-700 mt-1">{processingVideos}</p>
-            <p className="text-xs text-blue-600">Currently processing</p>
-          </div>
-          
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-sm text-green-600 font-medium">Completed Today</h3>
-            <p className="text-2xl font-bold text-green-700 mt-1">{completedToday}</p>
-            <p className="text-xs text-green-600">Last 24 hours</p>
           </div>
         </div>
       </div>
