@@ -15,7 +15,6 @@ import {
   // ✅ CORRECT SELECTORS FROM VIDEO SLICE
   getVideosByDistrict,  // For main section
   getVideosByShop,      // For top shop
-  selectVideos,         // To access the videos after fetch
   selectVideoLoading,
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
@@ -29,16 +28,14 @@ const Overview = () => {
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
   
-  // ✅ Get all videos from Redux (will be populated by getVideosByDistrict)
-  const allVideos = useSelector(selectVideos) || [];
   const videoLoading = useSelector(selectVideoLoading);
-  
   const orderLoading = useSelector(selectOrderLoading);
   
-  // Local state
+  // Local state for videos (following Analytics pattern)
+  const [districtVideos, setDistrictVideos] = useState([]);
+  const [topShopVideos, setTopShopVideos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [topShopVideos, setTopShopVideos] = useState([]); // For top shop's videos
-  const [districtVideos, setDistrictVideos] = useState([]); // For district videos
+  const [dataFetched, setDataFetched] = useState(false);
   
   // Get shops for this district
   const filteredShops = useMemo(() => {
@@ -109,50 +106,86 @@ const Overview = () => {
     }
   }, [topShop]);
 
-  // Fetch initial data
+  // Fetch initial data when districtId changes
   useEffect(() => {
     if (districtId) {
       fetchData();
     }
   }, [districtId]);
 
+  // Fetch data when shops are loaded (for refresh case) - following Analytics pattern
+  useEffect(() => {
+    if (filteredShops && filteredShops.length > 0 && !dataFetched) {
+      console.log('Shops loaded, fetching video data for district');
+      fetchVideosForDistrict();
+    }
+  }, [filteredShops, dataFetched]);
+
   const fetchData = async () => {
     if (!districtId) return;
     
     setLoading(true);
+    setDataFetched(false);
+    
     try {
-      // Fetch all data in parallel
+      console.log('Fetching base data for district:', districtId);
+      
       await Promise.all([
-        dispatch(getShopsByDistrict(districtId)),
-        dispatch(getOrdersByDistrict(districtId)),
-        dispatch(getVideosByDistrict(districtId)).unwrap() // ✅ Use unwrap() to get the actual response
+        dispatch(getShopsByDistrict(districtId)).unwrap(),
+        dispatch(getOrdersByDistrict(districtId)).unwrap()
       ]);
       
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching base data:', error);
+      setLoading(false);
+    }
+  };
+
+  // ✅ Fetch videos for district - following Analytics pattern exactly
+  const fetchVideosForDistrict = async () => {
+    if (!districtId) return;
+    
+    try {
+      console.log(`Fetching videos for district: ${districtId}`);
+      const result = await dispatch(getVideosByDistrict(districtId)).unwrap();
+      console.log(`Videos response for district ${districtId}:`, result);
+      
+      let videosData = [];
+      
+      // Extract videos data following the pattern from Analytics.jsx
+      if (result?.data && Array.isArray(result.data)) {
+        videosData = result.data;
+      } else if (Array.isArray(result)) {
+        videosData = result;
+      } else if (result && typeof result === 'object') {
+        const possibleArray = Object.values(result).find(val => Array.isArray(val));
+        if (possibleArray) {
+          videosData = possibleArray;
+        }
+      }
+      
+      console.log(`Setting ${videosData.length} videos for district ${districtId}`);
+      setDistrictVideos(videosData);
+      setDataFetched(true);
+      
+    } catch (error) {
+      console.error(`Error fetching videos for district ${districtId}:`, error);
+      setDistrictVideos([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Process district videos whenever allVideos changes
-  useEffect(() => {
-    if (allVideos && allVideos.length > 0 && filteredShops.length > 0) {
-      const shopIds = filteredShops.map(shop => shop.id);
-      const filtered = allVideos.filter(video => shopIds.includes(video.shop_id));
-      setDistrictVideos(filtered);
-      console.log(`Filtered ${filtered.length} videos for district ${districtId}`);
-    } else {
-      setDistrictVideos([]);
-    }
-  }, [allVideos, filteredShops, districtId]);
-
+  // ✅ Fetch videos for top shop - following Analytics pattern
   const fetchTopShopVideos = async (shopId) => {
     try {
+      console.log(`Fetching videos for top shop: ${shopId}`);
       const result = await dispatch(getVideosByShop(shopId)).unwrap();
-      // Extract videos from response - following the pattern from Analytics.jsx
+      console.log(`Videos response for shop ${shopId}:`, result);
+      
       let videosData = [];
       
+      // Extract videos data following the pattern from Analytics.jsx
       if (result?.data && Array.isArray(result.data)) {
         videosData = result.data;
       } else if (Array.isArray(result)) {
@@ -481,11 +514,11 @@ const Overview = () => {
             </Link>
           </div>
 
-       
+        
         </div>
       </div>
 
-    
+      
     </div>
   );
 };
