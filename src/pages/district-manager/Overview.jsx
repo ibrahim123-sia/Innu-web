@@ -1,4 +1,4 @@
-// src/components/DistrictManager/Overview.jsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
@@ -12,14 +12,14 @@ import {
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
-  // ✅ CORRECT SELECTORS FROM VIDEO SLICE
-  getVideosByDistrict,  // For main section
-  getVideosByShop,      // For top shop
+
+  getVideosByDistrict,  
+  getVideosByShop,     
   selectVideoLoading,
 } from '../../redux/slice/videoSlice';
 import { Link } from 'react-router-dom';
 
-// Skeleton Components (copied from Analytics.jsx and adapted)
+
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -123,32 +123,24 @@ const Overview = () => {
   const [isDataReady, setIsDataReady] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   
-  // Debug: Log shopsByDistrict
-  useEffect(() => {
-    console.log('shopsByDistrict from selector:', shopsByDistrict);
-    console.log('Is shopsByDistrict array?', Array.isArray(shopsByDistrict));
-    console.log('shopsByDistrict length:', shopsByDistrict?.length);
-  }, [shopsByDistrict]);
-  
-  // ✅ FIXED: Extract shops from the data object structure
+
   const filteredShops = useMemo(() => {
     if (!shopsByDistrict) return [];
     
-    // If shopsByDistrict has a data property that is an array (most common case)
+   
     if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
-      console.log('Found shops in shopsByDistrict.data:', shopsByDistrict.data.length);
+      
       return shopsByDistrict.data;
     }
     
     // If shopsByDistrict is already an array
     if (Array.isArray(shopsByDistrict)) {
-      console.log('shopsByDistrict is array with length:', shopsByDistrict.length);
       return shopsByDistrict;
     }
     
     // If shopsByDistrict has a shops property that is an array
     if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
-      console.log('shopsByDistrict.shops is array with length:', shopsByDistrict.shops.length);
+  
       return shopsByDistrict.shops;
     }
     
@@ -368,11 +360,9 @@ const Overview = () => {
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Video Requests</h3>
+              <h3 className="text-sm text-gray-500">AI Video Requests</h3>
               <p className="text-3xl font-bold text-red-600 mt-2">{totalVideos}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                {videosToday} today
-              </p>
+             
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -385,7 +375,7 @@ const Overview = () => {
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Daily Orders</h3>
+              <h3 className="text-sm text-gray-500">Daily Repair Orders</h3>
               <p className="text-3xl font-bold text-indigo-600 mt-2">{dailyOrders}</p>
               <p className="text-xs text-gray-400 mt-1">
                 Last 24 hours
@@ -540,8 +530,8 @@ const Overview = () => {
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-gray-800">View Videos</h3>
-                <p className="text-sm text-gray-500">Manage and monitor videos</p>
+                <h3 className="font-medium text-gray-800">View Users</h3>
+                <p className="text-sm text-gray-500">Manage and monitor users</p>
               </div>
               <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
