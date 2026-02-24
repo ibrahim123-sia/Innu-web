@@ -501,7 +501,7 @@ const Analytics = () => {
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{brand.name}</div>
-                            <div className="text-xs text-gray-500">{brand.email || 'No email'}</div>
+                            
                           </div>
                         </div>
                       </td>
