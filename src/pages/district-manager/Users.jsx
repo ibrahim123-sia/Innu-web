@@ -80,8 +80,9 @@ const Users = () => {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.user.currentUser);
   const brandId = currentUser?.brand_id;
+  const userDistrictId = currentUser?.district_id;
   
-  // Data from Redux - FIXED: Direct access to state.user.users
+  // Data from Redux
   const users = useSelector(state => state.user.users) || [];
   const loading = useSelector(state => state.user.loading);
   const error = useSelector(state => state.user.error);
@@ -89,13 +90,14 @@ const Users = () => {
   const shops = useSelector(selectShopsForBrand(brandId)) || [];
   const districts = useSelector(selectDistrictsByBrand) || [];
   
-  // Add initial load state (following Analytics pattern)
+  // Add initial load state
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   
   // UI States
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   
@@ -105,14 +107,17 @@ const Users = () => {
   const [editProfilePicFile, setEditProfilePicFile] = useState(null);
   const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
   
+  // View data state
+  const [viewData, setViewData] = useState({});
+  
   // Form states
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
     email: '',
-    role: 'shop_manager', // Default to shop_manager for district managers
+    role: 'shop_manager',
     shop_id: '',
-    district_id: '',
+    district_id: userDistrictId || '', // Auto-set to current user's district
     is_active: true
   });
   
@@ -121,7 +126,7 @@ const Users = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [emailExistsError, setEmailExistsError] = useState('');
 
-  // Role options - District Manager can only create Shop Manager and Technician
+  // Role options
   const roles = [
     { value: 'shop_manager', label: 'Shop Manager' },
     { value: 'technician', label: 'Technician' }
@@ -129,6 +134,16 @@ const Users = () => {
 
   // Check if current user is district manager
   const isDistrictManager = currentUser?.role === 'district_manager';
+
+  // ============================================
+  // FILTER USERS - REMOVE BRAND ADMIN
+  // ============================================
+  const filteredUsers = React.useMemo(() => {
+    if (!users || users.length === 0) return [];
+    
+    // Filter out users with role 'brand_admin'
+    return users.filter(user => user.role !== 'brand_admin');
+  }, [users]);
 
   // ============================================
   // EFFECTS
@@ -142,13 +157,13 @@ const Users = () => {
 
   // Handle loading completion
   useEffect(() => {
-    if (!loading && !localLoading && users) {
+    if (!loading && !localLoading && filteredUsers) {
       setTimeout(() => {
         setIsInitialLoad(false);
         setIsDataReady(true);
       }, 300);
     }
-  }, [loading, localLoading, users]);
+  }, [loading, localLoading, filteredUsers]);
 
   const fetchData = async () => {
     setLocalLoading(true);
@@ -205,7 +220,7 @@ const Users = () => {
   // Check if email already exists
   const checkEmailExists = (email, excludeUserId = null) => {
     if (!email) return false;
-    const exists = users.some(u => 
+    const exists = filteredUsers.some(u => 
       u.email?.toLowerCase() === email.toLowerCase() && 
       u.id !== excludeUserId
     );
@@ -245,7 +260,6 @@ const Users = () => {
   };
 
   const getRoleLabel = (roleValue) => {
-    // Include all roles for display
     const allRoles = [
       { value: 'district_manager', label: 'District Manager' },
       { value: 'shop_manager', label: 'Shop Manager' },
@@ -273,6 +287,23 @@ const Users = () => {
         setProfilePicPreview(previewUrl);
       }
     }
+  };
+
+  // ============================================
+  // VIEW USER (for district manager role)
+  // ============================================
+  const handleViewUser = (user) => {
+    setShowViewModal(user.id);
+    setViewData({
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      email: user.email || '',
+      role: user.role || '',
+      shop_id: user.shop_id || '',
+      district_id: user.district_id || '',
+      is_active: user.is_active,
+      profile_pic: getProfilePicUrl(user.profile_pic_url)
+    });
   };
 
   // ============================================
@@ -338,7 +369,10 @@ const Users = () => {
         userFormData.append('shop_id', formData.shop_id);
       }
       
-      if (formData.district_id && formData.district_id !== '') {
+      // Auto-assign district from current user
+      if (userDistrictId) {
+        userFormData.append('district_id', userDistrictId);
+      } else if (formData.district_id && formData.district_id !== '') {
         userFormData.append('district_id', formData.district_id);
       }
       
@@ -363,7 +397,7 @@ const Users = () => {
               <p><strong>Email:</strong> ${formData.email}</p>
               <p><strong>Role:</strong> ${getRoleLabel(formData.role)}</p>
               <p><strong>Shop:</strong> ${formData.shop_id ? getShopName(formData.shop_id) : 'None'}</p>
-              <p><strong>District:</strong> ${formData.district_id ? getDistrictName(formData.district_id) : 'None'}</p>
+              <p><strong>District:</strong> ${userDistrictId ? getDistrictName(userDistrictId) : (formData.district_id ? getDistrictName(formData.district_id) : 'None')}</p>
               <br>
               <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
                 <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
@@ -532,9 +566,9 @@ const Users = () => {
       first_name: '',
       last_name: '',
       email: '',
-      role: 'shop_manager', // Reset to shop_manager for district managers
+      role: 'shop_manager',
       shop_id: '',
-      district_id: '',
+      district_id: userDistrictId || '',
       is_active: true
     });
     setProfilePicFile(null);
@@ -609,11 +643,7 @@ const Users = () => {
   // RENDER
   // ============================================
 
-  // Debug: Log the current state
-  console.log('Rendering with users:', users);
-  console.log('Users length:', users?.length);
-
-  // Show skeleton during initial load (following Analytics pattern)
+  // Show skeleton during initial load
   if (isInitialLoad || ((localLoading || loading) && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
@@ -639,7 +669,7 @@ const Users = () => {
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">Brand Users</h2>
           <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-            {users?.length || 0} Users
+            {filteredUsers?.length || 0} Users
           </span>
         </div>
         <button
@@ -836,6 +866,7 @@ const Users = () => {
                     </select>
                   </div>
 
+                  {/* District Field - Auto-selected with current user's district */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Assign District
@@ -850,9 +881,15 @@ const Users = () => {
                       {getAvailableDistricts().map(district => (
                         <option key={district.id} value={district.id}>
                           {district.name} {district.is_active ? '' : '(Inactive)'}
+                          {district.id === userDistrictId && ' (Your District)'}
                         </option>
                       ))}
                     </select>
+                    {userDistrictId && formData.district_id === userDistrictId && (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✓ Auto-selected your district
+                      </p>
+                    )}
                   </div>
 
                   <label className="flex items-center space-x-2">
@@ -886,7 +923,7 @@ const Users = () => {
         </div>
       )}
 
-      {/* Users Table */}
+      {/* Users Table - Filtered (No Brand Admin) */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
         {error ? (
           <div className="py-12 text-center">
@@ -898,7 +935,7 @@ const Users = () => {
               Retry
             </button>
           </div>
-        ) : users && users.length > 0 ? (
+        ) : filteredUsers && filteredUsers.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -924,7 +961,7 @@ const Users = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((userItem) => (
+                {filteredUsers.map((userItem) => (
                   <tr key={userItem.id} className="hover:bg-gray-50 transition-colors duration-150">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -975,12 +1012,25 @@ const Users = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(userItem)}
-                          className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm transition-colors"
-                        >
-                          Edit
-                        </button>
+                        {/* For district manager role: Show View button */}
+                        {userItem.role === 'district_manager' ? (
+                          <button
+                            onClick={() => handleViewUser(userItem)}
+                            className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm transition-colors"
+                          >
+                            View
+                          </button>
+                        ) : (
+                          /* For all other roles: Show Edit button */
+                          <button
+                            onClick={() => handleEdit(userItem)}
+                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm transition-colors"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        
+                        {/* Status toggle button for all users except when viewing? Keep as is */}
                         <button
                           onClick={() => handleToggleStatus(userItem)}
                           className={`px-3 py-1 rounded text-sm transition-colors ${
@@ -1226,6 +1276,93 @@ const Users = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View User Modal (for district manager role) */}
+      {showViewModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-blue-600">User Details</h2>
+                <button
+                  onClick={() => {
+                    setShowViewModal(null);
+                    setViewData({});
+                  }}
+                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Profile Picture */}
+                <div className="flex justify-center">
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-blue-100">
+                    <img 
+                      src={viewData.profile_pic || DEFAULT_PROFILE_PIC}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+
+                {/* User Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-500">First Name</label>
+                    <p className="font-medium text-gray-900">{viewData.first_name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-500">Last Name</label>
+                    <p className="font-medium text-gray-900">{viewData.last_name}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-sm text-gray-500">Email</label>
+                    <p className="font-medium text-gray-900">{viewData.email}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-500">Role</label>
+                    <p className="font-medium text-gray-900">{getRoleLabel(viewData.role)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-500">Status</label>
+                    <p className={`font-medium ${viewData.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                      {viewData.is_active ? 'Active' : 'Inactive'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-500">Assigned Shop</label>
+                    <p className="font-medium text-gray-900">
+                      {viewData.shop_id ? getShopName(viewData.shop_id) : 'None'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-500">Assigned District</label>
+                    <p className="font-medium text-gray-900">
+                      {viewData.district_id ? getDistrictName(viewData.district_id) : 'None'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowViewModal(null);
+                    setViewData({});
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
