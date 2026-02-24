@@ -193,25 +193,31 @@ const Brands = () => {
     return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
   };
 
-  // Validation functions
-  const validateName = (name) => {
-    if (!name || !name.trim()) {
-      return 'Company name is required';
-    }
-    if (name.trim().length < 2) {
-      return 'Company name must be at least 2 characters long';
-    }
-    if (name.trim().length > 100) {
-      return 'Company name must not exceed 100 characters';
-    }
-    // Allow letters, numbers, spaces, and common special characters like &, -, .
-    const nameRegex = /^[a-zA-Z0-9\s\&\-\.\,]+$/;
-    if (!nameRegex.test(name)) {
-      return 'Company name can only contain letters, numbers, spaces, and & - . ,';
-    }
-    return '';
-  };
-
+ // Validation functions
+const validateName = (name) => {
+  if (!name || !name.trim()) {
+    return 'Company name is required';
+  }
+  if (name.trim().length < 2) {
+    return 'Company name must be at least 2 characters long';
+  }
+  if (name.trim().length > 100) {
+    return 'Company name must not exceed 100 characters';
+  }
+  
+  // Check if name contains only numbers
+  const onlyNumbersRegex = /^\d+$/;
+  if (onlyNumbersRegex.test(name.trim())) {
+    return 'Company name cannot consist of only numbers';
+  }
+  
+  // Allow letters, numbers, spaces, and common special characters like &, -, .
+  const nameRegex = /^[a-zA-Z0-9\s\&\-\.\,]+$/;
+  if (!nameRegex.test(name)) {
+    return 'Company name can only contain letters, numbers, spaces, and & - . ,';
+  }
+  return '';
+};
   const validateEmail = (email) => {
     if (!email || !email.trim()) {
       return 'Email is required';
