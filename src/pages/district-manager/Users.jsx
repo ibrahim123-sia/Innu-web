@@ -110,14 +110,13 @@ const Users = () => {
   // View data state
   const [viewData, setViewData] = useState({});
   
-  // Form states
+  // Form states - NO DISTRICT FIELD
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
     email: '',
     role: 'shop_manager',
     shop_id: '',
-    district_id: userDistrictId || '', // Auto-set to current user's district
     is_active: true
   });
   
@@ -134,6 +133,9 @@ const Users = () => {
 
   // Check if current user is district manager
   const isDistrictManager = currentUser?.role === 'district_manager';
+
+  // Get current district name for display
+  const currentDistrict = districts.find(d => d.id === userDistrictId);
 
   // ============================================
   // FILTER USERS - REMOVE BRAND ADMIN
@@ -369,11 +371,9 @@ const Users = () => {
         userFormData.append('shop_id', formData.shop_id);
       }
       
-      // Auto-assign district from current user
+      // Auto-assign district from current user (NO DISTRICT FIELD IN FORM)
       if (userDistrictId) {
         userFormData.append('district_id', userDistrictId);
-      } else if (formData.district_id && formData.district_id !== '') {
-        userFormData.append('district_id', formData.district_id);
       }
       
       userFormData.append('is_active', formData.is_active);
@@ -397,7 +397,7 @@ const Users = () => {
               <p><strong>Email:</strong> ${formData.email}</p>
               <p><strong>Role:</strong> ${getRoleLabel(formData.role)}</p>
               <p><strong>Shop:</strong> ${formData.shop_id ? getShopName(formData.shop_id) : 'None'}</p>
-              <p><strong>District:</strong> ${userDistrictId ? getDistrictName(userDistrictId) : (formData.district_id ? getDistrictName(formData.district_id) : 'None')}</p>
+              <p><strong>District:</strong> ${currentDistrict?.name || 'Your District'} (auto-assigned)</p>
               <br>
               <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
                 <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
@@ -468,14 +468,8 @@ const Users = () => {
         hasChanges = true;
       }
       
-      if (editFormData.district_id !== editFormData.original_district_id) {
-        if (editFormData.district_id && editFormData.district_id !== '') {
-          userFormData.append('district_id', editFormData.district_id);
-        } else {
-          userFormData.append('district_id', '');
-        }
-        hasChanges = true;
-      }
+      // District is NOT editable - it's auto-assigned from current user
+      // So we don't include district_id in the update
       
       if (editFormData.is_active !== editFormData.original_is_active) {
         userFormData.append('is_active', editFormData.is_active);
@@ -568,7 +562,6 @@ const Users = () => {
       email: '',
       role: 'shop_manager',
       shop_id: '',
-      district_id: userDistrictId || '',
       is_active: true
     });
     setProfilePicFile(null);
@@ -616,27 +609,22 @@ const Users = () => {
       email: user.email || '',
       role: user.role || 'shop_manager',
       shop_id: user.shop_id || '',
-      district_id: user.district_id || '',
+      // district_id is NOT included in edit form - it's auto-assigned
       is_active: user.is_active,
       profile_pic: getProfilePicUrl(user.profile_pic_url),
       original_first_name: user.first_name || '',
       original_last_name: user.last_name || '',
       original_role: user.role || 'shop_manager',
       original_shop_id: user.shop_id || '',
-      original_district_id: user.district_id || '',
       original_is_active: user.is_active
     });
     setEditProfilePicPreview(getProfilePicUrl(user.profile_pic_url));
     setEditProfilePicFile(null);
   };
 
-  // Filter active shops and districts
+  // Filter active shops
   const getAvailableShops = () => {
     return shops.filter(shop => shop.is_active);
-  };
-
-  const getAvailableDistricts = () => {
-    return districts.filter(district => district.is_active);
   };
 
   // ============================================
@@ -687,7 +675,7 @@ const Users = () => {
         </button>
       </div>
 
-      {/* Create User Form */}
+      {/* Create User Form - NO DISTRICT FIELD */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6 animate-fadeIn">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Create New User</h2>
@@ -866,31 +854,14 @@ const Users = () => {
                     </select>
                   </div>
 
-                  {/* District Field - Auto-selected with current user's district */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assign District
-                    </label>
-                    <select
-                      name="district_id"
-                      value={formData.district_id}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">None (No district assigned)</option>
-                      {getAvailableDistricts().map(district => (
-                        <option key={district.id} value={district.id}>
-                          {district.name} {district.is_active ? '' : '(Inactive)'}
-                          {district.id === userDistrictId && ' (Your District)'}
-                        </option>
-                      ))}
-                    </select>
-                    {userDistrictId && formData.district_id === userDistrictId && (
-                      <p className="text-xs text-green-600 mt-1">
-                        ✓ Auto-selected your district
+                  {/* District Info - Display only, no dropdown */}
+                  {userDistrictId && (
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-medium">District:</span> {currentDistrict?.name || 'Your District'} (auto-assigned)
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <label className="flex items-center space-x-2">
                     <input
@@ -1030,7 +1001,7 @@ const Users = () => {
                           </button>
                         )}
                         
-                        {/* Status toggle button for all users except when viewing? Keep as is */}
+                        {/* Status toggle button for all users */}
                         <button
                           onClick={() => handleToggleStatus(userItem)}
                           className={`px-3 py-1 rounded text-sm transition-colors ${
@@ -1067,7 +1038,7 @@ const Users = () => {
         )}
       </div>
 
-      {/* Edit User Modal */}
+      {/* Edit User Modal - NO DISTRICT FIELD */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -1227,23 +1198,11 @@ const Users = () => {
                         </select>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Assign District
-                        </label>
-                        <select
-                          name="district_id"
-                          value={editFormData.district_id || ''}
-                          onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">None (No district assigned)</option>
-                          {getAvailableDistricts().map(district => (
-                            <option key={district.id} value={district.id}>
-                              {district.name} {district.is_active ? '' : '(Inactive)'}
-                            </option>
-                          ))}
-                        </select>
+                      {/* District Info - Display only, no dropdown */}
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <span className="font-medium">District:</span> {currentDistrict?.name || 'Your District'} (cannot be changed)
+                        </p>
                       </div>
 
                       <label className="flex items-center space-x-2">
