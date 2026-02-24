@@ -114,6 +114,7 @@ const Analytics = () => {
   
   // Current district data
   const [currentDistrict, setCurrentDistrict] = useState(null);
+  const [loadingDistrict, setLoadingDistrict] = useState(false);
   
   // Video and Edit data - for current district only
   const [videos, setVideos] = useState([]);
@@ -175,6 +176,7 @@ const Analytics = () => {
   const fetchCurrentDistrict = async () => {
     if (!districtId) return;
     
+    setLoadingDistrict(true);
     try {
       const response = await API.get(`/districts/${districtId}`);
       console.log('Current district response:', response.data);
@@ -186,6 +188,8 @@ const Analytics = () => {
       }
     } catch (error) {
       console.error('Error fetching current district:', error);
+    } finally {
+      setLoadingDistrict(false);
     }
   };
 
@@ -210,7 +214,8 @@ const Analytics = () => {
       await fetchCurrentDistrict();
       
       // Fetch shops for this specific district
-      await dispatch(getShopsByDistrict(districtId)).unwrap();
+      const shopResult = await dispatch(getShopsByDistrict(districtId)).unwrap();
+      console.log('Shop fetch result:', shopResult);
       
       // Fetch videos for this district
       await fetchVideosForDistrict(districtId);
@@ -336,20 +341,6 @@ const Analytics = () => {
 
   // ✅ Get district stats for current district
   const getCurrentDistrictStats = () => {
-    if (!districtId) return {
-      totalVideos: 0,
-      manualCorrections: 0,
-      successCount: 0,
-      successRate: "0.00",
-      errorRate: "0.00",
-      totalShops: filteredShops.length,
-      activeShops: filteredShops.filter(shop => shop.is_active).length,
-      completedVideos: videos.filter(v => v.status === 'completed').length,
-      processingVideos: videos.filter(v => v.status === 'processing').length,
-      pendingVideos: videos.filter(v => v.status === 'pending').length,
-      failedVideos: videos.filter(v => v.status === 'failed').length,
-    };
-    
     const totalVideos = videos.length;
     const manualCorrections = edits.length;
     const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
@@ -521,7 +512,7 @@ const Analytics = () => {
   const aiErrorRate = districtStats.errorRate;
 
   // Show skeleton during initial load
-  if (isInitialLoad || (loading && !isDataReady)) {
+  if (isInitialLoad || (loading && !isDataReady) || loadingDistrict) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
         <StatsSkeleton />
@@ -639,90 +630,106 @@ const Analytics = () => {
         </button>
       </div>
 
-      {/* District Performance Table - NOW SHOWING ONLY CURRENT DISTRICT */}
-      {viewMode === 'districts' && currentDistrict && (
+      {/* District Performance Table - SHOWING CURRENT DISTRICT */}
+      {viewMode === 'districts' && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="p-6 border-b">
             <h2 className="text-xl font-bold text-gray-800">District Performance</h2>
             <p className="text-gray-600">AI video requests and manual corrections for your district</p>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    District Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    AI Video Requests
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Manual Corrections
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Performance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                <tr key={currentDistrict.id} className="hover:bg-gray-50 transition-colors duration-150">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-blue-100">
-                        <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+          {currentDistrict ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      District Details
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      AI Video Requests
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Manual Corrections
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Performance
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  <tr key={currentDistrict.id} className="hover:bg-gray-50 transition-colors duration-150">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-blue-100">
+                          <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{currentDistrict.name}</div>
+                          <div className="text-sm text-gray-500">{districtStats.totalShops} shops, {districtStats.activeShops} active</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-lg font-bold text-blue-600">{districtStats.totalVideos}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-lg font-bold text-purple-600">{districtStats.manualCorrections}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Success Rate:</span>
+                          <span className="text-sm font-medium text-green-600">{districtStats.successRate}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div 
+                            className="bg-green-500 h-1.5 rounded-full"
+                            style={{ width: `${Math.min(parseFloat(districtStats.successRate), 100)}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Error Rate:</span>
+                          <span className="text-sm font-medium text-red-600">{districtStats.errorRate}%</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => handleViewDistrictAnalytics(currentDistrict.id)}
+                        className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-900">{currentDistrict.name}</div>
-                        <div className="text-sm text-gray-500">{districtStats.totalShops} shops, {districtStats.activeShops} active</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-lg font-bold text-blue-600">{districtStats.totalVideos}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-lg font-bold text-purple-600">{districtStats.manualCorrections}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Success Rate:</span>
-                        <span className="text-sm font-medium text-green-600">{districtStats.successRate}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div 
-                          className="bg-green-500 h-1.5 rounded-full"
-                          style={{ width: `${Math.min(parseFloat(districtStats.successRate), 100)}%` }}
-                        ></div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Error Rate:</span>
-                        <span className="text-sm font-medium text-red-600">{districtStats.errorRate}%</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleViewDistrictAnalytics(currentDistrict.id)}
-                      className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center transition-colors"
-                    >
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      View Details
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="py-12 text-center">
+              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              </svg>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No District Found</h3>
+              <p className="text-gray-500 mb-4">You are not assigned to any district.</p>
+              <button
+                onClick={fetchAllData}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Refresh Data
+              </button>
+            </div>
+          )}
         </div>
       )}
 
