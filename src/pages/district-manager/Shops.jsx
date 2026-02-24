@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  getShopsByDistrict,  // Changed from getShopsByBrand
-  selectShopsByDistrict,  // Changed from selectShopsForBrand
+  getShopsByDistrict,
+  selectShopsByDistrict,
   selectShopLoading,
   selectShopError,
   createShop,
@@ -10,8 +10,9 @@ import {
   deleteShop
 } from '../../redux/slice/shopSlice';
 import {
-  selectDistrictsByBrand,
-  getDistrictsByBrand
+  getDistrictById,
+  selectCurrentDistrict,
+  selectDistrictLoading
 } from '../../redux/slice/districtSlice';
 import axios from 'axios';
 
@@ -96,25 +97,27 @@ const TableSkeleton = () => (
 const Shops = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
-  const districtId = user?.district_id;  // Get district_id from user instead of brand_id
+  const districtId = user?.district_id;
   
-  // ✅ FIXED: Use district selectors instead of brand selectors
+  // Shop data
   const shopsByDistrict = useSelector(selectShopsByDistrict);
-  const districts = useSelector(selectDistrictsByBrand) || [];
+  
+  // Current district data from Redux
+  const currentDistrict = useSelector(selectCurrentDistrict);
+  const districtLoading = useSelector(selectDistrictLoading);
+  
   const loading = useSelector(selectShopLoading);
   const error = useSelector(selectShopError);
   
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentUserDistrict, setCurrentUserDistrict] = useState(null);
-  const [isLoadingUserDistrict, setIsLoadingUserDistrict] = useState(false);
   
   // Add initial load state
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   
-  // Updated formData with district auto-selection
+  // Form data - district_id removed from form
   const [formData, setFormData] = useState({
     name: '',
     street_address: '',
@@ -122,7 +125,6 @@ const Shops = () => {
     state: '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     tekmetric_shop_id: '',
-    district_id: '',
     is_active: true
   });
   
@@ -130,38 +132,29 @@ const Shops = () => {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
-  // ✅ FIXED: Extract shops from the data object structure (like in Overview.jsx)
+  // Extract shops from the data object structure
   const filteredShops = React.useMemo(() => {
     if (!shopsByDistrict) return [];
     
-    // If shopsByDistrict has a data property that is an array (most common case)
     if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
-      console.log('Found shops in shopsByDistrict.data:', shopsByDistrict.data.length);
       return shopsByDistrict.data;
     }
     
-    // If shopsByDistrict is already an array
     if (Array.isArray(shopsByDistrict)) {
-      console.log('shopsByDistrict is array with length:', shopsByDistrict.length);
       return shopsByDistrict;
     }
     
-    // If shopsByDistrict has a shops property that is an array
     if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
-      console.log('shopsByDistrict.shops is array with length:', shopsByDistrict.shops.length);
       return shopsByDistrict.shops;
     }
     
-    // If it's an object with numeric keys (like a dictionary)
     if (typeof shopsByDistrict === 'object') {
       const values = Object.values(shopsByDistrict);
       if (values.length > 0 && Array.isArray(values[0])) {
-        console.log('Found array in object values');
         return values[0];
       }
     }
     
-    console.log('No valid shops data found, returning empty array');
     return [];
   }, [shopsByDistrict]);
 
@@ -185,67 +178,15 @@ const Shops = () => {
   ];
 
   // ============================================
-  // DIRECT API CALL TO GET CURRENT USER'S DISTRICT
+  // FETCH CURRENT DISTRICT USING REDUX
   // ============================================
-  const fetchCurrentUserDistrict = async () => {
-    if (!user?.id) return;
+  const fetchCurrentDistrict = async () => {
+    if (!districtId) return;
     
-    setIsLoadingUserDistrict(true);
     try {
-      // Try to get district where current user is the manager
-      const response = await API.get(`/districts/manager/${user.id}`);
-      
-      if (response.data && response.data.data) {
-        // If the API returns a single district
-        const districtData = response.data.data;
-        setCurrentUserDistrict(districtData);
-        
-        // Auto-set the district in form data
-        setFormData(prev => ({
-          ...prev,
-          district_id: districtData.id
-        }));
-        
-        console.log('Current user district loaded:', districtData);
-      } else if (Array.isArray(response.data) && response.data.length > 0) {
-        // If the API returns an array of districts
-        const districtData = response.data[0];
-        setCurrentUserDistrict(districtData);
-        
-        setFormData(prev => ({
-          ...prev,
-          district_id: districtData.id
-        }));
-      }
+      await dispatch(getDistrictById(districtId)).unwrap();
     } catch (error) {
-      console.error('Error fetching user district:', error);
-      
-      // Alternative: Try to get district by user ID from a different endpoint
-      try {
-        // Fallback: Try to get all districts and find the one where this user is manager
-        const districtsResponse = await API.get(`/districts/brand/${user.brand_id}`);
-        
-        if (districtsResponse.data && districtsResponse.data.data) {
-          const districtsList = districtsResponse.data.data;
-          const userDistrict = districtsList.find(district => 
-            district.manager_id === user.id || 
-            district.manager === user.id ||
-            district.district_manager_id === user.id
-          );
-          
-          if (userDistrict) {
-            setCurrentUserDistrict(userDistrict);
-            setFormData(prev => ({
-              ...prev,
-              district_id: userDistrict.id
-            }));
-          }
-        }
-      } catch (fallbackError) {
-        console.error('Fallback district fetch also failed:', fallbackError);
-      }
-    } finally {
-      setIsLoadingUserDistrict(false);
+      console.error('Error fetching current district:', error);
     }
   };
 
@@ -253,19 +194,13 @@ const Shops = () => {
   // EFFECTS
   // ============================================
 
-  // ✅ FIXED: Fetch shops by district instead of brand
+  // Fetch shops and current district
   useEffect(() => {
-    if (user?.district_id) {
+    if (districtId) {
       fetchData();
+      fetchCurrentDistrict();
     }
-  }, [dispatch, user?.district_id]);
-
-  // Fetch current user's district after user is loaded
-  useEffect(() => {
-    if (user?.id) {
-      fetchCurrentUserDistrict();
-    }
-  }, [user?.id]);
+  }, [districtId]);
 
   // Handle loading completion
   useEffect(() => {
@@ -277,21 +212,13 @@ const Shops = () => {
     }
   }, [loading, filteredShops]);
 
-  // ✅ FIXED: Updated fetchData to use getShopsByDistrict
   const fetchData = async () => {
     setIsInitialLoad(true);
     setIsDataReady(false);
     
     try {
-      console.log('Fetching shops for district:', user?.district_id);
-      
-      // Fetch shops for this specific district
-      const shopResult = await dispatch(getShopsByDistrict(user?.district_id)).unwrap();
-      console.log('Shop fetch result:', shopResult);
-      
-      // Also fetch all districts for the brand (for dropdown)
-      await dispatch(getDistrictsByBrand(user?.brand_id)).unwrap();
-      
+      console.log('Fetching shops for district:', districtId);
+      await dispatch(getShopsByDistrict(districtId)).unwrap();
     } catch (error) {
       console.error('Error fetching data:', error);
       setIsInitialLoad(false);
@@ -302,14 +229,8 @@ const Shops = () => {
   // HELPER FUNCTIONS
   // ============================================
 
-  const getDistrictName = (districtId) => {
-    if (!districtId) return 'None';
-    const district = districts.find(d => d.id === districtId);
-    return district ? district.name : 'Unknown District';
-  };
-
-  const isCurrentUserDistrict = (districtId) => {
-    return currentUserDistrict?.id === districtId;
+  const getDistrictName = () => {
+    return currentDistrict?.name || 'Your District';
   };
 
   // ============================================
@@ -358,12 +279,19 @@ const Shops = () => {
       return;
     }
 
+    // Check if we have district ID
+    if (!districtId) {
+      setFormError('No district assigned to your account');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
-      // Create shop only - no manager creation
+      // Create shop with current district_id
       const shopData = {
         name: formData.name,
         brand_id: user.brand_id,
-        district_id: formData.district_id || null,
+        district_id: districtId, // Automatically use current district
         tekmetric_shop_id: formData.tekmetric_shop_id,
         street_address: formData.street_address,
         city: formData.city,
@@ -385,7 +313,7 @@ const Shops = () => {
               <p><strong>Tekmetric ID:</strong> ${formData.tekmetric_shop_id}</p>
               <p><strong>Location:</strong> ${formData.city}, ${formData.state}</p>
               <p><strong>Timezone:</strong> ${formData.timezone}</p>
-              <p><strong>District:</strong> ${formData.district_id ? getDistrictName(formData.district_id) : 'None'}</p>
+              <p><strong>District:</strong> ${currentDistrict?.name || 'Your District'}</p>
             </div>
           `,
           confirmButtonText: 'OK',
@@ -394,8 +322,7 @@ const Shops = () => {
         });
 
         resetForm();
-        // ✅ FIXED: Refresh shops by district
-        await dispatch(getShopsByDistrict(user?.district_id));
+        await dispatch(getShopsByDistrict(districtId));
         setTimeout(() => {
           setShowCreateForm(false);
         }, 100);
@@ -450,7 +377,7 @@ const Shops = () => {
     }
 
     try {
-      // Prepare update data
+      // Prepare update data - district_id is not editable, keep original
       const updateData = {
         name: editFormData.name,
         tekmetric_shop_id: editFormData.tekmetric_shop_id,
@@ -458,15 +385,9 @@ const Shops = () => {
         city: editFormData.city,
         state: editFormData.state,
         timezone: editFormData.timezone,
+        district_id: editFormData.district_id, // Keep original district
         is_active: editFormData.is_active
       };
-
-      // Handle district_id properly
-      if (editFormData.district_id && editFormData.district_id !== '') {
-        updateData.district_id = editFormData.district_id;
-      } else {
-        updateData.district_id = null;
-      }
 
       const result = await dispatch(updateShop({
         id: showEditModal,
@@ -484,8 +405,7 @@ const Shops = () => {
         });
         
         resetEditForm();
-        // ✅ FIXED: Refresh shops by district
-        await dispatch(getShopsByDistrict(user?.district_id));
+        await dispatch(getShopsByDistrict(districtId));
         
         setTimeout(() => {
           setShowEditModal(null);
@@ -524,8 +444,7 @@ const Shops = () => {
         data: updateData
       })).unwrap();
 
-      // ✅ FIXED: Refresh shops by district
-      await dispatch(getShopsByDistrict(user?.district_id));
+      await dispatch(getShopsByDistrict(districtId));
       
       Swal.fire({
         icon: 'success',
@@ -559,7 +478,6 @@ const Shops = () => {
       state: '',
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       tekmetric_shop_id: '',
-      district_id: currentUserDistrict?.id || '',
       is_active: true
     });
   };
@@ -595,7 +513,7 @@ const Shops = () => {
       state: shop.state || '',
       timezone: shop.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       tekmetric_shop_id: shop.tekmetric_shop_id || '',
-      district_id: shop.district_id || '',
+      district_id: shop.district_id, // Keep original district but don't show in form
       is_active: shop.is_active
     });
   };
@@ -605,7 +523,7 @@ const Shops = () => {
   // ============================================
 
   // Show skeleton during initial load
-  if (isInitialLoad || (loading && !isDataReady) || isLoadingUserDistrict) {
+  if (isInitialLoad || (loading && !isDataReady) || districtLoading) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
         {/* Header Skeleton */}
@@ -629,7 +547,7 @@ const Shops = () => {
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">
-            Shops in {currentUserDistrict?.name || 'Your District'}
+            Shops in {currentDistrict?.name || 'Your District'}
           </h2>
           <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
             {filteredShops?.length || 0} Shops
@@ -652,10 +570,10 @@ const Shops = () => {
         </button>
       </div>
 
-      {/* Create Shop Form */}
+      {/* Create Shop Form - WITHOUT DISTRICT FIELD */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6 animate-fadeIn">
-          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New Shop</h2>
+          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New Shop in {currentDistrict?.name || 'Your District'}</h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -771,37 +689,10 @@ const Shops = () => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    District
-                  </label>
-                  <select
-                    name="district_id"
-                    value={formData.district_id}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={isLoadingUserDistrict}
-                  >
-                    <option value="">None (Shop without district)</option>
-                    {districts.map(district => (
-                      <option key={district.id} value={district.id}>
-                        {district.name}
-                        {isCurrentUserDistrict(district.id) && ' (Your District)'}
-                      </option>
-                    ))}
-                  </select>
-                  {currentUserDistrict && formData.district_id === currentUserDistrict.id && (
-                    <p className="text-xs text-green-600 mt-1">
-                      ✓ Auto-selected your district: {currentUserDistrict.name}
-                    </p>
-                  )}
-                  {isLoadingUserDistrict && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      Loading your district...
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    District is optional for shops
+                {/* District Info - Display only, not editable */}
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-medium">District:</span> {currentDistrict?.name || 'Your District'} (auto-assigned)
                   </p>
                 </div>
 
@@ -821,14 +712,14 @@ const Shops = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={isSubmitting || isLoadingUserDistrict}
+                disabled={isSubmitting}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  isSubmitting || isLoadingUserDistrict
+                  isSubmitting
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isSubmitting ? 'Creating Shop...' : isLoadingUserDistrict ? 'Loading Your District...' : 'Create Shop'}
+                {isSubmitting ? 'Creating Shop...' : 'Create Shop'}
               </button>
             </div>
           </form>
@@ -896,10 +787,7 @@ const Shops = () => {
                         <div className="text-sm text-gray-500">{shop.city}, {shop.state}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {getDistrictName(shop.district_id)}
-                        {isCurrentUserDistrict(shop.district_id) && (
-                          <span className="ml-2 text-xs text-green-600">(Your District)</span>
-                        )}
+                        {shop.district_id === districtId ? currentDistrict?.name : 'Other District'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -943,8 +831,8 @@ const Shops = () => {
               alt="No shops" 
               className="w-16 h-16 mx-auto mb-4 opacity-50"
             />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Shops Found in Your District</h3>
-            <p className="text-gray-500 mb-4">Create your first shop in {currentUserDistrict?.name || 'this district'} to get started</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Shops Found in {currentDistrict?.name || 'Your District'}</h3>
+            <p className="text-gray-500 mb-4">Create your first shop in this district to get started</p>
             <button
               onClick={() => setShowCreateForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -955,7 +843,7 @@ const Shops = () => {
         )}
       </div>
 
-      {/* Edit Shop Modal */}
+      {/* Edit Shop Modal - WITHOUT DISTRICT FIELD */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -1076,24 +964,15 @@ const Shops = () => {
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        District
-                      </label>
-                      <select
-                        name="district_id"
-                        value={editFormData.district_id || ''}
-                        onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">None (Shop without district)</option>
-                        {districts.map(district => (
-                          <option key={district.id} value={district.id}>
-                            {district.name}
-                            {isCurrentUserDistrict(district.id) && ' (Your District)'}
-                          </option>
-                        ))}
-                      </select>
+                    {/* District Info - Display only, not editable */}
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-medium">District:</span> {
+                          editFormData.district_id === districtId 
+                            ? currentDistrict?.name 
+                            : 'Other District'
+                        } (cannot be changed)
+                      </p>
                     </div>
 
                     <label className="flex items-center space-x-2">
