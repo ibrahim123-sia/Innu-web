@@ -10,26 +10,13 @@ import {
 import {
   getVideosByDistrict
 } from '../../redux/slice/videoSlice';
-import axios from 'axios';
+import {
+  getDistrictById,
+  selectCurrentDistrict,
+  selectDistrictLoading
+} from '../../redux/slice/districtSlice';
 
 const DEFAULT_SHOP_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
-
-// Create axios instance
-const API = axios.create({
-  baseURL: 'https://innu-api-112488489004.us-central1.run.app/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add request interceptor to attach token
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
 
 // Skeleton Components
 const StatsSkeleton = () => (
@@ -112,9 +99,9 @@ const Analytics = () => {
   // Shop data - only shops in current district
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   
-  // Current district data
-  const [currentDistrict, setCurrentDistrict] = useState(null);
-  const [loadingDistrict, setLoadingDistrict] = useState(false);
+  // Current district data from Redux
+  const currentDistrict = useSelector(selectCurrentDistrict);
+  const districtLoading = useSelector(selectDistrictLoading);
   
   // Video and Edit data - for current district only
   const [videos, setVideos] = useState([]);
@@ -171,25 +158,17 @@ const Analytics = () => {
   }, [shopsByDistrict]);
 
   // ============================================
-  // DIRECT API CALL TO GET CURRENT DISTRICT BY ID
+  // FETCH CURRENT DISTRICT USING REDUX THUNK
   // ============================================
   const fetchCurrentDistrict = async () => {
     if (!districtId) return;
     
-    setLoadingDistrict(true);
     try {
-      const response = await API.get(`/districts/${districtId}`);
-      console.log('Current district response:', response.data);
-      
-      if (response.data && response.data.data) {
-        setCurrentDistrict(response.data.data);
-      } else if (response.data) {
-        setCurrentDistrict(response.data);
-      }
+      console.log('Fetching district by ID:', districtId);
+      const result = await dispatch(getDistrictById(districtId)).unwrap();
+      console.log('District fetch result:', result);
     } catch (error) {
       console.error('Error fetching current district:', error);
-    } finally {
-      setLoadingDistrict(false);
     }
   };
 
@@ -210,7 +189,7 @@ const Analytics = () => {
     try {
       console.log('Fetching data for district:', districtId);
       
-      // Fetch current district details
+      // Fetch current district details using Redux thunk
       await fetchCurrentDistrict();
       
       // Fetch shops for this specific district
@@ -512,7 +491,7 @@ const Analytics = () => {
   const aiErrorRate = districtStats.errorRate;
 
   // Show skeleton during initial load
-  if (isInitialLoad || (loading && !isDataReady) || loadingDistrict) {
+  if (isInitialLoad || (loading && !isDataReady) || districtLoading) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
         <StatsSkeleton />
@@ -630,7 +609,7 @@ const Analytics = () => {
         </button>
       </div>
 
-      {/* District Performance Table - SHOWING CURRENT DISTRICT */}
+      {/* District Performance Table - USING REDUX CURRENT DISTRICT */}
       {viewMode === 'districts' && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="p-6 border-b">
