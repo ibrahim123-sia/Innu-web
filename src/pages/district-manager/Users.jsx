@@ -48,6 +48,7 @@ const TableRowSkeleton = () => (
     <td className="px-6 py-4 whitespace-nowrap">
       <div className="flex space-x-2">
         <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
       </div>
     </td>
   </tr>
@@ -100,13 +101,16 @@ const Users = () => {
   
   // UI States
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(null); // For editing (for brand admin)
+  const [showViewModal, setShowViewModal] = useState(null); // For viewing (for district manager)
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   
   // File states
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [profilePicPreview, setProfilePicPreview] = useState(null);
+  const [editProfilePicFile, setEditProfilePicFile] = useState(null);
+  const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
   
   // Form states - NO district field in form data
   const [formData, setFormData] = useState({
@@ -118,6 +122,7 @@ const Users = () => {
     is_active: true
   });
   
+  const [editFormData, setEditFormData] = useState({});
   const [viewData, setViewData] = useState({});
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -312,17 +317,23 @@ const Users = () => {
   // HANDLERS
   // ============================================
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
     if (file) {
       const previewUrl = URL.createObjectURL(file);
-      setProfilePicFile(file);
-      setProfilePicPreview(previewUrl);
+      
+      if (isEdit) {
+        setEditProfilePicFile(file);
+        setEditProfilePicPreview(previewUrl);
+      } else {
+        setProfilePicFile(file);
+        setProfilePicPreview(previewUrl);
+      }
     }
   };
 
   // ============================================
-  // VIEW USER (for district managers to view details)
+  // VIEW USER (for district managers)
   // ============================================
   const handleViewUser = (user) => {
     setShowViewModal(user.id);
@@ -336,6 +347,31 @@ const Users = () => {
       is_active: user.is_active,
       profile_pic: getProfilePicUrl(user.profile_pic_url)
     });
+  };
+
+  // ============================================
+  // EDIT USER (for brand admin)
+  // ============================================
+  const handleEdit = (user) => {
+    setShowEditModal(user.id);
+    setEditFormData({
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      email: user.email || '',
+      role: user.role || 'shop_manager',
+      shop_id: user.shop_id || '',
+      district_id: user.district_id || '',
+      is_active: user.is_active,
+      profile_pic: getProfilePicUrl(user.profile_pic_url),
+      original_first_name: user.first_name || '',
+      original_last_name: user.last_name || '',
+      original_role: user.role || 'shop_manager',
+      original_shop_id: user.shop_id || '',
+      original_district_id: user.district_id || '',
+      original_is_active: user.is_active
+    });
+    setEditProfilePicPreview(getProfilePicUrl(user.profile_pic_url));
+    setEditProfilePicFile(null);
   };
 
   // ============================================
@@ -471,6 +507,130 @@ const Users = () => {
   };
 
   // ============================================
+  // EDIT USER SUBMIT (for brand admin)
+  // ============================================
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setFormSuccess('');
+
+    try {
+      const userFormData = new FormData();
+      let hasChanges = false;
+      
+      if (editFormData.first_name !== editFormData.original_first_name) {
+        userFormData.append('first_name', editFormData.first_name);
+        hasChanges = true;
+      }
+      if (editFormData.last_name !== editFormData.original_last_name) {
+        userFormData.append('last_name', editFormData.last_name);
+        hasChanges = true;
+      }
+      
+      if (editFormData.role !== editFormData.original_role) {
+        userFormData.append('role', editFormData.role);
+        hasChanges = true;
+      }
+      
+      if (editFormData.shop_id !== editFormData.original_shop_id) {
+        if (editFormData.shop_id && editFormData.shop_id !== '') {
+          userFormData.append('shop_id', editFormData.shop_id);
+        } else {
+          userFormData.append('shop_id', '');
+        }
+        hasChanges = true;
+      }
+      
+      if (editFormData.district_id !== editFormData.original_district_id) {
+        if (editFormData.district_id && editFormData.district_id !== '') {
+          userFormData.append('district_id', editFormData.district_id);
+        } else {
+          userFormData.append('district_id', '');
+        }
+        hasChanges = true;
+      }
+      
+      if (editFormData.is_active !== editFormData.original_is_active) {
+        userFormData.append('is_active', editFormData.is_active);
+        hasChanges = true;
+      }
+      
+      if (editProfilePicFile) {
+        userFormData.append('profile_pic', editProfilePicFile);
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        await dispatch(updateUser({
+          id: showEditModal,
+          data: userFormData
+        })).unwrap();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Success!',
+          text: 'User updated successfully!',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#4CAF50',
+          timer: 2000
+        });
+        
+        resetEditForm();
+        await dispatch(getBrandUsers(brandId)).unwrap();
+        setTimeout(() => {
+          setShowEditModal(null);
+        }, 100);
+      } else {
+        setShowEditModal(null);
+      }
+      
+    } catch (err) {
+      console.error('User update failed:', err);
+      setFormError(err?.error || 'Failed to update user. Please try again.');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.error || 'Failed to update user. Please try again.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+    }
+  };
+
+  // Toggle user status (for brand admin)
+  const handleToggleStatus = async (user) => {
+    try {
+      const userFormData = new FormData();
+      userFormData.append('is_active', !user.is_active);
+
+      await dispatch(updateUser({
+        id: user.id,
+        data: userFormData
+      })).unwrap();
+
+      await dispatch(getBrandUsers(brandId)).unwrap();
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Status Updated',
+        text: `${user.first_name} ${user.last_name} has been ${!user.is_active ? 'activated' : 'deactivated'} successfully.`,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4CAF50',
+        timer: 2000
+      });
+    } catch (err) {
+      console.error('Failed to toggle user status:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to update user status.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+    }
+  };
+
+  // ============================================
   // FORM HANDLERS
   // ============================================
 
@@ -488,6 +648,12 @@ const Users = () => {
     setEmailExistsError('');
   };
 
+  const resetEditForm = () => {
+    setEditFormData({});
+    setEditProfilePicFile(null);
+    setEditProfilePicPreview(null);
+  };
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
@@ -503,6 +669,15 @@ const Users = () => {
         [name]: type === 'checkbox' ? checked : value
       }));
     }
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   // Filter active shops
@@ -627,7 +802,7 @@ const Users = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={handleFileChange}
+                      onChange={(e) => handleFileChange(e, false)}
                       className="hidden"
                       name="profile_pic"
                     />
@@ -781,7 +956,7 @@ const Users = () => {
         </div>
       )}
 
-      {/* Users Table - No brand admin, View only for district manager */}
+      {/* Users Table - No brand admin */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
         {error ? (
           <div className="py-12 text-center">
@@ -879,13 +1054,25 @@ const Users = () => {
                             View
                           </button>
                         ) : (
-                          // For other roles (brand admin): Show edit button (if needed)
-                          <button
-                            onClick={() => handleViewUser(userItem)}
-                            className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm transition-colors"
-                          >
-                            View
-                          </button>
+                          /* For brand admin: Edit and Status toggle buttons */
+                          <>
+                            <button
+                              onClick={() => handleEdit(userItem)}
+                              className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleToggleStatus(userItem)}
+                              className={`px-3 py-1 rounded text-sm transition-colors ${
+                                userItem.is_active 
+                                  ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+                              }`}
+                            >
+                              {userItem.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -915,7 +1102,217 @@ const Users = () => {
         )}
       </div>
 
-      {/* View User Modal (for district managers to view details) */}
+      {/* Edit User Modal (for brand admin) */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit User</h2>
+              
+              {formError && (
+                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
+                  {formError}
+                </div>
+              )}
+              
+              {formSuccess && (
+                <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
+                  {formSuccess}
+                </div>
+              )}
+              
+              <form onSubmit={handleEditSubmit}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Left Column: Profile Picture */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-gray-700">Profile Picture</h3>
+                    
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                      {editProfilePicPreview ? (
+                        <div className="space-y-2">
+                          <img 
+                            src={editProfilePicPreview} 
+                            alt="Profile preview" 
+                            className="w-32 h-32 rounded-full mx-auto object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditProfilePicFile(null);
+                              setEditProfilePicPreview(editFormData.profile_pic);
+                            }}
+                            className="text-sm text-red-600 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <img 
+                            src={editFormData.profile_pic || DEFAULT_PROFILE_PIC}
+                            alt="Profile" 
+                            className="w-32 h-32 rounded-full mx-auto object-cover"
+                          />
+                          <p className="text-sm text-gray-500">Current profile picture</p>
+                        </div>
+                      )}
+                      <label className="block mt-4">
+                        <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                          Change Photo
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, true)}
+                          className="hidden"
+                          name="profile_pic"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Middle and Right Columns: User Info */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {/* Basic Information */}
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-700">Basic Information</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            First Name
+                          </label>
+                          <input
+                            type="text"
+                            name="first_name"
+                            value={editFormData.first_name || ''}
+                            onChange={handleEditInputChange}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="First name"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Last Name
+                          </label>
+                          <input
+                            type="text"
+                            name="last_name"
+                            value={editFormData.last_name || ''}
+                            onChange={handleEditInputChange}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Last name"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={editFormData.email || ''}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          readOnly
+                        />
+                      </div>
+                    </div>
+
+                    {/* Role and Assignments */}
+                    <div className="space-y-4 border-t pt-6">
+                      <h3 className="font-semibold text-gray-700">Role & Assignments</h3>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Role
+                        </label>
+                        <select
+                          name="role"
+                          value={editFormData.role || 'shop_manager'}
+                          onChange={handleEditInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {roles.map(role => (
+                            <option key={role.value} value={role.value}>
+                              {role.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Assign Shop
+                        </label>
+                        <select
+                          name="shop_id"
+                          value={editFormData.shop_id || ''}
+                          onChange={handleEditInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">None (No shop assigned)</option>
+                          {getAvailableShops().map(shop => (
+                            <option key={shop.id} value={shop.id}>
+                              {shop.name} {shop.is_active ? '' : '(Inactive)'}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Assign District
+                        </label>
+                        <select
+                          name="district_id"
+                          value={editFormData.district_id || ''}
+                          onChange={handleEditInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">None (No district assigned)</option>
+                          <option value={currentDistrict?.id}>{currentDistrict?.name || 'Current District'}</option>
+                        </select>
+                      </div>
+
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          name="is_active"
+                          checked={editFormData.is_active || false}
+                          onChange={handleEditInputChange}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Active</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(null)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Update User
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View User Modal (for district managers) */}
       {showViewModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
