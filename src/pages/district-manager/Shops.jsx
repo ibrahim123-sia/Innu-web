@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  getShopsByBrand,
-  selectShopsForBrand,
+  getShopsByDistrict,  // Changed from getShopsByBrand
+  selectShopsByDistrict,  // Changed from selectShopsForBrand
   selectShopLoading,
   selectShopError,
   createShop,
@@ -96,10 +96,10 @@ const TableSkeleton = () => (
 const Shops = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
-  const brandId = user?.brand_id;
+  const districtId = user?.district_id;  // Get district_id from user instead of brand_id
   
-  // Correct selectors
-  const shops = useSelector(selectShopsForBrand(brandId));
+  // ✅ FIXED: Use district selectors instead of brand selectors
+  const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districts = useSelector(selectDistrictsByBrand) || [];
   const loading = useSelector(selectShopLoading);
   const error = useSelector(selectShopError);
@@ -130,6 +130,41 @@ const Shops = () => {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
+  // ✅ FIXED: Extract shops from the data object structure (like in Overview.jsx)
+  const filteredShops = React.useMemo(() => {
+    if (!shopsByDistrict) return [];
+    
+    // If shopsByDistrict has a data property that is an array (most common case)
+    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
+      console.log('Found shops in shopsByDistrict.data:', shopsByDistrict.data.length);
+      return shopsByDistrict.data;
+    }
+    
+    // If shopsByDistrict is already an array
+    if (Array.isArray(shopsByDistrict)) {
+      console.log('shopsByDistrict is array with length:', shopsByDistrict.length);
+      return shopsByDistrict;
+    }
+    
+    // If shopsByDistrict has a shops property that is an array
+    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
+      console.log('shopsByDistrict.shops is array with length:', shopsByDistrict.shops.length);
+      return shopsByDistrict.shops;
+    }
+    
+    // If it's an object with numeric keys (like a dictionary)
+    if (typeof shopsByDistrict === 'object') {
+      const values = Object.values(shopsByDistrict);
+      if (values.length > 0 && Array.isArray(values[0])) {
+        console.log('Found array in object values');
+        return values[0];
+      }
+    }
+    
+    console.log('No valid shops data found, returning empty array');
+    return [];
+  }, [shopsByDistrict]);
+
   // Common US timezones for dropdown
   const timezones = [
     'America/New_York',
@@ -158,7 +193,6 @@ const Shops = () => {
     setIsLoadingUserDistrict(true);
     try {
       // Try to get district where current user is the manager
-      // This endpoint should return the district(s) managed by this user
       const response = await API.get(`/districts/manager/${user.id}`);
       
       if (response.data && response.data.data) {
@@ -219,11 +253,12 @@ const Shops = () => {
   // EFFECTS
   // ============================================
 
+  // ✅ FIXED: Fetch shops by district instead of brand
   useEffect(() => {
-    if (user?.brand_id) {
+    if (user?.district_id) {
       fetchData();
     }
-  }, [dispatch, user?.brand_id]);
+  }, [dispatch, user?.district_id]);
 
   // Fetch current user's district after user is loaded
   useEffect(() => {
@@ -234,23 +269,29 @@ const Shops = () => {
 
   // Handle loading completion
   useEffect(() => {
-    if (!loading && shops) {
+    if (!loading && filteredShops) {
       setTimeout(() => {
         setIsInitialLoad(false);
         setIsDataReady(true);
       }, 300);
     }
-  }, [loading, shops]);
+  }, [loading, filteredShops]);
 
+  // ✅ FIXED: Updated fetchData to use getShopsByDistrict
   const fetchData = async () => {
     setIsInitialLoad(true);
     setIsDataReady(false);
     
     try {
-      await Promise.all([
-        dispatch(getShopsByBrand(user?.brand_id)).unwrap(),
-        dispatch(getDistrictsByBrand(user?.brand_id)).unwrap()
-      ]);
+      console.log('Fetching shops for district:', user?.district_id);
+      
+      // Fetch shops for this specific district
+      const shopResult = await dispatch(getShopsByDistrict(user?.district_id)).unwrap();
+      console.log('Shop fetch result:', shopResult);
+      
+      // Also fetch all districts for the brand (for dropdown)
+      await dispatch(getDistrictsByBrand(user?.brand_id)).unwrap();
+      
     } catch (error) {
       console.error('Error fetching data:', error);
       setIsInitialLoad(false);
@@ -353,7 +394,8 @@ const Shops = () => {
         });
 
         resetForm();
-        dispatch(getShopsByBrand(user.brand_id));
+        // ✅ FIXED: Refresh shops by district
+        await dispatch(getShopsByDistrict(user?.district_id));
         setTimeout(() => {
           setShowCreateForm(false);
         }, 100);
@@ -442,7 +484,8 @@ const Shops = () => {
         });
         
         resetEditForm();
-        await dispatch(getShopsByBrand(user.brand_id));
+        // ✅ FIXED: Refresh shops by district
+        await dispatch(getShopsByDistrict(user?.district_id));
         
         setTimeout(() => {
           setShowEditModal(null);
@@ -481,7 +524,8 @@ const Shops = () => {
         data: updateData
       })).unwrap();
 
-      dispatch(getShopsByBrand(user.brand_id));
+      // ✅ FIXED: Refresh shops by district
+      await dispatch(getShopsByDistrict(user?.district_id));
       
       Swal.fire({
         icon: 'success',
@@ -584,9 +628,11 @@ const Shops = () => {
       {/* Create Shop Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-bold text-gray-800">All Shops</h2>
+          <h2 className="text-xl font-bold text-gray-800">
+            Shops in {currentUserDistrict?.name || 'Your District'}
+          </h2>
           <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-            {shops?.length || 0} Shops
+            {filteredShops?.length || 0} Shops
           </span>
         </div>
         <button
@@ -801,7 +847,7 @@ const Shops = () => {
               Retry
             </button>
           </div>
-        ) : shops && shops.length > 0 ? (
+        ) : filteredShops && filteredShops.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -824,7 +870,7 @@ const Shops = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {shops.map((shop) => {
+                {filteredShops.map((shop) => {
                   return (
                     <tr key={shop.id} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -897,8 +943,8 @@ const Shops = () => {
               alt="No shops" 
               className="w-16 h-16 mx-auto mb-4 opacity-50"
             />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Shops Found</h3>
-            <p className="text-gray-500 mb-4">Create your first shop to get started</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Shops Found in Your District</h3>
+            <p className="text-gray-500 mb-4">Create your first shop in {currentUserDistrict?.name || 'this district'} to get started</p>
             <button
               onClick={() => setShowCreateForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"

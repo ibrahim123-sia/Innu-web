@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
-  getShopsByBrand,
-  selectShopsForBrand
+  getShopsByDistrict,  // Changed from getShopsByBrand
+  selectShopsByDistrict  // Changed from selectShopsForBrand
 } from '../../redux/slice/shopSlice';
 import {
   selectDistrictsByBrand,
@@ -95,10 +95,10 @@ const TableSkeleton = () => (
 const Analytics = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
-  const brandId = user?.brand_id;
+  const districtId = user?.district_id;  // Get district_id from user
   
-  // Shop and district data
-  const shops = useSelector(state => selectShopsForBrand(brandId)(state)) || [];
+  // ✅ FIXED: Use district selectors
+  const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtsByBrand = useSelector(selectDistrictsByBrand) || [];
   
   // Video and Edit data - Store by district
@@ -121,12 +121,47 @@ const Analytics = () => {
   const [selectedDistrictForFeedback, setSelectedDistrictForFeedback] = useState(null);
   const [selectedShopForFeedback, setSelectedShopForFeedback] = useState(null);
 
-  // Initial fetch when brandId changes
+  // ✅ FIXED: Extract shops from the data object structure
+  const filteredShops = React.useMemo(() => {
+    if (!shopsByDistrict) return [];
+    
+    // If shopsByDistrict has a data property that is an array (most common case)
+    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
+      console.log('Found shops in shopsByDistrict.data:', shopsByDistrict.data.length);
+      return shopsByDistrict.data;
+    }
+    
+    // If shopsByDistrict is already an array
+    if (Array.isArray(shopsByDistrict)) {
+      console.log('shopsByDistrict is array with length:', shopsByDistrict.length);
+      return shopsByDistrict;
+    }
+    
+    // If shopsByDistrict has a shops property that is an array
+    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
+      console.log('shopsByDistrict.shops is array with length:', shopsByDistrict.shops.length);
+      return shopsByDistrict.shops;
+    }
+    
+    // If it's an object with numeric keys (like a dictionary)
+    if (typeof shopsByDistrict === 'object') {
+      const values = Object.values(shopsByDistrict);
+      if (values.length > 0 && Array.isArray(values[0])) {
+        console.log('Found array in object values');
+        return values[0];
+      }
+    }
+    
+    console.log('No valid shops data found, returning empty array');
+    return [];
+  }, [shopsByDistrict]);
+
+  // Initial fetch when districtId changes
   useEffect(() => {
-    if (brandId) {
+    if (districtId) {
       fetchBaseData();
     }
-  }, [brandId]);
+  }, [districtId]);
 
   // Fetch data when districts are loaded (for refresh case)
   useEffect(() => {
@@ -138,19 +173,22 @@ const Analytics = () => {
 
   // Fetch only base data (shops and districts)
   const fetchBaseData = async () => {
-    if (!brandId) return;
+    if (!districtId) return;
     
     setLoading(true);
     setIsInitialLoad(true);
     setDataFetched(false);
     
     try {
-      console.log('Fetching base data for brand:', brandId);
+      console.log('Fetching base data for district:', districtId);
       
-      await Promise.all([
-        dispatch(getShopsByBrand(brandId)).unwrap(),
-        dispatch(getDistrictsByBrand(brandId)).unwrap()
-      ]);
+      // ✅ FIXED: Fetch shops by district instead of brand
+      await dispatch(getShopsByDistrict(districtId)).unwrap();
+      
+      // Also fetch all districts for the brand (for dropdown/reference)
+      if (user?.brand_id) {
+        await dispatch(getDistrictsByBrand(user.brand_id)).unwrap();
+      }
       
     } catch (error) {
       console.error('Error fetching base data:', error);
@@ -295,15 +333,15 @@ const Analytics = () => {
 
   // Helper function to get shop logo
   const getShopLogo = (shopId) => {
-    if (!shops || !Array.isArray(shops)) return DEFAULT_SHOP_LOGO;
-    const shop = shops.find(s => String(s.id) === String(shopId));
+    if (!filteredShops || !Array.isArray(filteredShops)) return DEFAULT_SHOP_LOGO;
+    const shop = filteredShops.find(s => String(s.id) === String(shopId));
     return shop?.logo_url?.trim() ? shop.logo_url : DEFAULT_SHOP_LOGO;
   };
 
   // Get shop name by ID
   const getShopName = (shopId) => {
-    if (!shops || !Array.isArray(shops)) return 'Unknown Shop';
-    const shop = shops.find(s => String(s.id) === String(shopId));
+    if (!filteredShops || !Array.isArray(filteredShops)) return 'Unknown Shop';
+    const shop = filteredShops.find(s => String(s.id) === String(shopId));
     return shop?.name || 'Unknown Shop';
   };
 
@@ -316,8 +354,8 @@ const Analytics = () => {
 
   // Get shops by district
   const getShopsByDistrict = (districtId) => {
-    if (!shops || !Array.isArray(shops)) return [];
-    return shops.filter(shop => shop.district_id === districtId);
+    if (!filteredShops || !Array.isArray(filteredShops)) return [];
+    return filteredShops.filter(shop => shop.district_id === districtId);
   };
 
   // Get district stats for table
@@ -352,7 +390,7 @@ const Analytics = () => {
   // Get shop stats for table - FIXED to use shop_name
   const getShopStats = (shopId) => {
     // Find the shop to get its name
-    const shop = shops.find(s => String(s.id) === String(shopId));
+    const shop = filteredShops.find(s => String(s.id) === String(shopId));
     const shopName = shop?.name;
     
     if (!shopName) {
@@ -386,13 +424,13 @@ const Analytics = () => {
     });
     
     // Filter edits by shop_name (not shop_id)
-const shopEdits = allEdits.filter(e => {
-  // Try different possible field names
-  const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
-  const match = editShopName && editShopName.trim().toLowerCase() === shopName.trim().toLowerCase();
-  if (match) console.log('Matched edit:', e);
-  return match;
-});
+    const shopEdits = allEdits.filter(e => {
+      // Try different possible field names
+      const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+      const match = editShopName && editShopName.trim().toLowerCase() === shopName.trim().toLowerCase();
+      if (match) console.log('Matched edit:', e);
+      return match;
+    });
     
     console.log(`Shop ${shopName} - Videos: ${shopVideos.length}, Edits: ${shopEdits.length}`);
     
@@ -450,7 +488,7 @@ const shopEdits = allEdits.filter(e => {
 
   // Get detailed shop stats for modal - FIXED to use shop_name
   const getShopDetailedStats = (shopId) => {
-    const shop = shops.find(s => String(s.id) === String(shopId));
+    const shop = filteredShops.find(s => String(s.id) === String(shopId));
     const shopName = shop?.name;
     
     if (!shopName) {
@@ -480,9 +518,10 @@ const shopEdits = allEdits.filter(e => {
       v.shop_name && v.shop_name.trim().toLowerCase() === shopName.trim().toLowerCase()
     );
     
-    const shopEditsData = allEdits.filter(e => 
-      e.shop_name && e.shop_name.trim().toLowerCase() === shopName.trim().toLowerCase()
-    );
+    const shopEditsData = allEdits.filter(e => {
+      const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+      return editShopName && editShopName.trim().toLowerCase() === shopName.trim().toLowerCase();
+    });
     
     console.log(`Detailed stats for shop ${shopName}:`, {
       videos: shopVideosData.length,
@@ -513,7 +552,7 @@ const shopEdits = allEdits.filter(e => {
     };
   };
 
-  // Calculate overall stats for this brand
+  // Calculate overall stats for this district (only from videos/edits in this district)
   const allVideos = Object.values(videosByDistrict).flat();
   const allEdits = Object.values(editsByDistrict).flat();
   
@@ -531,6 +570,9 @@ const shopEdits = allEdits.filter(e => {
   const aiErrorRate = totalAIVideoRequests > 0 
     ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(2) 
     : "0.00";
+
+  // Get current user's district info
+  const currentDistrict = districtsByBrand.find(d => d.id === districtId);
 
   // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
@@ -555,7 +597,7 @@ const shopEdits = allEdits.filter(e => {
                 {totalAIVideoRequests}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                Total videos processed
+                In {currentDistrict?.name || 'Your District'}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -760,15 +802,15 @@ const shopEdits = allEdits.filter(e => {
         </div>
       )}
 
-      {/* Shops Performance Table - UPDATED */}
+      {/* Shops Performance Table - UPDATED to show only shops in current user's district */}
       {viewMode === 'shops' && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="p-6 border-b">
-            <h2 className="text-xl font-bold text-gray-800">Shops Performance</h2>
+            <h2 className="text-xl font-bold text-gray-800">Shops Performance in {currentDistrict?.name || 'Your District'}</h2>
             <p className="text-gray-600">AI video requests and manual corrections by shop</p>
           </div>
           
-          {shops && shops.length > 0 ? (
+          {filteredShops && filteredShops.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -794,7 +836,7 @@ const shopEdits = allEdits.filter(e => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {shops.map((shop) => {
+                  {filteredShops.map((shop) => {
                     const stats = getShopStats(shop.id);
                     const districtName = getDistrictName(shop.district_id);
                     
@@ -879,8 +921,8 @@ const shopEdits = allEdits.filter(e => {
                 alt="No shops" 
                 className="w-16 h-16 mx-auto mb-4 opacity-50"
               />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Shops Found</h3>
-              <p className="text-gray-500 mb-4">No shops have been added to this brand yet.</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Shops Found in {currentDistrict?.name || 'Your District'}</h3>
+              <p className="text-gray-500 mb-4">No shops have been added to this district yet.</p>
               <button
                 onClick={fetchBaseData}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -1038,9 +1080,10 @@ const shopEdits = allEdits.filter(e => {
                             const shopVideos = stats.districtVideos.filter(v => 
                               v.shop_name && v.shop_name.trim().toLowerCase() === shop.name.trim().toLowerCase()
                             );
-                            const shopEdits = stats.districtEdits.filter(e => 
-                              e.shop_name && e.shop_name.trim().toLowerCase() === shop.name.trim().toLowerCase()
-                            );
+                            const shopEdits = stats.districtEdits.filter(e => {
+                              const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+                              return editShopName && editShopName.trim().toLowerCase() === shop.name.trim().toLowerCase();
+                            });
                             
                             return (
                               <div key={shop.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
@@ -1400,9 +1443,11 @@ const shopEdits = allEdits.filter(e => {
                 <p className="text-sm text-gray-500 mt-1">
                   Total {Object.values(editsByDistrict).flat()
                     .filter(e => {
-                      const shop = shops.find(s => String(s.id) === String(selectedShopForFeedback));
-                      return e.shop_name && shop?.name && 
-                             e.shop_name.trim().toLowerCase() === shop.name.trim().toLowerCase();
+                      const shop = filteredShops.find(s => String(s.id) === String(selectedShopForFeedback));
+                      const shopName = shop?.name;
+                      if (!shopName) return false;
+                      const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+                      return editShopName && editShopName.trim().toLowerCase() === shopName.trim().toLowerCase();
                     }).length} feedback items
                 </p>
               </div>
@@ -1423,16 +1468,20 @@ const shopEdits = allEdits.filter(e => {
             <div className="p-6">
               {Object.values(editsByDistrict).flat()
                 .filter(e => {
-                  const shop = shops.find(s => String(s.id) === String(selectedShopForFeedback));
-                  return e.shop_name && shop?.name && 
-                         e.shop_name.trim().toLowerCase() === shop.name.trim().toLowerCase();
+                  const shop = filteredShops.find(s => String(s.id) === String(selectedShopForFeedback));
+                  const shopName = shop?.name;
+                  if (!shopName) return false;
+                  const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+                  return editShopName && editShopName.trim().toLowerCase() === shopName.trim().toLowerCase();
                 }).length > 0 ? (
                 <div className="space-y-4">
                   {Object.values(editsByDistrict).flat()
                     .filter(e => {
-                      const shop = shops.find(s => String(s.id) === String(selectedShopForFeedback));
-                      return e.shop_name && shop?.name && 
-                             e.shop_name.trim().toLowerCase() === shop.name.trim().toLowerCase();
+                      const shop = filteredShops.find(s => String(s.id) === String(selectedShopForFeedback));
+                      const shopName = shop?.name;
+                      if (!shopName) return false;
+                      const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+                      return editShopName && editShopName.trim().toLowerCase() === shopName.trim().toLowerCase();
                     })
                     .map((edit, index) => (
                       <div 
