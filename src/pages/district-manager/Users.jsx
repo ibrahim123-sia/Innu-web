@@ -125,6 +125,34 @@ const Users = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [emailExistsError, setEmailExistsError] = useState('');
 
+  // Validation states for create form
+  const [formErrors, setFormErrors] = useState({
+    first_name: false,
+    last_name: false,
+    email: false,
+    role: false
+  });
+
+  const [validationErrors, setValidationErrors] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    role: ''
+  });
+
+  // Validation states for edit form
+  const [editFormErrors, setEditFormErrors] = useState({
+    first_name: false,
+    last_name: false,
+    role: false
+  });
+
+  const [editValidationErrors, setEditValidationErrors] = useState({
+    first_name: '',
+    last_name: '',
+    role: ''
+  });
+
   // Role options
   const roles = [
     { value: 'shop_manager', label: 'Shop Manager' },
@@ -146,6 +174,97 @@ const Users = () => {
     // Filter out users with role 'brand_admin'
     return users.filter(user => user.role !== 'brand_admin');
   }, [users]);
+
+  // ============================================
+  // VALIDATION FUNCTIONS
+  // ============================================
+
+  const validateFirstName = (firstName) => {
+    if (!firstName || !firstName.trim()) {
+      return 'First name is required';
+    }
+    if (firstName.trim().length < 2) {
+      return 'First name must be at least 2 characters long';
+    }
+    if (firstName.trim().length > 50) {
+      return 'First name must not exceed 50 characters';
+    }
+    // Only allow letters and hyphens for names
+    const nameRegex = /^[a-zA-Z\s\-']+$/;
+    if (!nameRegex.test(firstName)) {
+      return 'First name can only contain letters, spaces, hyphens, and apostrophes';
+    }
+    return '';
+  };
+
+  const validateLastName = (lastName) => {
+    if (!lastName || !lastName.trim()) {
+      return 'Last name is required';
+    }
+    if (lastName.trim().length < 2) {
+      return 'Last name must be at least 2 characters long';
+    }
+    if (lastName.trim().length > 50) {
+      return 'Last name must not exceed 50 characters';
+    }
+    // Only allow letters and hyphens for names
+    const nameRegex = /^[a-zA-Z\s\-']+$/;
+    if (!nameRegex.test(lastName)) {
+      return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
+    }
+    return '';
+  };
+
+  const validateEmail = (email) => {
+    if (!email || !email.trim()) {
+      return 'Email is required';
+    }
+    
+    // RFC 5322 compliant email regex
+    const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address (e.g., name@example.com)';
+    }
+    
+    // Check email length
+    if (email.length > 254) {
+      return 'Email address is too long';
+    }
+    
+    // Check for common typos
+    if (email.includes('..')) {
+      return 'Email cannot contain consecutive dots';
+    }
+    
+    if (email.startsWith('.') || email.endsWith('.')) {
+      return 'Email cannot start or end with a dot';
+    }
+    
+    return '';
+  };
+
+  const validateRole = (role) => {
+    if (!role) {
+      return 'Role is required';
+    }
+    const validRoles = ['shop_manager', 'technician'];
+    if (!validRoles.includes(role)) {
+      return 'Please select a valid role';
+    }
+    return '';
+  };
+
+  const validateFileType = (file) => {
+    if (!file) return '';
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      return 'Please upload a valid image file (JPEG, PNG, GIF, or WEBP)';
+    }
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      return 'File size must not exceed 5MB';
+    }
+    return '';
+  };
 
   // ============================================
   // EFFECTS
@@ -273,11 +392,141 @@ const Users = () => {
   };
 
   // ============================================
+  // VALIDATE CREATE FORM
+  // ============================================
+
+  const validateCreateForm = () => {
+    const firstNameError = validateFirstName(formData.first_name);
+    const lastNameError = validateLastName(formData.last_name);
+    const emailError = validateEmail(formData.email);
+    const roleError = validateRole(formData.role);
+
+    setValidationErrors({
+      first_name: firstNameError,
+      last_name: lastNameError,
+      email: emailError,
+      role: roleError
+    });
+
+    setFormErrors({
+      first_name: !!firstNameError,
+      last_name: !!lastNameError,
+      email: !!emailError,
+      role: !!roleError
+    });
+
+    // Check if any validation errors exist
+    const hasErrors = firstNameError || lastNameError || emailError || roleError;
+
+    if (hasErrors) {
+      const errorMessages = [];
+      if (firstNameError) errorMessages.push(firstNameError);
+      if (lastNameError) errorMessages.push(lastNameError);
+      if (emailError) errorMessages.push(emailError);
+      if (roleError) errorMessages.push(roleError);
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Errors',
+        html: `<ul style="text-align: left;">${errorMessages.map(msg => `<li>• ${msg}</li>`).join('')}</ul>`,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    // Check if email already exists
+    if (checkEmailExists(formData.email)) {
+      setFormError('Email already exists. Please use a different email.');
+      Swal.fire({
+        icon: 'error',
+        title: 'Email Already Exists',
+        text: 'This email is already registered in your brand. Please use a different email address.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // ============================================
+  // VALIDATE EDIT FORM
+  // ============================================
+
+  const validateEditForm = () => {
+    let firstNameError = '';
+    let lastNameError = '';
+    let roleError = '';
+
+    // Only validate fields that have been changed
+    if (editFormData.first_name !== editFormData.original_first_name) {
+      firstNameError = validateFirstName(editFormData.first_name);
+    }
+    
+    if (editFormData.last_name !== editFormData.original_last_name) {
+      lastNameError = validateLastName(editFormData.last_name);
+    }
+    
+    if (editFormData.role !== editFormData.original_role) {
+      roleError = validateRole(editFormData.role);
+    }
+
+    setEditValidationErrors({
+      first_name: firstNameError,
+      last_name: lastNameError,
+      role: roleError
+    });
+
+    setEditFormErrors({
+      first_name: !!firstNameError,
+      last_name: !!lastNameError,
+      role: !!roleError
+    });
+
+    // Check if any validation errors exist
+    const hasErrors = firstNameError || lastNameError || roleError;
+
+    if (hasErrors) {
+      const errorMessages = [];
+      if (firstNameError) errorMessages.push(firstNameError);
+      if (lastNameError) errorMessages.push(lastNameError);
+      if (roleError) errorMessages.push(roleError);
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Errors',
+        html: `<ul style="text-align: left;">${errorMessages.map(msg => `<li>• ${msg}</li>`).join('')}</ul>`,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // ============================================
   // HANDLERS
   // ============================================
 
   const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
+    const fileError = validateFileType(file);
+    
+    if (fileError) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid File',
+        text: fileError,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      e.target.value = ''; // Clear the input
+      return;
+    }
+
     if (file) {
       const previewUrl = URL.createObjectURL(file);
       
@@ -315,54 +564,22 @@ const Users = () => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
+    
+    // Validate all fields
+    if (!validateCreateForm()) {
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitting(true);
-
-    // Validate required fields
-    if (!formData.first_name) {
-      setFormError('First name is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.last_name) {
-      setFormError('Last name is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.email) {
-      setFormError('Email is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.role) {
-      setFormError('Role is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Check if email already exists
-    if (checkEmailExists(formData.email)) {
-      setFormError('Email already exists. Please use a different email.');
-      Swal.fire({
-        icon: 'error',
-        title: 'Email Already Exists',
-        text: 'This email is already registered in your brand. Please use a different email address.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
-      });
-      setIsSubmitting(false);
-      return;
-    }
 
     try {
       const randomPassword = generateRandomPassword();
       
       const userFormData = new FormData();
-      userFormData.append('email', formData.email);
-      userFormData.append('first_name', formData.first_name);
-      userFormData.append('last_name', formData.last_name);
+      userFormData.append('email', formData.email.trim().toLowerCase());
+      userFormData.append('first_name', formData.first_name.trim());
+      userFormData.append('last_name', formData.last_name.trim());
       userFormData.append('contact_no', '');
       userFormData.append('role', formData.role);
       userFormData.append('brand_id', currentUser.brand_id);
@@ -393,8 +610,8 @@ const Users = () => {
           title: 'User Created Successfully!',
           html: `
             <div style="text-align: left;">
-              <p><strong>Name:</strong> ${formData.first_name} ${formData.last_name}</p>
-              <p><strong>Email:</strong> ${formData.email}</p>
+              <p><strong>Name:</strong> ${formData.first_name.trim()} ${formData.last_name.trim()}</p>
+              <p><strong>Email:</strong> ${formData.email.trim().toLowerCase()}</p>
               <p><strong>Role:</strong> ${getRoleLabel(formData.role)}</p>
               <p><strong>Shop:</strong> ${formData.shop_id ? getShopName(formData.shop_id) : 'None'}</p>
               <p><strong>District:</strong> ${currentDistrict?.name || 'Your District'} (auto-assigned)</p>
@@ -402,7 +619,7 @@ const Users = () => {
               <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
                 <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
                 <p style="color: #0d47a1; margin: 5px 0 0 0; font-size: 14px;">
-                  A temporary password has been sent to <strong>${formData.email}</strong>
+                  A temporary password has been sent to <strong>${formData.email.trim().toLowerCase()}</strong>
                 </p>
               </div>
             </div>
@@ -441,16 +658,21 @@ const Users = () => {
     setFormError('');
     setFormSuccess('');
 
+    // Validate changed fields
+    if (!validateEditForm()) {
+      return;
+    }
+
     try {
       const userFormData = new FormData();
       let hasChanges = false;
       
       if (editFormData.first_name !== editFormData.original_first_name) {
-        userFormData.append('first_name', editFormData.first_name);
+        userFormData.append('first_name', editFormData.first_name.trim());
         hasChanges = true;
       }
       if (editFormData.last_name !== editFormData.original_last_name) {
-        userFormData.append('last_name', editFormData.last_name);
+        userFormData.append('last_name', editFormData.last_name.trim());
         hasChanges = true;
       }
       
@@ -469,7 +691,6 @@ const Users = () => {
       }
       
       // District is NOT editable - it's auto-assigned from current user
-      // So we don't include district_id in the update
       
       if (editFormData.is_active !== editFormData.original_is_active) {
         userFormData.append('is_active', editFormData.is_active);
@@ -564,6 +785,18 @@ const Users = () => {
       shop_id: '',
       is_active: true
     });
+    setFormErrors({
+      first_name: false,
+      last_name: false,
+      email: false,
+      role: false
+    });
+    setValidationErrors({
+      first_name: '',
+      last_name: '',
+      email: '',
+      role: ''
+    });
     setProfilePicFile(null);
     setProfilePicPreview(null);
     setEmailExistsError('');
@@ -571,6 +804,16 @@ const Users = () => {
 
   const resetEditForm = () => {
     setEditFormData({});
+    setEditFormErrors({
+      first_name: false,
+      last_name: false,
+      role: false
+    });
+    setEditValidationErrors({
+      first_name: '',
+      last_name: '',
+      role: ''
+    });
     setEditProfilePicFile(null);
     setEditProfilePicPreview(null);
   };
@@ -578,17 +821,34 @@ const Users = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'email') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      checkEmailExists(value);
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+
+    // Real-time validation
+    let error = '';
+    if (name === 'first_name') {
+      error = validateFirstName(value);
+      setValidationErrors(prev => ({ ...prev, [name]: error }));
+      setFormErrors(prev => ({ ...prev, [name]: !!error }));
+    } else if (name === 'last_name') {
+      error = validateLastName(value);
+      setValidationErrors(prev => ({ ...prev, [name]: error }));
+      setFormErrors(prev => ({ ...prev, [name]: !!error }));
+    } else if (name === 'email') {
+      error = validateEmail(value);
+      setValidationErrors(prev => ({ ...prev, [name]: error }));
+      setFormErrors(prev => ({ ...prev, [name]: !!error }));
+      if (!error && value.trim()) {
+        checkEmailExists(value);
+      } else {
+        setEmailExistsError('');
+      }
+    } else if (name === 'role') {
+      error = validateRole(value);
+      setValidationErrors(prev => ({ ...prev, [name]: error }));
+      setFormErrors(prev => ({ ...prev, [name]: !!error }));
     }
   };
 
@@ -599,6 +859,26 @@ const Users = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+
+    // Real-time validation only for changed fields
+    let error = '';
+    if (name === 'first_name' && value !== editFormData.original_first_name) {
+      error = validateFirstName(value);
+      setEditValidationErrors(prev => ({ ...prev, [name]: error }));
+      setEditFormErrors(prev => ({ ...prev, [name]: !!error }));
+    } else if (name === 'last_name' && value !== editFormData.original_last_name) {
+      error = validateLastName(value);
+      setEditValidationErrors(prev => ({ ...prev, [name]: error }));
+      setEditFormErrors(prev => ({ ...prev, [name]: !!error }));
+    } else if (name === 'role' && value !== editFormData.original_role) {
+      error = validateRole(value);
+      setEditValidationErrors(prev => ({ ...prev, [name]: error }));
+      setEditFormErrors(prev => ({ ...prev, [name]: !!error }));
+    } else if (name === 'first_name' || name === 'last_name' || name === 'role') {
+      // Field was changed back to original value, clear errors
+      setEditValidationErrors(prev => ({ ...prev, [name]: '' }));
+      setEditFormErrors(prev => ({ ...prev, [name]: false }));
+    }
   };
 
   const handleEdit = (user) => {
@@ -618,13 +898,36 @@ const Users = () => {
       original_shop_id: user.shop_id || '',
       original_is_active: user.is_active
     });
+    setEditFormErrors({
+      first_name: false,
+      last_name: false,
+      role: false
+    });
+    setEditValidationErrors({
+      first_name: '',
+      last_name: '',
+      role: ''
+    });
     setEditProfilePicPreview(getProfilePicUrl(user.profile_pic_url));
     setEditProfilePicFile(null);
+    setFormError('');
   };
 
   // Filter active shops
   const getAvailableShops = () => {
     return shops.filter(shop => shop.is_active);
+  };
+
+  // Check if edit form has any changes
+  const hasEditChanges = () => {
+    return (
+      editFormData.first_name !== editFormData.original_first_name ||
+      editFormData.last_name !== editFormData.original_last_name ||
+      editFormData.role !== editFormData.original_role ||
+      editFormData.shop_id !== editFormData.original_shop_id ||
+      editFormData.is_active !== editFormData.original_is_active ||
+      editProfilePicFile !== null
+    );
   };
 
   // ============================================
@@ -665,6 +968,7 @@ const Users = () => {
             setShowCreateForm(!showCreateForm);
             setFormError('');
             setEmailExistsError('');
+            resetForm();
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
@@ -692,7 +996,7 @@ const Users = () => {
             </div>
           )}
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Column: Profile Picture */}
               <div className="space-y-4">
@@ -730,7 +1034,7 @@ const Users = () => {
                         alt="Default profile" 
                         className="w-32 h-32 rounded-full mx-auto object-cover opacity-50"
                       />
-                      <p className="text-sm text-gray-500">Default profile picture will be used if not uploaded</p>
+                      <p className="text-sm text-gray-500">Optional - JPEG, PNG, GIF, WEBP (Max 5MB)</p>
                     </div>
                   )}
                   <label className="block mt-4">
@@ -739,7 +1043,7 @@ const Users = () => {
                     </span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
                       onChange={(e) => handleFileChange(e, false)}
                       className="hidden"
                       name="profile_pic"
@@ -764,10 +1068,19 @@ const Users = () => {
                         name="first_name"
                         value={formData.first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="First name"
+                        maxLength={50}
                         required
                       />
+                      {formErrors.first_name && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.first_name}</p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-500">
+                        {formData.first_name.length}/50 characters
+                      </p>
                     </div>
 
                     <div>
@@ -779,10 +1092,19 @@ const Users = () => {
                         name="last_name"
                         value={formData.last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Last name"
+                        maxLength={50}
                         required
                       />
+                      {formErrors.last_name && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.last_name}</p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-500">
+                        {formData.last_name.length}/50 characters
+                      </p>
                     </div>
                   </div>
 
@@ -796,13 +1118,17 @@ const Users = () => {
                       value={formData.email}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        formErrors.email || emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="user@example.com"
+                      maxLength={254}
                       required
                     />
+                    {formErrors.email && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.email}</p>
+                    )}
                     {emailExistsError && (
-                      <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
+                      <p className="mt-1 text-xs text-red-600">{emailExistsError}</p>
                     )}
                   </div>
                 </div>
@@ -819,7 +1145,9 @@ const Users = () => {
                       name="role"
                       value={formData.role}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.role ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       required
                     >
                       {roles.map(role => (
@@ -828,6 +1156,9 @@ const Users = () => {
                         </option>
                       ))}
                     </select>
+                    {formErrors.role && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.role}</p>
+                    )}
                     {isDistrictManager && (
                       <p className="mt-1 text-sm text-gray-500">
                         As a District Manager, you can only create Shop Manager and Technician roles.
@@ -848,7 +1179,7 @@ const Users = () => {
                       <option value="">None (No shop assigned)</option>
                       {getAvailableShops().map(shop => (
                         <option key={shop.id} value={shop.id}>
-                          {shop.name} {shop.is_active ? '' : '(Inactive)'}
+                          {shop.name}
                         </option>
                       ))}
                     </select>
@@ -880,9 +1211,9 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={!!emailExistsError || isSubmitting}
+                disabled={!!emailExistsError || isSubmitting || Object.values(formErrors).some(error => error)}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  emailExistsError || isSubmitting
+                  emailExistsError || isSubmitting || Object.values(formErrors).some(error => error)
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
@@ -1057,7 +1388,7 @@ const Users = () => {
                 </div>
               )}
               
-              <form onSubmit={handleEditSubmit}>
+              <form onSubmit={handleEditSubmit} noValidate>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Left Column: Profile Picture */}
                   <div className="space-y-4">
@@ -1098,7 +1429,7 @@ const Users = () => {
                         </span>
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
                           onChange={(e) => handleFileChange(e, true)}
                           className="hidden"
                           name="profile_pic"
@@ -1123,9 +1454,15 @@ const Users = () => {
                             name="first_name"
                             value={editFormData.first_name || ''}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              editFormErrors.first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                            }`}
                             placeholder="First name"
+                            maxLength={50}
                           />
+                          {editFormErrors.first_name && (
+                            <p className="mt-1 text-xs text-red-600">{editValidationErrors.first_name}</p>
+                          )}
                         </div>
 
                         <div>
@@ -1137,9 +1474,15 @@ const Users = () => {
                             name="last_name"
                             value={editFormData.last_name || ''}
                             onChange={handleEditInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              editFormErrors.last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                            }`}
                             placeholder="Last name"
+                            maxLength={50}
                           />
+                          {editFormErrors.last_name && (
+                            <p className="mt-1 text-xs text-red-600">{editValidationErrors.last_name}</p>
+                          )}
                         </div>
                       </div>
 
@@ -1169,7 +1512,9 @@ const Users = () => {
                           name="role"
                           value={editFormData.role || 'shop_manager'}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            editFormErrors.role ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
                         >
                           {roles.map(role => (
                             <option key={role.value} value={role.value}>
@@ -1177,6 +1522,9 @@ const Users = () => {
                             </option>
                           ))}
                         </select>
+                        {editFormErrors.role && (
+                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.role}</p>
+                        )}
                       </div>
 
                       <div>
@@ -1192,7 +1540,7 @@ const Users = () => {
                           <option value="">None (No shop assigned)</option>
                           {getAvailableShops().map(shop => (
                             <option key={shop.id} value={shop.id}>
-                              {shop.name} {shop.is_active ? '' : '(Inactive)'}
+                              {shop.name}
                             </option>
                           ))}
                         </select>
@@ -1229,7 +1577,12 @@ const Users = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                    disabled={Object.values(editFormErrors).some(error => error) || !hasEditChanges()}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      Object.values(editFormErrors).some(error => error) || !hasEditChanges()
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                   >
                     Update User
                   </button>

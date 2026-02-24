@@ -175,8 +175,58 @@ const Districts = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Validation states for create form
+  const [formErrors, setFormErrors] = useState({
+    name: false
+  });
+
+  const [validationErrors, setValidationErrors] = useState({
+    name: ''
+  });
+
+  // Validation states for edit form
+  const [editFormErrors, setEditFormErrors] = useState({
+    name: false
+  });
+
+  const [editValidationErrors, setEditValidationErrors] = useState({
+    name: ''
+  });
+
   // Ensure districtsByBrand is an array
   const displayDistricts = Array.isArray(districtsByBrand) ? districtsByBrand : [];
+
+  // ============================================
+  // VALIDATION FUNCTIONS
+  // ============================================
+
+  const validateDistrictName = (name) => {
+    if (!name || !name.trim()) {
+      return 'District name is required';
+    }
+    if (name.trim().length < 2) {
+      return 'District name must be at least 2 characters long';
+    }
+    if (name.trim().length > 100) {
+      return 'District name must not exceed 100 characters';
+    }
+    // Allow letters, numbers, spaces, and common special characters
+    const nameRegex = /^[a-zA-Z0-9\s\&\-\.\,]+$/;
+    if (!nameRegex.test(name)) {
+      return 'District name can only contain letters, numbers, spaces, and & - . ,';
+    }
+    return '';
+  };
+
+  // Check if district name exists (for validation)
+  const checkDistrictNameExists = (name, currentDistrictId = null) => {
+    if (!name || !displayDistricts) return false;
+    const exists = displayDistricts.some(district => 
+      district.name.toLowerCase() === name.toLowerCase().trim() && 
+      (!currentDistrictId || district.id !== currentDistrictId)
+    );
+    return exists;
+  };
 
   // ============================================
   // EFFECTS
@@ -214,6 +264,95 @@ const Districts = () => {
   };
 
   // ============================================
+  // VALIDATE CREATE FORM
+  // ============================================
+
+  const validateCreateForm = () => {
+    const nameError = validateDistrictName(formData.name);
+
+    setValidationErrors({
+      name: nameError
+    });
+
+    setFormErrors({
+      name: !!nameError
+    });
+
+    // Check if any validation errors exist
+    if (nameError) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: nameError,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    // Check for duplicate name
+    if (checkDistrictNameExists(formData.name)) {
+      setFormError('A district with this name already exists');
+      Swal.fire({
+        icon: 'error',
+        title: 'Duplicate District Name',
+        text: 'A district with this name already exists. Please use a different name.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // ============================================
+  // VALIDATE EDIT FORM
+  // ============================================
+
+  const validateEditForm = () => {
+    const nameError = validateDistrictName(editFormData.name);
+
+    setEditValidationErrors({
+      name: nameError
+    });
+
+    setEditFormErrors({
+      name: !!nameError
+    });
+
+    // Check if any validation errors exist
+    if (nameError) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: nameError,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    // Check for duplicate name (excluding current district)
+    const originalDistrict = displayDistricts.find(d => d.id === showEditModal);
+    
+    if (editFormData.name !== originalDistrict?.name && 
+        checkDistrictNameExists(editFormData.name, showEditModal)) {
+      setFormError('A district with this name already exists');
+      Swal.fire({
+        icon: 'error',
+        title: 'Duplicate District Name',
+        text: 'A district with this name already exists. Please use a different name.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // ============================================
   // HANDLERS
   // ============================================
 
@@ -233,21 +372,19 @@ const Districts = () => {
     setFormError('');
     setFormSuccess('');
     
-    // Validate district name
-    if (!formData.name) {
-      setFormError('District name is required');
+    // Validate all fields
+    if (!validateCreateForm()) {
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Create district only - REMOVED description
+      // Create district only
       const districtData = {
-        name: formData.name,
+        name: formData.name.trim(),
         is_active: formData.is_active,
         brand_id: user.brand_id
-        // No manager_id field - manager assignment will be done in Users page
       };
 
       const districtResult = await dispatch(createDistrict(districtData)).unwrap();
@@ -258,7 +395,7 @@ const Districts = () => {
           title: 'District Created Successfully!',
           html: `
             <div style="text-align: left;">
-              <p><strong>District:</strong> ${formData.name}</p>
+              <p><strong>District:</strong> ${formData.name.trim()}</p>
             </div>
           `,
           confirmButtonText: 'OK',
@@ -288,38 +425,30 @@ const Districts = () => {
   };
 
   // ============================================
-  // EDIT DISTRICT - REMOVED DESCRIPTION
+  // EDIT DISTRICT
   // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
 
-    // Validate required fields
-    if (!editFormData.name) {
-      setFormError('District name is required');
+    // Validate all fields
+    if (!validateEditForm()) {
       return;
     }
 
-    console.log('Edit form data before submit:', editFormData);
-
     try {
-      // Prepare district update data - REMOVED description
+      // Prepare district update data
       const districtUpdateData = {
-        name: editFormData.name,
+        name: editFormData.name.trim(),
         is_active: editFormData.is_active
       };
-
-      console.log('Sending update data:', districtUpdateData);
-      console.log('District ID:', showEditModal);
 
       // Update district only
       const districtResult = await dispatch(updateDistrict({
         id: showEditModal,
         data: districtUpdateData
       })).unwrap();
-
-      console.log('Update result:', districtResult);
 
       // Check if the update was successful
       if (districtResult && districtResult.success) {
@@ -357,7 +486,7 @@ const Districts = () => {
     }
   };
 
-  // Toggle district status - REMOVED description
+  // Toggle district status
   const handleToggleStatus = async (district) => {
     try {
       setIsSubmitting(true);
@@ -368,17 +497,10 @@ const Districts = () => {
         is_active: !district.is_active
       };
 
-      console.log('Sending update request:', {
-        districtId: district.id,
-        updateData: updateData
-      });
-
       const result = await dispatch(updateDistrict({
         id: district.id,
         data: updateData
       })).unwrap();
-
-      console.log('Update response:', result);
 
       if (result && result.success) {
         await dispatch(getDistrictsByBrand(user.brand_id));
@@ -409,14 +531,20 @@ const Districts = () => {
     }
   };
 
-  // Edit district - REMOVED description
+  // Edit district
   const handleEdit = (district) => {
-    console.log('Editing district:', district);
     setShowEditModal(district.id);
     setEditFormData({
       name: district.name,
       is_active: district.is_active
     });
+    setEditFormErrors({
+      name: false
+    });
+    setEditValidationErrors({
+      name: ''
+    });
+    setFormError('');
   };
 
   // ============================================
@@ -428,10 +556,22 @@ const Districts = () => {
       name: '',
       is_active: true
     });
+    setFormErrors({
+      name: false
+    });
+    setValidationErrors({
+      name: ''
+    });
   };
 
   const resetEditForm = () => {
     setEditFormData({});
+    setEditFormErrors({
+      name: false
+    });
+    setEditValidationErrors({
+      name: ''
+    });
   };
 
   const handleInputChange = (e) => {
@@ -441,6 +581,13 @@ const Districts = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+
+    // Real-time validation
+    if (name === 'name') {
+      const error = validateDistrictName(value);
+      setValidationErrors(prev => ({ ...prev, [name]: error }));
+      setFormErrors(prev => ({ ...prev, [name]: !!error }));
+    }
   };
 
   const handleEditInputChange = (e) => {
@@ -450,12 +597,25 @@ const Districts = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+
+    // Real-time validation
+    if (name === 'name') {
+      const error = validateDistrictName(value);
+      setEditValidationErrors(prev => ({ ...prev, [name]: error }));
+      setEditFormErrors(prev => ({ ...prev, [name]: !!error }));
+    }
   };
 
-  // Add this for debugging
-  useEffect(() => {
-    console.log('districtsByBrand updated:', districtsByBrand);
-  }, [districtsByBrand]);
+  // Check if edit form has changes
+  const hasEditChanges = () => {
+    const originalDistrict = displayDistricts.find(d => d.id === showEditModal);
+    if (!originalDistrict) return false;
+    
+    return (
+      editFormData.name !== originalDistrict.name ||
+      editFormData.is_active !== originalDistrict.is_active
+    );
+  };
 
   // Show skeleton during initial load
   if (isInitialLoad && loading) {
@@ -490,6 +650,7 @@ const Districts = () => {
           onClick={() => {
             setShowCreateForm(!showCreateForm);
             setFormError('');
+            resetForm();
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
@@ -500,7 +661,7 @@ const Districts = () => {
         </button>
       </div>
 
-      {/* Create District Form - REMOVED description */}
+      {/* Create District Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Create New District</h2>
@@ -517,7 +678,7 @@ const Districts = () => {
             </div>
           )}
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="space-y-6">
               {/* District Information */}
               <div className="space-y-4">
@@ -532,10 +693,19 @@ const Districts = () => {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      formErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
                     placeholder="Enter district name"
+                    maxLength={100}
                     required
                   />
+                  {formErrors.name && (
+                    <p className="mt-1 text-xs text-red-600">{validationErrors.name}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.name.length}/100 characters
+                  </p>
                 </div>
 
                 <label className="flex items-center space-x-2">
@@ -554,9 +724,9 @@ const Districts = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || formErrors.name}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  isSubmitting
+                  isSubmitting || formErrors.name
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
@@ -568,7 +738,7 @@ const Districts = () => {
         </div>
       )}
 
-      {/* Districts Table - REMOVED Description column */}
+      {/* Districts Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading && !isInitialLoad ? (
           <div className="py-12 text-center">
@@ -669,11 +839,12 @@ const Districts = () => {
                             </button>
                             <button
                               onClick={() => handleToggleStatus(district)}
+                              disabled={isSubmitting}
                               className={`px-3 py-1 rounded text-sm ${
                                 district.is_active 
                                   ? 'bg-red-100 text-red-700 hover:bg-red-200' 
                                   : 'bg-green-100 text-green-700 hover:bg-green-200'
-                              }`}
+                              } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                               {district.is_active ? 'Deactivate' : 'Activate'}
                             </button>
@@ -681,7 +852,7 @@ const Districts = () => {
                         </td>
                       </tr>
 
-                      {/* Expanded Shops Dropdown Row - Updated colSpan */}
+                      {/* Expanded Shops Dropdown Row */}
                       {isExpanded && (
                         <tr className="bg-gray-50">
                           <td colSpan="4" className="px-6 py-4">
@@ -781,7 +952,7 @@ const Districts = () => {
         )}
       </div>
 
-      {/* Edit District Modal - REMOVED description */}
+      {/* Edit District Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -800,7 +971,7 @@ const Districts = () => {
                 </div>
               )}
               
-              <form onSubmit={handleEditSubmit}>
+              <form onSubmit={handleEditSubmit} noValidate>
                 <div className="space-y-6">
                   {/* District Information */}
                   <div className="space-y-4">
@@ -815,10 +986,19 @@ const Districts = () => {
                         name="name"
                         value={editFormData.name || ''}
                         onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          editFormErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Enter district name"
+                        maxLength={100}
                         required
                       />
+                      {editFormErrors.name && (
+                        <p className="mt-1 text-xs text-red-600">{editValidationErrors.name}</p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-500">
+                        {(editFormData.name || '').length}/100 characters
+                      </p>
                     </div>
 
                     <label className="flex items-center space-x-2">
@@ -844,7 +1024,12 @@ const Districts = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                    disabled={editFormErrors.name || !hasEditChanges()}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      editFormErrors.name || !hasEditChanges()
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                   >
                     Update District
                   </button>

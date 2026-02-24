@@ -20,6 +20,23 @@ import Swal from 'sweetalert2';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
+// Validation functions
+const validateEmail = (email) => {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
+const validateName = (name) => {
+  const nameRegex = /^[A-Za-z\s\-']+$/;
+  return nameRegex.test(name);
+};
+
+const validateNameLength = (name, fieldName) => {
+  if (name.length < 2) return `${fieldName} must be at least 2 characters long`;
+  if (name.length > 50) return `${fieldName} must be less than 50 characters`;
+  return '';
+};
+
 // Skeleton Loader Components
 const StatsSkeleton = () => (
   <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
@@ -123,6 +140,18 @@ const Users = () => {
   const [editProfilePicFile, setEditProfilePicFile] = useState(null);
   const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
   
+  // Validation error states
+  const [validationErrors, setValidationErrors] = useState({
+    first_name: '',
+    last_name: '',
+    email: ''
+  });
+
+  const [editValidationErrors, setEditValidationErrors] = useState({
+    first_name: '',
+    last_name: ''
+  });
+  
   // Form states - role is fixed to 'technician'
   const [formData, setFormData] = useState({
     first_name: '',
@@ -146,6 +175,72 @@ const Users = () => {
   const [formError, setFormError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [emailExistsError, setEmailExistsError] = useState('');
+
+  // ============================================
+  // VALIDATION FUNCTIONS
+  // ============================================
+
+  const validateFirstName = (name) => {
+    if (!name.trim()) return 'First name is required';
+    if (!validateName(name)) return 'First name can only contain letters, spaces, hyphens, and apostrophes';
+    return validateNameLength(name, 'First name');
+  };
+
+  const validateLastName = (name) => {
+    if (!name.trim()) return 'Last name is required';
+    if (!validateName(name)) return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
+    return validateNameLength(name, 'Last name');
+  };
+
+  const validateEmailField = (email) => {
+    if (!email.trim()) return 'Email is required';
+    if (!validateEmail(email)) return 'Please enter a valid email address (e.g., name@example.com)';
+    if (email.length > 100) return 'Email must be less than 100 characters';
+    return '';
+  };
+
+  const validateProfilePic = (file) => {
+    if (!file) return '';
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      return 'Please upload only image files (JPEG, PNG, GIF, WEBP)';
+    }
+    
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      return 'Profile picture must be less than 5MB';
+    }
+    
+    return '';
+  };
+
+  const validateForm = () => {
+    const errors = {
+      first_name: validateFirstName(formData.first_name),
+      last_name: validateLastName(formData.last_name),
+      email: validateEmailField(formData.email)
+    };
+    
+    setValidationErrors(errors);
+    
+    // Check if there are any errors
+    return !Object.values(errors).some(error => error !== '');
+  };
+
+  const validateEditForm = () => {
+    const errors = {
+      first_name: editFormData.first_name ? validateFirstName(editFormData.first_name) : '',
+      last_name: editFormData.last_name ? validateLastName(editFormData.last_name) : ''
+    };
+    
+    setEditValidationErrors(errors);
+    
+    // Check if there are any errors
+    return !Object.values(errors).some(error => error !== '');
+  };
 
   // ============================================
   // HELPER FUNCTIONS
@@ -266,6 +361,20 @@ const Users = () => {
   const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate profile picture
+      const picError = validateProfilePic(file);
+      if (picError) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid File',
+          text: picError,
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#d33'
+        });
+        e.target.value = ''; // Clear the input
+        return;
+      }
+
       const previewUrl = URL.createObjectURL(file);
       if (isEdit) {
         setEditProfilePicFile(file);
@@ -283,35 +392,22 @@ const Users = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
-    setLastOperation('create');
-    setIsSubmitting(true);
+    
+    // Validate form
+    if (!validateForm()) {
+      setFormError('Please fix the validation errors before submitting');
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: 'Please fix the validation errors before submitting',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
 
     if (!myShop) {
       setFormError('Shop information not available');
-      setIsSubmitting(false);
-      setLastOperation(null);
-      return;
-    }
-
-    // Validate required fields
-    if (!formData.first_name) {
-      setFormError('First name is required');
-      setIsSubmitting(false);
-      setLastOperation(null);
-      return;
-    }
-    
-    if (!formData.last_name) {
-      setFormError('Last name is required');
-      setIsSubmitting(false);
-      setLastOperation(null);
-      return;
-    }
-    
-    if (!formData.email) {
-      setFormError('Email is required');
-      setIsSubmitting(false);
-      setLastOperation(null);
       return;
     }
 
@@ -325,19 +421,20 @@ const Users = () => {
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
-      setIsSubmitting(false);
-      setLastOperation(null);
       return;
     }
+
+    setLastOperation('create');
+    setIsSubmitting(true);
 
     try {
       // Generate random password for first-time login
       const randomPassword = generateRandomPassword();
       
       const userFormData = new FormData();
-      userFormData.append('first_name', formData.first_name);
-      userFormData.append('last_name', formData.last_name);
-      userFormData.append('email', formData.email);
+      userFormData.append('first_name', formData.first_name.trim());
+      userFormData.append('last_name', formData.last_name.trim());
+      userFormData.append('email', formData.email.trim());
       
       // Always set role to 'technician'
       userFormData.append('role', 'technician');
@@ -410,6 +507,20 @@ const Users = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+    
+    // Validate edit form
+    if (!validateEditForm()) {
+      setFormError('Please fix the validation errors before submitting');
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: 'Please fix the validation errors before submitting',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
+
     setLastOperation('update');
 
     try {
@@ -417,11 +528,11 @@ const Users = () => {
       let hasChanges = false;
       
       if (editFormData.first_name !== editFormData.original_first_name) {
-        userFormData.append('first_name', editFormData.first_name);
+        userFormData.append('first_name', editFormData.first_name.trim());
         hasChanges = true;
       }
       if (editFormData.last_name !== editFormData.original_last_name) {
-        userFormData.append('last_name', editFormData.last_name);
+        userFormData.append('last_name', editFormData.last_name.trim());
         hasChanges = true;
       }
       
@@ -488,6 +599,11 @@ const Users = () => {
       role: 'technician',
       is_active: true
     });
+    setValidationErrors({
+      first_name: '',
+      last_name: '',
+      email: ''
+    });
     setProfilePicFile(null);
     setProfilePicPreview(null);
     setEmailExistsError('');
@@ -505,6 +621,10 @@ const Users = () => {
       original_last_name: '',
       profile_pic: ''
     });
+    setEditValidationErrors({
+      first_name: '',
+      last_name: ''
+    });
     setEditProfilePicFile(null);
     setEditProfilePicPreview(null);
     setShowEditModal(null);
@@ -518,7 +638,39 @@ const Users = () => {
         ...prev,
         [name]: value
       }));
+      
+      // Validate email
+      const emailError = validateEmailField(value);
+      setValidationErrors(prev => ({
+        ...prev,
+        email: emailError
+      }));
+      
       checkEmailExists(value);
+    } else if (name === 'first_name') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Validate first name
+      const nameError = validateFirstName(value);
+      setValidationErrors(prev => ({
+        ...prev,
+        first_name: nameError
+      }));
+    } else if (name === 'last_name') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Validate last name
+      const nameError = validateLastName(value);
+      setValidationErrors(prev => ({
+        ...prev,
+        last_name: nameError
+      }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -530,10 +682,36 @@ const Users = () => {
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    if (name === 'first_name') {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Validate first name if not empty
+      const nameError = value ? validateFirstName(value) : '';
+      setEditValidationErrors(prev => ({
+        ...prev,
+        first_name: nameError
+      }));
+    } else if (name === 'last_name') {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Validate last name if not empty
+      const nameError = value ? validateLastName(value) : '';
+      setEditValidationErrors(prev => ({
+        ...prev,
+        last_name: nameError
+      }));
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   const handleEdit = (user) => {
@@ -547,6 +725,10 @@ const Users = () => {
       original_first_name: user.first_name,
       original_last_name: user.last_name,
       profile_pic: user.profile_pic_url || DEFAULT_PROFILE_PIC
+    });
+    setEditValidationErrors({
+      first_name: '',
+      last_name: ''
     });
     setEditProfilePicPreview(user.profile_pic_url || DEFAULT_PROFILE_PIC);
     setEditProfilePicFile(null);
@@ -615,6 +797,10 @@ const Users = () => {
 
   const userCounts = getUserCounts();
 
+  // Check if form has validation errors
+  const hasValidationErrors = Object.values(validationErrors).some(error => error !== '');
+  const hasEditValidationErrors = Object.values(editValidationErrors).some(error => error !== '');
+
   // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
@@ -657,6 +843,11 @@ const Users = () => {
                 setShowCreateForm(true);
                 setFormError('');
                 setEmailExistsError('');
+                setValidationErrors({
+                  first_name: '',
+                  last_name: '',
+                  email: ''
+                });
               }
             }}
             className={`px-4 py-2 rounded-lg flex items-center transition-colors duration-200 ${
@@ -754,6 +945,7 @@ const Users = () => {
                         name="profile_pic"
                       />
                     </label>
+                    <p className="text-xs text-gray-500 mt-2">Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP</p>
                   </div>
                 </div>
               </div>
@@ -773,10 +965,15 @@ const Users = () => {
                         name="first_name"
                         value={formData.first_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
+                          validationErrors.first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="First name"
                         required
                       />
+                      {validationErrors.first_name && (
+                        <p className="mt-1 text-sm text-red-600">{validationErrors.first_name}</p>
+                      )}
                     </div>
 
                     <div>
@@ -788,10 +985,15 @@ const Users = () => {
                         name="last_name"
                         value={formData.last_name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
+                          validationErrors.last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Last name"
                         required
                       />
+                      {validationErrors.last_name && (
+                        <p className="mt-1 text-sm text-red-600">{validationErrors.last_name}</p>
+                      )}
                     </div>
                   </div>
 
@@ -805,12 +1007,15 @@ const Users = () => {
                       value={formData.email}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                        emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        validationErrors.email || emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="technician@example.com"
                       required
                     />
-                    {emailExistsError && (
+                    {validationErrors.email && (
+                      <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
+                    )}
+                    {!validationErrors.email && emailExistsError && (
                       <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
                     )}
                   </div>
@@ -835,14 +1040,20 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={!!emailExistsError || isSubmitting || lastOperation === 'create'}
+                disabled={!!emailExistsError || hasValidationErrors || isSubmitting || lastOperation === 'create'}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                  emailExistsError || isSubmitting || lastOperation === 'create'
+                  emailExistsError || hasValidationErrors || isSubmitting || lastOperation === 'create'
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isSubmitting || lastOperation === 'create' ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Add Technician'}
+                {isSubmitting || lastOperation === 'create' 
+                  ? 'Creating...' 
+                  : hasValidationErrors 
+                    ? 'Fix Validation Errors' 
+                    : emailExistsError 
+                      ? 'Email Already Exists' 
+                      : 'Add Technician'}
               </button>
             </div>
           </form>
@@ -998,6 +1209,11 @@ const Users = () => {
                   setShowCreateForm(true);
                   setFormError('');
                   setEmailExistsError('');
+                  setValidationErrors({
+                    first_name: '',
+                    last_name: '',
+                    email: ''
+                  });
                 }}
                 className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
               >
@@ -1084,6 +1300,7 @@ const Users = () => {
                           name="profile_pic"
                         />
                       </label>
+                      <p className="text-xs text-gray-500 mt-2">Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP</p>
                     </div>
                   </div>
 
@@ -1101,8 +1318,13 @@ const Users = () => {
                           name="first_name"
                           value={editFormData.first_name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
+                            editValidationErrors.first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
                         />
+                        {editValidationErrors.first_name && (
+                          <p className="mt-1 text-sm text-red-600">{editValidationErrors.first_name}</p>
+                        )}
                       </div>
 
                       <div>
@@ -1114,8 +1336,13 @@ const Users = () => {
                           name="last_name"
                           value={editFormData.last_name}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
+                            editValidationErrors.last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
                         />
+                        {editValidationErrors.last_name && (
+                          <p className="mt-1 text-sm text-red-600">{editValidationErrors.last_name}</p>
+                        )}
                       </div>
                     </div>
 
@@ -1130,6 +1357,7 @@ const Users = () => {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
                         readOnly
                       />
+                      <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
                     </div>
 
                     {/* Role (Read-only) */}
@@ -1172,14 +1400,18 @@ const Users = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={lastOperation === 'update'}
+                    disabled={hasEditValidationErrors || lastOperation === 'update'}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
-                      lastOperation === 'update'
+                      hasEditValidationErrors || lastOperation === 'update'
                         ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   >
-                    {lastOperation === 'update' ? 'Updating...' : 'Update Technician'}
+                    {lastOperation === 'update' 
+                      ? 'Updating...' 
+                      : hasEditValidationErrors 
+                        ? 'Fix Validation Errors' 
+                        : 'Update Technician'}
                   </button>
                 </div>
               </form>

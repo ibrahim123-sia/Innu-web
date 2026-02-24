@@ -167,6 +167,44 @@ const Shops = () => {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
+  // Validation states for create form
+  const [formErrors, setFormErrors] = useState({
+    name: false,
+    street_address: false,
+    city: false,
+    state: false,
+    timezone: false,
+    tekmetric_shop_id: false
+  });
+
+  const [validationErrors, setValidationErrors] = useState({
+    name: '',
+    street_address: '',
+    city: '',
+    state: '',
+    timezone: '',
+    tekmetric_shop_id: ''
+  });
+
+  // Validation states for edit form
+  const [editFormErrors, setEditFormErrors] = useState({
+    name: false,
+    street_address: false,
+    city: false,
+    state: false,
+    timezone: false,
+    tekmetric_shop_id: false
+  });
+
+  const [editValidationErrors, setEditValidationErrors] = useState({
+    name: '',
+    street_address: '',
+    city: '',
+    state: '',
+    timezone: '',
+    tekmetric_shop_id: ''
+  });
+
   // Common US timezones for dropdown
   const timezones = [
     'America/New_York',
@@ -185,6 +223,108 @@ const Shops = () => {
     'America/North_Dakota/Center',
     'America/Kentucky/Louisville'
   ];
+
+  // US States list for validation
+  const usStates = [
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+    'DC', 'PR', 'VI', 'GU', 'MP', 'AS'
+  ];
+
+  // ============================================
+  // VALIDATION FUNCTIONS
+  // ============================================
+
+  const validateShopName = (name) => {
+    if (!name || !name.trim()) {
+      return 'Shop name is required';
+    }
+    if (name.trim().length < 2) {
+      return 'Shop name must be at least 2 characters long';
+    }
+    if (name.trim().length > 100) {
+      return 'Shop name must not exceed 100 characters';
+    }
+    // Allow letters, numbers, spaces, and common special characters
+    const nameRegex = /^[a-zA-Z0-9\s\&\-\.\,]+$/;
+    if (!nameRegex.test(name)) {
+      return 'Shop name can only contain letters, numbers, spaces, and & - . ,';
+    }
+    return '';
+  };
+
+  const validateTekmetricId = (id) => {
+    if (!id || !id.trim()) {
+      return 'Tekmetric Shop ID is required';
+    }
+    if (id.trim().length < 1) {
+      return 'Tekmetric Shop ID must be at least 1 character long';
+    }
+    if (id.trim().length > 50) {
+      return 'Tekmetric Shop ID must not exceed 50 characters';
+    }
+    // Allow alphanumeric and hyphens
+    const idRegex = /^[a-zA-Z0-9\-]+$/;
+    if (!idRegex.test(id)) {
+      return 'Tekmetric Shop ID can only contain letters, numbers, and hyphens';
+    }
+    return '';
+  };
+
+  const validateStreetAddress = (address) => {
+    if (!address || !address.trim()) {
+      return 'Street address is required';
+    }
+    if (address.trim().length < 5) {
+      return 'Street address must be at least 5 characters long';
+    }
+    if (address.trim().length > 200) {
+      return 'Street address must not exceed 200 characters';
+    }
+    return '';
+  };
+
+  const validateCity = (city) => {
+    if (!city || !city.trim()) {
+      return 'City is required';
+    }
+    if (city.trim().length < 2) {
+      return 'City must be at least 2 characters long';
+    }
+    if (city.trim().length > 100) {
+      return 'City must not exceed 100 characters';
+    }
+    // Allow letters, spaces, and hyphens for city names
+    const cityRegex = /^[a-zA-Z\s\-\.]+$/;
+    if (!cityRegex.test(city)) {
+      return 'City can only contain letters, spaces, hyphens, and periods';
+    }
+    return '';
+  };
+
+  const validateState = (state) => {
+    if (!state || !state.trim()) {
+      return 'State is required';
+    }
+    const upperState = state.trim().toUpperCase();
+    if (!usStates.includes(upperState)) {
+      return 'Please enter a valid US state code (e.g., CA, NY, TX)';
+    }
+    return '';
+  };
+
+  const validateTimezone = (timezone) => {
+    if (!timezone) {
+      return 'Timezone is required';
+    }
+    if (!timezones.includes(timezone)) {
+      return 'Please select a valid timezone';
+    }
+    return '';
+  };
 
   // ============================================
   // EFFECTS
@@ -220,62 +360,216 @@ const Shops = () => {
     return district ? district.name : 'Unknown District';
   };
 
+  // Check if shop name exists (for validation)
+  const checkShopNameExists = (name, currentShopId = null) => {
+    if (!name || !shops) return false;
+    const exists = shops.some(shop => 
+      shop.name.toLowerCase() === name.toLowerCase() && 
+      (!currentShopId || shop.id !== currentShopId)
+    );
+    return exists;
+  };
+
+  // Check if Tekmetric ID exists (for validation)
+  const checkTekmetricIdExists = (id, currentShopId = null) => {
+    if (!id || !shops) return false;
+    const exists = shops.some(shop => 
+      shop.tekmetric_shop_id && 
+      shop.tekmetric_shop_id.toLowerCase() === id.toLowerCase() && 
+      (!currentShopId || shop.id !== currentShopId)
+    );
+    return exists;
+  };
+
+  // ============================================
+  // CREATE SHOP VALIDATION
+  // ============================================
+
+  const validateCreateForm = () => {
+    const nameError = validateShopName(formData.name);
+    const tekmetricError = validateTekmetricId(formData.tekmetric_shop_id);
+    const addressError = validateStreetAddress(formData.street_address);
+    const cityError = validateCity(formData.city);
+    const stateError = validateState(formData.state);
+    const timezoneError = validateTimezone(formData.timezone);
+
+    setValidationErrors({
+      name: nameError,
+      tekmetric_shop_id: tekmetricError,
+      street_address: addressError,
+      city: cityError,
+      state: stateError,
+      timezone: timezoneError
+    });
+
+    setFormErrors({
+      name: !!nameError,
+      tekmetric_shop_id: !!tekmetricError,
+      street_address: !!addressError,
+      city: !!cityError,
+      state: !!stateError,
+      timezone: !!timezoneError
+    });
+
+    // Check if any validation errors exist
+    const hasErrors = nameError || tekmetricError || addressError || cityError || stateError || timezoneError;
+
+    if (hasErrors) {
+      const errorMessages = [];
+      if (nameError) errorMessages.push(nameError);
+      if (tekmetricError) errorMessages.push(tekmetricError);
+      if (addressError) errorMessages.push(addressError);
+      if (cityError) errorMessages.push(cityError);
+      if (stateError) errorMessages.push(stateError);
+      if (timezoneError) errorMessages.push(timezoneError);
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Errors',
+        html: `<ul style="text-align: left;">${errorMessages.map(msg => `<li>• ${msg}</li>`).join('')}</ul>`,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    // Check for duplicates
+    if (checkShopNameExists(formData.name)) {
+      setFormError('A shop with this name already exists');
+      Swal.fire({
+        icon: 'error',
+        title: 'Duplicate Shop Name',
+        text: 'A shop with this name already exists. Please use a different name.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    if (checkTekmetricIdExists(formData.tekmetric_shop_id)) {
+      setFormError('A shop with this Tekmetric ID already exists');
+      Swal.fire({
+        icon: 'error',
+        title: 'Duplicate Tekmetric ID',
+        text: 'A shop with this Tekmetric ID already exists. Please use a different ID.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // ============================================
+  // EDIT SHOP VALIDATION
+  // ============================================
+
+  const validateEditForm = () => {
+    const nameError = validateShopName(editFormData.name);
+    const tekmetricError = validateTekmetricId(editFormData.tekmetric_shop_id);
+    const addressError = validateStreetAddress(editFormData.street_address);
+    const cityError = validateCity(editFormData.city);
+    const stateError = validateState(editFormData.state);
+    const timezoneError = validateTimezone(editFormData.timezone);
+
+    setEditValidationErrors({
+      name: nameError,
+      tekmetric_shop_id: tekmetricError,
+      street_address: addressError,
+      city: cityError,
+      state: stateError,
+      timezone: timezoneError
+    });
+
+    setEditFormErrors({
+      name: !!nameError,
+      tekmetric_shop_id: !!tekmetricError,
+      street_address: !!addressError,
+      city: !!cityError,
+      state: !!stateError,
+      timezone: !!timezoneError
+    });
+
+    // Check if any validation errors exist
+    const hasErrors = nameError || tekmetricError || addressError || cityError || stateError || timezoneError;
+
+    if (hasErrors) {
+      const errorMessages = [];
+      if (nameError) errorMessages.push(nameError);
+      if (tekmetricError) errorMessages.push(tekmetricError);
+      if (addressError) errorMessages.push(addressError);
+      if (cityError) errorMessages.push(cityError);
+      if (stateError) errorMessages.push(stateError);
+      if (timezoneError) errorMessages.push(timezoneError);
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Errors',
+        html: `<ul style="text-align: left;">${errorMessages.map(msg => `<li>• ${msg}</li>`).join('')}</ul>`,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    // Check for duplicates (excluding current shop)
+    const originalShop = shops.find(s => s.id === showEditModal);
+    
+    if (editFormData.name !== originalShop?.name && checkShopNameExists(editFormData.name, showEditModal)) {
+      setFormError('A shop with this name already exists');
+      Swal.fire({
+        icon: 'error',
+        title: 'Duplicate Shop Name',
+        text: 'A shop with this name already exists. Please use a different name.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    if (editFormData.tekmetric_shop_id !== originalShop?.tekmetric_shop_id && 
+        checkTekmetricIdExists(editFormData.tekmetric_shop_id, showEditModal)) {
+      setFormError('A shop with this Tekmetric ID already exists');
+      Swal.fire({
+        icon: 'error',
+        title: 'Duplicate Tekmetric ID',
+        text: 'A shop with this Tekmetric ID already exists. Please use a different ID.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   // ============================================
   // CREATE SHOP
   // ============================================
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
+    
+    // Validate all fields
+    if (!validateCreateForm()) {
+      return;
+    }
+
     setIsSubmitting(true);
-
-    // Validate required fields
-    if (!formData.name) {
-      setFormError('Shop name is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.street_address) {
-      setFormError('Street address is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.city) {
-      setFormError('City is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.state) {
-      setFormError('State is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.timezone) {
-      setFormError('Timezone is required');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!formData.tekmetric_shop_id || formData.tekmetric_shop_id.trim() === '') {
-      setFormError('Tekmetric Shop ID is required');
-      setIsSubmitting(false);
-      return;
-    }
 
     try {
       // Create shop only - no manager creation
       const shopData = {
-        name: formData.name,
+        name: formData.name.trim(),
         brand_id: user.brand_id,
         district_id: formData.district_id || null,
-        tekmetric_shop_id: formData.tekmetric_shop_id,
-        street_address: formData.street_address,
-        city: formData.city,
-        state: formData.state,
+        tekmetric_shop_id: formData.tekmetric_shop_id.trim(),
+        street_address: formData.street_address.trim(),
+        city: formData.city.trim(),
+        state: formData.state.trim().toUpperCase(),
         timezone: formData.timezone,
         is_active: formData.is_active
       };
@@ -289,9 +583,9 @@ const Shops = () => {
           title: 'Shop Created Successfully!',
           html: `
             <div style="text-align: left;">
-              <p><strong>Shop:</strong> ${formData.name}</p>
-              <p><strong>Tekmetric ID:</strong> ${formData.tekmetric_shop_id}</p>
-              <p><strong>Location:</strong> ${formData.city}, ${formData.state}</p>
+              <p><strong>Shop:</strong> ${formData.name.trim()}</p>
+              <p><strong>Tekmetric ID:</strong> ${formData.tekmetric_shop_id.trim()}</p>
+              <p><strong>Location:</strong> ${formData.city.trim()}, ${formData.state.trim().toUpperCase()}</p>
               <p><strong>Timezone:</strong> ${formData.timezone}</p>
               <p><strong>District:</strong> ${formData.district_id ? getDistrictName(formData.district_id) : 'None'}</p>
             </div>
@@ -323,47 +617,27 @@ const Shops = () => {
   };
 
   // ============================================
-  // EDIT SHOP - FIXED VERSION
+  // EDIT SHOP
   // ============================================
+
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
 
-    // Validate required fields
-    if (!editFormData.street_address) {
-      setFormError('Street address is required');
-      return;
-    }
-
-    if (!editFormData.city) {
-      setFormError('City is required');
-      return;
-    }
-
-    if (!editFormData.state) {
-      setFormError('State is required');
-      return;
-    }
-
-    if (!editFormData.timezone) {
-      setFormError('Timezone is required');
-      return;
-    }
-
-    if (!editFormData.tekmetric_shop_id || editFormData.tekmetric_shop_id.trim() === '') {
-      setFormError('Tekmetric Shop ID is required');
+    // Validate all fields
+    if (!validateEditForm()) {
       return;
     }
 
     try {
-      // Prepare update data - handle district_id properly
+      // Prepare update data
       const updateData = {
-        name: editFormData.name,
-        tekmetric_shop_id: editFormData.tekmetric_shop_id,
-        street_address: editFormData.street_address,
-        city: editFormData.city,
-        state: editFormData.state,
+        name: editFormData.name.trim(),
+        tekmetric_shop_id: editFormData.tekmetric_shop_id.trim(),
+        street_address: editFormData.street_address.trim(),
+        city: editFormData.city.trim(),
+        state: editFormData.state.trim().toUpperCase(),
         timezone: editFormData.timezone,
         is_active: editFormData.is_active
       };
@@ -372,23 +646,15 @@ const Shops = () => {
       if (editFormData.district_id && editFormData.district_id !== '') {
         updateData.district_id = editFormData.district_id;
       } else {
-        updateData.district_id = null; // Explicitly set to null for no district
+        updateData.district_id = null;
       }
 
-      console.log('Sending update data:', updateData);
-      console.log('Shop ID:', showEditModal);
-
-      // FIXED: Pass as { id, data } object
       const result = await dispatch(updateShop({
         id: showEditModal,
         data: updateData
       })).unwrap();
 
-      console.log('Update result:', result);
-
-      // Verify the update was successful
       if (result.success) {
-        // Show success message
         Swal.fire({
           icon: 'success',
           title: 'Success!',
@@ -399,8 +665,6 @@ const Shops = () => {
         });
         
         resetEditForm();
-        
-        // Force a fresh fetch of shops to ensure we have the latest data
         await dispatch(getShopsByBrand(user.brand_id));
         
         setTimeout(() => {
@@ -477,10 +741,42 @@ const Shops = () => {
       district_id: '',
       is_active: true
     });
+    setFormErrors({
+      name: false,
+      street_address: false,
+      city: false,
+      state: false,
+      timezone: false,
+      tekmetric_shop_id: false
+    });
+    setValidationErrors({
+      name: '',
+      street_address: '',
+      city: '',
+      state: '',
+      timezone: '',
+      tekmetric_shop_id: ''
+    });
   };
 
   const resetEditForm = () => {
     setEditFormData({});
+    setEditFormErrors({
+      name: false,
+      street_address: false,
+      city: false,
+      state: false,
+      timezone: false,
+      tekmetric_shop_id: false
+    });
+    setEditValidationErrors({
+      name: '',
+      street_address: '',
+      city: '',
+      state: '',
+      timezone: '',
+      tekmetric_shop_id: ''
+    });
   };
 
   const handleInputChange = (e) => {
@@ -490,6 +786,18 @@ const Shops = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+
+    // Real-time validation
+    let error = '';
+    if (name === 'name') error = validateShopName(value);
+    else if (name === 'tekmetric_shop_id') error = validateTekmetricId(value);
+    else if (name === 'street_address') error = validateStreetAddress(value);
+    else if (name === 'city') error = validateCity(value);
+    else if (name === 'state') error = validateState(value);
+    else if (name === 'timezone') error = validateTimezone(value);
+
+    setValidationErrors(prev => ({ ...prev, [name]: error }));
+    setFormErrors(prev => ({ ...prev, [name]: !!error }));
   };
 
   const handleEditInputChange = (e) => {
@@ -499,6 +807,18 @@ const Shops = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+
+    // Real-time validation
+    let error = '';
+    if (name === 'name') error = validateShopName(value);
+    else if (name === 'tekmetric_shop_id') error = validateTekmetricId(value);
+    else if (name === 'street_address') error = validateStreetAddress(value);
+    else if (name === 'city') error = validateCity(value);
+    else if (name === 'state') error = validateState(value);
+    else if (name === 'timezone') error = validateTimezone(value);
+
+    setEditValidationErrors(prev => ({ ...prev, [name]: error }));
+    setEditFormErrors(prev => ({ ...prev, [name]: !!error }));
   };
 
   const handleEdit = (shop) => {
@@ -513,6 +833,40 @@ const Shops = () => {
       district_id: shop.district_id || '',
       is_active: shop.is_active
     });
+    setEditFormErrors({
+      name: false,
+      street_address: false,
+      city: false,
+      state: false,
+      timezone: false,
+      tekmetric_shop_id: false
+    });
+    setEditValidationErrors({
+      name: '',
+      street_address: '',
+      city: '',
+      state: '',
+      timezone: '',
+      tekmetric_shop_id: ''
+    });
+    setFormError('');
+  };
+
+  // Check if edit form has changes
+  const hasEditChanges = () => {
+    const originalShop = shops.find(s => s.id === showEditModal);
+    if (!originalShop) return false;
+    
+    return (
+      editFormData.name !== originalShop.name ||
+      editFormData.street_address !== originalShop.street_address ||
+      editFormData.city !== originalShop.city ||
+      editFormData.state !== originalShop.state ||
+      editFormData.timezone !== originalShop.timezone ||
+      editFormData.tekmetric_shop_id !== originalShop.tekmetric_shop_id ||
+      editFormData.district_id !== originalShop.district_id ||
+      editFormData.is_active !== originalShop.is_active
+    );
   };
 
   // Show skeleton during initial load
@@ -544,6 +898,7 @@ const Shops = () => {
           onClick={() => {
             setShowCreateForm(!showCreateForm);
             setFormError('');
+            resetForm();
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
@@ -571,7 +926,7 @@ const Shops = () => {
             </div>
           )}
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="space-y-6">
               {/* Shop Information */}
               <div className="space-y-4">
@@ -587,10 +942,19 @@ const Shops = () => {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Enter shop name"
+                      maxLength={100}
                       required
                     />
+                    {formErrors.name && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.name}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      {formData.name.length}/100 characters
+                    </p>
                   </div>
 
                   <div>
@@ -602,10 +966,16 @@ const Shops = () => {
                       name="tekmetric_shop_id"
                       value={formData.tekmetric_shop_id}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.tekmetric_shop_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Enter Tekmetric Shop ID"
+                      maxLength={50}
                       required
                     />
+                    {formErrors.tekmetric_shop_id && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.tekmetric_shop_id}</p>
+                    )}
                   </div>
                 </div>
 
@@ -618,10 +988,16 @@ const Shops = () => {
                     name="street_address"
                     value={formData.street_address}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      formErrors.street_address ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
                     placeholder="Street address"
+                    maxLength={200}
                     required
                   />
+                  {formErrors.street_address && (
+                    <p className="mt-1 text-xs text-red-600">{validationErrors.street_address}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -634,10 +1010,16 @@ const Shops = () => {
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="City"
+                      maxLength={100}
                       required
                     />
+                    {formErrors.city && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.city}</p>
+                    )}
                   </div>
 
                   <div>
@@ -649,10 +1031,19 @@ const Shops = () => {
                       name="state"
                       value={formData.state}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="State"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.state ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="State (e.g., CA, NY)"
+                      maxLength={2}
                       required
                     />
+                    {formErrors.state && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.state}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Enter 2-letter state code
+                    </p>
                   </div>
                 </div>
 
@@ -664,13 +1055,18 @@ const Shops = () => {
                     name="timezone"
                     value={formData.timezone}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      formErrors.timezone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
                     required
                   >
                     {timezones.map(tz => (
                       <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
                     ))}
                   </select>
+                  {formErrors.timezone && (
+                    <p className="mt-1 text-xs text-red-600">{validationErrors.timezone}</p>
+                  )}
                 </div>
 
                 <div>
@@ -711,9 +1107,9 @@ const Shops = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || Object.values(formErrors).some(error => error)}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  isSubmitting
+                  isSubmitting || Object.values(formErrors).some(error => error)
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
@@ -860,7 +1256,7 @@ const Shops = () => {
                 </div>
               )}
               
-              <form onSubmit={handleEditSubmit}>
+              <form onSubmit={handleEditSubmit} noValidate>
                 <div className="space-y-6">
                   {/* Shop Information */}
                   <div className="space-y-4">
@@ -876,10 +1272,16 @@ const Shops = () => {
                           name="name"
                           value={editFormData.name || ''}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            editFormErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
                           placeholder="Enter shop name"
+                          maxLength={100}
                           required
                         />
+                        {editFormErrors.name && (
+                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.name}</p>
+                        )}
                       </div>
 
                       <div>
@@ -891,10 +1293,16 @@ const Shops = () => {
                           name="tekmetric_shop_id"
                           value={editFormData.tekmetric_shop_id || ''}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            editFormErrors.tekmetric_shop_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
                           placeholder="Enter Tekmetric Shop ID"
+                          maxLength={50}
                           required
                         />
+                        {editFormErrors.tekmetric_shop_id && (
+                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.tekmetric_shop_id}</p>
+                        )}
                       </div>
                     </div>
 
@@ -907,10 +1315,16 @@ const Shops = () => {
                         name="street_address"
                         value={editFormData.street_address || ''}
                         onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          editFormErrors.street_address ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Street address"
+                        maxLength={200}
                         required
                       />
+                      {editFormErrors.street_address && (
+                        <p className="mt-1 text-xs text-red-600">{editValidationErrors.street_address}</p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -923,10 +1337,16 @@ const Shops = () => {
                           name="city"
                           value={editFormData.city || ''}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            editFormErrors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
                           placeholder="City"
+                          maxLength={100}
                           required
                         />
+                        {editFormErrors.city && (
+                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.city}</p>
+                        )}
                       </div>
 
                       <div>
@@ -938,10 +1358,16 @@ const Shops = () => {
                           name="state"
                           value={editFormData.state || ''}
                           onChange={handleEditInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="State"
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            editFormErrors.state ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
+                          placeholder="State (e.g., CA, NY)"
+                          maxLength={2}
                           required
                         />
+                        {editFormErrors.state && (
+                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.state}</p>
+                        )}
                       </div>
                     </div>
 
@@ -953,13 +1379,18 @@ const Shops = () => {
                         name="timezone"
                         value={editFormData.timezone || ''}
                         onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          editFormErrors.timezone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         required
                       >
                         {timezones.map(tz => (
                           <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
                         ))}
                       </select>
+                      {editFormErrors.timezone && (
+                        <p className="mt-1 text-xs text-red-600">{editValidationErrors.timezone}</p>
+                      )}
                     </div>
 
                     <div>
@@ -1004,7 +1435,12 @@ const Shops = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                    disabled={Object.values(editFormErrors).some(error => error) || !hasEditChanges()}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      Object.values(editFormErrors).some(error => error) || !hasEditChanges()
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                   >
                     Update Shop
                   </button>
