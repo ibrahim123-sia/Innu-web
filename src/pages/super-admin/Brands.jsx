@@ -127,6 +127,12 @@ const Brands = () => {
     admin_first_name: false,
     admin_last_name: false
   });
+  const [validationErrors, setValidationErrors] = useState({
+    name: '',
+    admin_email: '',
+    admin_first_name: '',
+    admin_last_name: ''
+  });
 
   useEffect(() => {
     dispatch(getAllBrands());
@@ -187,6 +193,100 @@ const Brands = () => {
     return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
   };
 
+  // Validation functions
+  const validateName = (name) => {
+    if (!name || !name.trim()) {
+      return 'Company name is required';
+    }
+    if (name.trim().length < 2) {
+      return 'Company name must be at least 2 characters long';
+    }
+    if (name.trim().length > 100) {
+      return 'Company name must not exceed 100 characters';
+    }
+    // Allow letters, numbers, spaces, and common special characters like &, -, .
+    const nameRegex = /^[a-zA-Z0-9\s\&\-\.\,]+$/;
+    if (!nameRegex.test(name)) {
+      return 'Company name can only contain letters, numbers, spaces, and & - . ,';
+    }
+    return '';
+  };
+
+  const validateEmail = (email) => {
+    if (!email || !email.trim()) {
+      return 'Email is required';
+    }
+    
+    // RFC 5322 compliant email regex
+    const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address (e.g., name@example.com)';
+    }
+    
+    // Check email length
+    if (email.length > 254) {
+      return 'Email address is too long';
+    }
+    
+    // Check for common typos
+    if (email.includes('..')) {
+      return 'Email cannot contain consecutive dots';
+    }
+    
+    if (email.startsWith('.') || email.endsWith('.')) {
+      return 'Email cannot start or end with a dot';
+    }
+    
+    return '';
+  };
+
+  const validateFirstName = (firstName) => {
+    if (!firstName || !firstName.trim()) {
+      return 'First name is required';
+    }
+    if (firstName.trim().length < 2) {
+      return 'First name must be at least 2 characters long';
+    }
+    if (firstName.trim().length > 50) {
+      return 'First name must not exceed 50 characters';
+    }
+    // Only allow letters and hyphens for names
+    const nameRegex = /^[a-zA-Z\s\-']+$/;
+    if (!nameRegex.test(firstName)) {
+      return 'First name can only contain letters, spaces, hyphens, and apostrophes';
+    }
+    return '';
+  };
+
+  const validateLastName = (lastName) => {
+    if (!lastName || !lastName.trim()) {
+      return 'Last name is required';
+    }
+    if (lastName.trim().length < 2) {
+      return 'Last name must be at least 2 characters long';
+    }
+    if (lastName.trim().length > 50) {
+      return 'Last name must not exceed 50 characters';
+    }
+    // Only allow letters and hyphens for names
+    const nameRegex = /^[a-zA-Z\s\-']+$/;
+    if (!nameRegex.test(lastName)) {
+      return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
+    }
+    return '';
+  };
+
+  const validateFileType = (file, allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']) => {
+    if (!file) return '';
+    if (!allowedTypes.includes(file.type)) {
+      return 'Please upload a valid image file (JPEG, PNG, GIF, or WEBP)';
+    }
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      return 'File size must not exceed 5MB';
+    }
+    return '';
+  };
+
   // Check if email already exists
   const checkEmailExists = (email) => {
     if (!email) return false;
@@ -197,6 +297,20 @@ const Brands = () => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
+    const fileError = validateFileType(file);
+    
+    if (fileError) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid File',
+        text: fileError,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      e.target.value = ''; // Clear the input
+      return;
+    }
+
     if (file) {
       const previewUrl = URL.createObjectURL(file);
       
@@ -236,30 +350,45 @@ const Brands = () => {
 
   // Validate form fields
   const validateForm = () => {
-    const errors = {
-      name: !formData.name.trim(),
-      admin_email: !formData.admin_email.trim(),
-      admin_first_name: !formData.admin_first_name.trim(),
-      admin_last_name: !formData.admin_last_name.trim()
-    };
-    
-    setFormErrors(errors);
-    
-    // Check if any field is empty
-    const hasErrors = Object.values(errors).some(error => error === true);
-    
+    const nameError = validateName(formData.name);
+    const emailError = validateEmail(formData.admin_email);
+    const firstNameError = validateFirstName(formData.admin_first_name);
+    const lastNameError = validateLastName(formData.admin_last_name);
+
+    setValidationErrors({
+      name: nameError,
+      admin_email: emailError,
+      admin_first_name: firstNameError,
+      admin_last_name: lastNameError
+    });
+
+    setFormErrors({
+      name: !!nameError,
+      admin_email: !!emailError,
+      admin_first_name: !!firstNameError,
+      admin_last_name: !!lastNameError
+    });
+
+    // Check if any validation errors exist
+    const hasErrors = nameError || emailError || firstNameError || lastNameError;
+
     if (hasErrors) {
-      setFormError('Please fill in all required fields');
+      const errorMessages = [];
+      if (nameError) errorMessages.push(nameError);
+      if (emailError) errorMessages.push(emailError);
+      if (firstNameError) errorMessages.push(firstNameError);
+      if (lastNameError) errorMessages.push(lastNameError);
+
       Swal.fire({
         icon: 'error',
-        title: 'Required Fields Missing',
-        text: 'Please fill in all required fields (Brand Name, Admin Email, First Name, and Last Name)',
+        title: 'Validation Errors',
+        html: `<ul style="text-align: left;">${errorMessages.map(msg => `<li>• ${msg}</li>`).join('')}</ul>`,
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
       return false;
     }
-    
+
     return true;
   };
 
@@ -273,8 +402,6 @@ const Brands = () => {
       setIsSubmitting(false);
       return;
     }
-
-    setIsSubmitting(true);
 
     // Check if email already exists before proceeding
     if (checkEmailExists(formData.admin_email)) {
@@ -290,10 +417,12 @@ const Brands = () => {
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
       // Step 1: Create brand
       const brandFormData = new FormData();
-      brandFormData.append('name', formData.name);
+      brandFormData.append('name', formData.name.trim());
       brandFormData.append('is_active', formData.is_active);
       
       if (logoFile) {
@@ -308,9 +437,9 @@ const Brands = () => {
         
         // Step 2: Create brand admin user with ft_password
         const userFormData = new FormData();
-        userFormData.append('email', formData.admin_email);
-        userFormData.append('first_name', formData.admin_first_name);
-        userFormData.append('last_name', formData.admin_last_name);
+        userFormData.append('email', formData.admin_email.trim().toLowerCase());
+        userFormData.append('first_name', formData.admin_first_name.trim());
+        userFormData.append('last_name', formData.admin_last_name.trim());
         
         userFormData.append('role', 'brand_admin');
         userFormData.append('brand_id', brandResult.data.id);
@@ -334,13 +463,13 @@ const Brands = () => {
             title: 'Brand Created Successfully!',
             html: `
               <div style="text-align: left;">
-                <p><strong>Brand:</strong> ${formData.name}</p>
-                <p><strong>Brand Admin:</strong> ${formData.admin_first_name} ${formData.admin_last_name}</p>
-                <p><strong>Admin Email:</strong> ${formData.admin_email}</p>
+                <p><strong>Brand:</strong> ${formData.name.trim()}</p>
+                <p><strong>Brand Admin:</strong> ${formData.admin_first_name.trim()} ${formData.admin_last_name.trim()}</p>
+                <p><strong>Admin Email:</strong> ${formData.admin_email.trim().toLowerCase()}</p>
                 <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #2196F3;">
                   <p style="margin: 0; font-weight: bold;">📧 Welcome Email Sent</p>
                   <p style="margin: 5px 0 0 0; color: #555;">
-                    An email with instructions to set up their password has been sent to ${formData.admin_email}
+                    An email with instructions to set up their password has been sent to ${formData.admin_email.trim().toLowerCase()}
                   </p>
                 </div>
               </div>
@@ -375,17 +504,53 @@ const Brands = () => {
 
   // Validate edit form fields
   const validateEditForm = () => {
-    if (!editFormData.name.trim()) {
-      setFormError('Brand name is required');
+    const nameError = validateName(editFormData.name);
+    
+    if (nameError) {
+      setFormError(nameError);
       Swal.fire({
         icon: 'error',
-        title: 'Required Field Missing',
-        text: 'Brand name is required',
+        title: 'Validation Error',
+        text: nameError,
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
       return false;
     }
+
+    // Validate admin name fields if they exist and are being updated
+    if (editFormData.admin_id) {
+      if (editFormData.admin_first_name !== editFormData.original_admin_first_name) {
+        const firstNameError = validateFirstName(editFormData.admin_first_name);
+        if (firstNameError) {
+          setFormError(firstNameError);
+          Swal.fire({
+            icon: 'error',
+            title: 'Validation Error',
+            text: firstNameError,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#d33'
+          });
+          return false;
+        }
+      }
+
+      if (editFormData.admin_last_name !== editFormData.original_admin_last_name) {
+        const lastNameError = validateLastName(editFormData.admin_last_name);
+        if (lastNameError) {
+          setFormError(lastNameError);
+          Swal.fire({
+            icon: 'error',
+            title: 'Validation Error',
+            text: lastNameError,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#d33'
+          });
+          return false;
+        }
+      }
+    }
+
     return true;
   };
 
@@ -402,7 +567,7 @@ const Brands = () => {
     try {
       // Update brand
       const brandFormData = new FormData();
-      brandFormData.append('name', editFormData.name);
+      brandFormData.append('name', editFormData.name.trim());
       brandFormData.append('is_active', editFormData.is_active);
       
       if (logoFile) {
@@ -422,11 +587,11 @@ const Brands = () => {
         let hasChanges = false;
         
         if (editFormData.admin_first_name !== editFormData.original_admin_first_name) {
-          adminFormData.append('first_name', editFormData.admin_first_name);
+          adminFormData.append('first_name', editFormData.admin_first_name.trim());
           hasChanges = true;
         }
         if (editFormData.admin_last_name !== editFormData.original_admin_last_name) {
-          adminFormData.append('last_name', editFormData.admin_last_name);
+          adminFormData.append('last_name', editFormData.admin_last_name.trim());
           hasChanges = true;
         }
         
@@ -485,6 +650,12 @@ const Brands = () => {
       admin_first_name: false,
       admin_last_name: false
     });
+    setValidationErrors({
+      name: '',
+      admin_email: '',
+      admin_first_name: '',
+      admin_last_name: ''
+    });
     setLogoFile(null);
     setLogoPreview(null);
     setAdminProfilePicFile(null);
@@ -518,17 +689,38 @@ const Brands = () => {
         ...prev,
         [name]: value
       }));
-      // Clear error for this field
-      setFormErrors(prev => ({ ...prev, [name]: false }));
+      // Validate on change
+      const emailError = validateEmail(value);
+      setValidationErrors(prev => ({ ...prev, [name]: emailError }));
+      setFormErrors(prev => ({ ...prev, [name]: !!emailError }));
       // Check email as user types
-      checkEmailExists(value);
-    } else if (name === 'name' || name === 'admin_first_name' || name === 'admin_last_name') {
+      if (!emailError) {
+        checkEmailExists(value);
+      }
+    } else if (name === 'name') {
       setFormData(prev => ({
         ...prev,
         [name]: value
       }));
-      // Clear error for this field
-      setFormErrors(prev => ({ ...prev, [name]: false }));
+      const nameError = validateName(value);
+      setValidationErrors(prev => ({ ...prev, [name]: nameError }));
+      setFormErrors(prev => ({ ...prev, [name]: !!nameError }));
+    } else if (name === 'admin_first_name') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      const firstNameError = validateFirstName(value);
+      setValidationErrors(prev => ({ ...prev, [name]: firstNameError }));
+      setFormErrors(prev => ({ ...prev, [name]: !!firstNameError }));
+    } else if (name === 'admin_last_name') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      const lastNameError = validateLastName(value);
+      setValidationErrors(prev => ({ ...prev, [name]: lastNameError }));
+      setFormErrors(prev => ({ ...prev, [name]: !!lastNameError }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -670,6 +862,12 @@ const Brands = () => {
               admin_first_name: false,
               admin_last_name: false
             });
+            setValidationErrors({
+              name: '',
+              admin_email: '',
+              admin_first_name: '',
+              admin_last_name: ''
+            });
           }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
@@ -730,7 +928,7 @@ const Brands = () => {
                           alt="Default Company logo" 
                           className="max-h-48 mx-auto rounded-lg object-contain opacity-50"
                         />
-                        <p className="text-sm text-gray-500">Optional - Default logo will be used if not uploaded</p>
+                        <p className="text-sm text-gray-500">Optional - Default logo will be used if not uploaded (Max 5MB, JPEG/PNG/GIF/WEBP)</p>
                       </div>
                     )}
                     <label className="block mt-4">
@@ -739,7 +937,7 @@ const Brands = () => {
                       </span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
                         onChange={handleFileChange}
                         className="hidden"
                         name="logo"
@@ -777,7 +975,7 @@ const Brands = () => {
                           alt="Default profile" 
                           className="w-32 h-32 rounded-full mx-auto object-cover opacity-50"
                         />
-                        <p className="text-sm text-gray-500">Optional - Default profile picture will be used if not uploaded</p>
+                        <p className="text-sm text-gray-500">Optional - Default profile picture will be used if not uploaded (Max 5MB, JPEG/PNG/GIF/WEBP)</p>
                       </div>
                     )}
                     <label className="block mt-4">
@@ -786,7 +984,7 @@ const Brands = () => {
                       </span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
                         onChange={handleFileChange}
                         className="hidden"
                         name="admin_profile_pic"
@@ -814,12 +1012,16 @@ const Brands = () => {
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
-                      placeholder="Enter brand name"
+                      placeholder="Enter company name"
+                      maxLength={100}
                       required
                     />
                     {formErrors.name && (
-                      <p className="mt-1 text-xs text-red-600">Company name is required</p>
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.name || 'Company name is required'}</p>
                     )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      {formData.name.length}/100 characters
+                    </p>
                   </div>
                 </div>
 
@@ -840,10 +1042,11 @@ const Brands = () => {
                         formErrors.admin_email || emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="admin@example.com"
+                      maxLength={254}
                       required
                     />
                     {formErrors.admin_email && (
-                      <p className="mt-1 text-xs text-red-600">Admin email is required</p>
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.admin_email || 'Admin email is required'}</p>
                     )}
                     {emailExistsError && (
                       <p className="mt-1 text-xs text-red-600">{emailExistsError}</p>
@@ -864,10 +1067,11 @@ const Brands = () => {
                           formErrors.admin_first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
                         placeholder="First name"
+                        maxLength={50}
                         required
                       />
                       {formErrors.admin_first_name && (
-                        <p className="mt-1 text-xs text-red-600">First name is required</p>
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.admin_first_name || 'First name is required'}</p>
                       )}
                     </div>
 
@@ -884,10 +1088,11 @@ const Brands = () => {
                           formErrors.admin_last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
                         placeholder="Last name"
+                        maxLength={50}
                         required
                       />
                       {formErrors.admin_last_name && (
-                        <p className="mt-1 text-xs text-red-600">Last name is required</p>
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.admin_last_name || 'Last name is required'}</p>
                       )}
                     </div>
                   </div>
@@ -898,9 +1103,9 @@ const Brands = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={!!emailExistsError || isSubmitting}
+                disabled={!!emailExistsError || isSubmitting || Object.values(formErrors).some(error => error)}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  emailExistsError || isSubmitting
+                  emailExistsError || isSubmitting || Object.values(formErrors).some(error => error)
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
@@ -1143,7 +1348,7 @@ const Brands = () => {
                           </span>
                           <input
                             type="file"
-                            accept="image/*"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
                             onChange={handleFileChange}
                             className="hidden"
                             name="logo"
@@ -1190,7 +1395,7 @@ const Brands = () => {
                           </span>
                           <input
                             type="file"
-                            accept="image/*"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
                             onChange={handleFileChange}
                             className="hidden"
                             name="admin_profile_pic"
@@ -1215,9 +1420,13 @@ const Brands = () => {
                           value={editFormData.name}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter brand name"
+                          placeholder="Enter company name"
+                          maxLength={100}
                           required
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                          {editFormData.name.length}/100 characters
+                        </p>
                       </div>
 
                       <label className="flex items-center space-x-2">
@@ -1249,6 +1458,7 @@ const Brands = () => {
                               onChange={handleEditInputChange}
                               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="First name"
+                              maxLength={50}
                             />
                           </div>
 
@@ -1263,11 +1473,10 @@ const Brands = () => {
                               onChange={handleEditInputChange}
                               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="Last name"
+                              maxLength={50}
                             />
                           </div>
                         </div>
-
-                       
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
