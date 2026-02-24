@@ -547,7 +547,7 @@ const Overview = () => {
             ))
           ) : (
             <div className="col-span-3 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-              <p className="text-gray-500">No brands available</p>
+              <p className="text-gray-500">No companies available</p>
             </div>
           )}
         </div>
@@ -557,7 +557,7 @@ const Overview = () => {
               to="/super-admin/brands"
               className="text-sm text-primary-blue hover:text-blue-700 font-medium"
             >
-              View all {brands.length} brands →
+              View all {brands.length} companies →
             </Link>
           </div>
         )}

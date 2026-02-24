@@ -905,7 +905,7 @@ const Brands = () => {
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Create Brand & Admin Account'}
+                {isSubmitting ? 'Creating...' : emailExistsError ? 'Email Already Exists' : 'Create Company & Admin Account'}
               </button>
             </div>
           </form>
