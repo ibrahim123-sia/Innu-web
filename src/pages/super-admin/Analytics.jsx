@@ -11,7 +11,6 @@ import {
   getVideosByBrand,
 } from '../../redux/slice/videoSlice';
 
-
 import {
   selectEditDetailsList,
   selectVideoEditLoading,
@@ -20,6 +19,7 @@ import {
 } from '../../redux/slice/videoEditSlice';
 
 const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -95,7 +95,6 @@ const BrandsTableSkeleton = () => (
 const Analytics = () => {
   const dispatch = useDispatch();
   
-
   const brands = useSelector(selectAllBrands);
   const videos = useSelector(selectVideos);
   const editDetailsList = useSelector(selectEditDetailsList);
@@ -105,7 +104,6 @@ const Analytics = () => {
   const [brandEdits, setBrandEdits] = useState({});
   const [loadingBrandData, setLoadingBrandData] = useState({});
   
-
   const [localLoading, setLocalLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
@@ -114,34 +112,48 @@ const Analytics = () => {
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
   const [selectedBrandForFeedback, setSelectedBrandForFeedback] = useState(null);
-
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  // Monitor brandEdits changes
   useEffect(() => {
-    if (brands && brands.length > 0 && isDataReady) {
-   
-      brands.forEach(brand => {
-        fetchBrandVideos(brand.id);
-        fetchBrandEdits(brand.id);
+    if (Object.keys(brandEdits).length > 0) {
+      console.log('Brand edits updated:', brandEdits);
+      
+      // Check each brand to see if it has edits
+      brands?.forEach(brand => {
+        const edits = brandEdits[brand.id];
+        if (edits && edits.length > 0) {
+          console.log(`Brand ${brand.name} (${brand.id}) has ${edits.length} edits in state`);
+        } else {
+          console.log(`Brand ${brand.name} (${brand.id}) has NO edits in state`);
+        }
       });
     }
-  }, [brands, isDataReady]);
+  }, [brandEdits, brands]);
 
+  // Load brand-specific data for ALL brands once main data is ready
+  useEffect(() => {
+    if (brands && brands.length > 0 && isDataReady && !dataLoaded) {
+      console.log('Loading brand-specific data for all brands:', brands.length);
+      loadAllBrandData();
+      setDataLoaded(true);
+    }
+  }, [brands, isDataReady, dataLoaded]);
 
   const fetchData = async () => {
     setLocalLoading(true);
     setIsInitialLoad(true);
     try {
-      
+      console.log('Fetching initial data...');
       await dispatch(getAllBrands()).unwrap();
-      
-
       await dispatch(getAllVideos()).unwrap();
-      
       await dispatch(getAllEditDetails()).unwrap();
+      
+      console.log('Initial data fetched successfully');
       
       setTimeout(() => {
         setIsInitialLoad(false);
@@ -156,20 +168,63 @@ const Analytics = () => {
     }
   };
 
+  // Load all brand-specific data in parallel
+  const loadAllBrandData = async () => {
+    const promises = [];
+    
+    brands.forEach(brand => {
+      // Load videos for each brand
+      promises.push(
+        dispatch(getVideosByBrand(brand.id))
+          .unwrap()
+          .then(result => {
+            const videosData = Array.isArray(result) ? result : [];
+            setBrandVideos(prev => ({ ...prev, [brand.id]: videosData }));
+            console.log(`Loaded ${videosData.length} videos for brand ${brand.id} (${brand.name})`);
+          })
+          .catch(error => {
+            console.error(`Error fetching videos for brand ${brand.id}:`, error);
+            setBrandVideos(prev => ({ ...prev, [brand.id]: [] }));
+          })
+      );
+      
+      // Load edits for each brand - THIS IS THE KEY PART FOR MANUAL CORRECTIONS
+      promises.push(
+        dispatch(getEditDetailsByBrand(brand.id))
+          .unwrap()
+          .then(result => {
+            const editsData = Array.isArray(result) ? result : [];
+            setBrandEdits(prev => ({ ...prev, [brand.id]: editsData }));
+            console.log(`Loaded ${editsData.length} edits for brand ${brand.id} (${brand.name}):`, editsData);
+          })
+          .catch(error => {
+            console.error(`Error fetching edits for brand ${brand.id}:`, error);
+            setBrandEdits(prev => ({ ...prev, [brand.id]: [] }));
+          })
+      );
+    });
+    
+    // Wait for all promises to complete
+    await Promise.allSettled(promises);
+    console.log('All brand-specific data loaded');
+  };
+
   // Fetch brand-specific videos
   const fetchBrandVideos = async (brandId) => {
-  
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
+      console.log(`Fetching videos for brand ${brandId}...`);
       const result = await dispatch(getVideosByBrand(brandId)).unwrap();
-    
-
+      
       const videosData = Array.isArray(result) ? result : [];
-    
+      console.log(`Received ${videosData.length} videos for brand ${brandId}`);
+      
       setBrandVideos(prev => ({ ...prev, [brandId]: videosData }));
+      return videosData;
     } catch (error) {
       console.error(`Error fetching videos for brand ${brandId}:`, error);
       setBrandVideos(prev => ({ ...prev, [brandId]: [] }));
+      return [];
     } finally {
       setLoadingBrandData(prev => ({ ...prev, [brandId]: false }));
     }
@@ -177,30 +232,30 @@ const Analytics = () => {
 
   // Fetch brand-specific edit details
   const fetchBrandEdits = async (brandId) => {
-    
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
+      console.log(`Fetching edits for brand ${brandId}...`);
       const result = await dispatch(getEditDetailsByBrand(brandId)).unwrap();
-   
       
-      // Result is now the array directly
       const editsData = Array.isArray(result) ? result : [];
-    
+      
+      console.log(`Received ${editsData.length} edits for brand ${brandId}:`, editsData);
+      
       setBrandEdits(prev => ({ ...prev, [brandId]: editsData }));
+      return editsData;
     } catch (error) {
       console.error(`Error fetching edits for brand ${brandId}:`, error);
       setBrandEdits(prev => ({ ...prev, [brandId]: [] }));
+      return [];
     } finally {
       setLoadingBrandData(prev => ({ ...prev, [brandId]: false }));
     }
   };
 
-
   const handleViewBrandAnalytics = async (brandId) => {
-   
     setShowBrandAnalyticsModal(brandId);
     
- 
+    // Refresh data if needed
     if (!brandVideos[brandId] || brandVideos[brandId].length === 0) {
       await fetchBrandVideos(brandId);
     }
@@ -251,55 +306,21 @@ const Analytics = () => {
     ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(2) 
     : 0;
 
-  // Get brand-specific stats for main table - FIXED VERSION
+  // Get brand-specific stats for main table - USING ONLY BRAND-SPECIFIC DATA
   const getBrandStats = (brandId) => {
-    // First try to use brand-specific data if available
+    // ALWAYS use brand-specific data from the API calls
     const brandSpecificVideos = brandVideos[brandId] || [];
     const brandSpecificEdits = brandEdits[brandId] || [];
     
-    // If brand-specific data exists, use it
-    if (brandSpecificVideos.length > 0 || brandSpecificEdits.length > 0) {
-      const brandVideoCount = brandSpecificVideos.length;
-      const brandManualCorrections = brandSpecificEdits.length;
-      const brandSuccess = brandVideoCount > brandManualCorrections 
-        ? brandVideoCount - brandManualCorrections 
-        : 0;
-      
-      const brandSuccessRate = brandVideoCount > 0 
-        ? ((brandSuccess / brandVideoCount) * 100).toFixed(2) 
-        : 0;
-      
-      const brandErrorRate = brandVideoCount > 0 
-        ? ((brandManualCorrections / brandVideoCount) * 100).toFixed(2) 
-        : 0;
-
-      return {
-        totalVideos: brandVideoCount,
-        manualCorrections: brandManualCorrections,
-        successCount: brandSuccess,
-        successRate: brandSuccessRate,
-        errorRate: brandErrorRate,
-        completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
-        processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
-        pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
-        failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
-      };
+    // Log for debugging (remove in production)
+    if (brandSpecificEdits.length > 0) {
+      console.log(`Brand ${brandId} has ${brandSpecificEdits.length} edits from getEditDetailsByBrand`);
     }
     
-    // Fallback to global data if no brand-specific data
-    const brandVideosFromGlobal = videos?.filter(v => String(v.brand_id) === String(brandId)) || [];
-    const brandVideoCount = brandVideosFromGlobal.length;
+    // Use brand-specific data exclusively
+    const brandVideoCount = brandSpecificVideos.length;
+    const brandManualCorrections = brandSpecificEdits.length;
     
-    const brandEditsFromGlobal = editDetailsList?.filter(edit => {
-      if (edit.brand_id && String(edit.brand_id) === String(brandId)) return true;
-      if (edit.video_id) {
-        const video = videos?.find(v => String(v.id) === String(edit.video_id));
-        return video && String(video.brand_id) === String(brandId);
-      }
-      return false;
-    }) || [];
-    
-    const brandManualCorrections = brandEditsFromGlobal.length;
     const brandSuccess = brandVideoCount > brandManualCorrections 
       ? brandVideoCount - brandManualCorrections 
       : 0;
@@ -318,10 +339,10 @@ const Analytics = () => {
       successCount: brandSuccess,
       successRate: brandSuccessRate,
       errorRate: brandErrorRate,
-      completedVideos: brandVideosFromGlobal.filter(v => v.status === 'completed').length,
-      processingVideos: brandVideosFromGlobal.filter(v => v.status === 'processing').length,
-      pendingVideos: brandVideosFromGlobal.filter(v => v.status === 'pending').length,
-      failedVideos: brandVideosFromGlobal.filter(v => v.status === 'failed').length,
+      completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
+      processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
+      pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
+      failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
     };
   };
 
@@ -501,7 +522,6 @@ const Analytics = () => {
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{brand.name}</div>
-                            
                           </div>
                         </div>
                       </td>
@@ -740,7 +760,6 @@ const Analytics = () => {
                           </div>
                           <div className="space-y-3">
                             {stats.brandEdits.slice(0, 5).map((edit, index) => {
-                              // Check if there's feedback to display
                               const hasFeedback = edit.feedback_reason;
                               
                               return (
@@ -876,12 +895,12 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* Individual Feedback Detail Modal - SIMPLIFIED TO SHOW ONLY FEEDBACK REASON */}
+      {/* Individual Feedback Detail Modal - SHOW ONLY FEEDBACK REASON */}
       {showFeedbackModal && selectedFeedback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
             <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
-              <h3 className="text-xl font-bold text-gray-800">Feedback</h3>
+              <h3 className="text-xl font-bold text-gray-800">Feedback Details</h3>
               <button
                 onClick={() => {
                   setShowFeedbackModal(false);
@@ -897,10 +916,15 @@ const Analytics = () => {
             
             <div className="p-6">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-800">
+                <p className="text-gray-800 whitespace-pre-wrap">
                   {selectedFeedback.feedback_reason || 'No feedback provided'}
                 </p>
               </div>
+              {selectedFeedback.created_at && (
+                <p className="text-xs text-gray-400 mt-2">
+                  Submitted on: {new Date(selectedFeedback.created_at).toLocaleString()}
+                </p>
+              )}
             </div>
 
             <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
