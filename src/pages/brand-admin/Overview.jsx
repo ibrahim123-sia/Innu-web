@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 // Shop selectors
 import {
@@ -9,20 +9,6 @@ import {
   selectShopLoading,
 } from "../../redux/slice/shopSlice";
 
-// District selectors
-import {
-  getDistrictsByBrand,
-  selectDistrictsByBrand,
-  selectDistrictLoading,
-} from "../../redux/slice/districtSlice";
-
-// User selectors
-import {
-  getBrandUsers,
-  selectBrandUsers,
-  selectUserLoading,
-} from "../../redux/slice/userSlice";
-
 // Order selectors
 import {
   getOrdersByBrand,
@@ -30,7 +16,7 @@ import {
   selectOrderLoading,
 } from "../../redux/slice/orderSlice";
 
-// ✅ CORRECT VIDEO SLICE IMPORTS
+// Video selectors
 import {
   getVideosByBrand,
   getVideosByShop,
@@ -38,7 +24,7 @@ import {
   selectVideoLoading,
 } from "../../redux/slice/videoSlice";
 
-// ✅ VIDEO EDIT SLICE IMPORTS
+// Video Edit selectors
 import {
   selectEditDetailsList,
   selectBrandEditDetails,
@@ -47,7 +33,29 @@ import {
   selectTotalEditCount,
 } from "../../redux/slice/videoEditSlice";
 
-// Skeleton Loader Components
+// User selectors - NEW
+import {
+  getBrandUsers,
+  selectUsersByBrandId,
+  selectUserLoading,
+} from "../../redux/slice/userSlice";
+
+// District selectors - NEW
+import {
+  getDistrictsByBrand,
+  selectDistrictsByBrand,
+  selectDistrictLoading,
+} from "../../redux/slice/districtSlice";
+
+// Shop Manager selectors - NEW (you'll need to add this if not exists)
+import {
+  getUsersByDistrict,
+  selectUsersByDistrictId,
+} from "../../redux/slice/userSlice";
+
+const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+// Skeleton Loader Components (existing ones remain the same)
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -65,35 +73,6 @@ const StatsSkeleton = () => (
         </div>
       </div>
     ))}
-  </div>
-);
-
-const DistrictCardSkeleton = () => (
-  <div className="bg-white rounded-lg shadow-md p-5 animate-pulse">
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center space-x-3">
-        <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-        <div>
-          <div className="h-5 bg-gray-200 rounded w-32 mb-2"></div>
-          <div className="h-3 bg-gray-200 rounded w-24"></div>
-        </div>
-      </div>
-      <div className="flex space-x-2">
-        <div className="h-8 bg-gray-200 rounded w-16"></div>
-        <div className="h-8 bg-gray-200 rounded w-8"></div>
-      </div>
-    </div>
-    <div className="space-y-2">
-      <div className="h-4 bg-gray-200 rounded w-full"></div>
-      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-    </div>
-    <div className="mt-3 pt-3 border-t border-gray-100">
-      <div className="flex justify-between">
-        <div className="h-3 bg-gray-200 rounded w-16"></div>
-        <div className="h-3 bg-gray-200 rounded w-12"></div>
-        <div className="h-3 bg-gray-200 rounded w-12"></div>
-      </div>
-    </div>
   </div>
 );
 
@@ -190,51 +169,71 @@ const QuickActionsSkeleton = () => (
   </div>
 );
 
+// NEW Skeleton for District Managers Section
+const DistrictManagersSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+    <div className="flex justify-between items-center mb-4">
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="border rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+              <div>
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
+                <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+              </div>
+            </div>
+            <div className="w-16 h-8 bg-gray-200 rounded-lg animate-pulse"></div>
+          </div>
+          <div className="mt-3 border-t pt-3">
+            <div className="flex justify-between items-center mb-2">
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-8"></div>
+            </div>
+            <div className="space-y-2">
+              <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const Overview = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
   const user = useSelector((state) => state.user.currentUser);
   const brandId = user?.brand_id;
-  const brandName = user?.brand_name || 'Your Brand';
 
-  // ✅ Shops from shopSlice
-  const shops = useSelector(selectShopsForBrand(brandId)) || [];
-
-  // ✅ Districts from districtSlice
-  const districts = useSelector(selectDistrictsByBrand) || [];
-  const districtsLoading = useSelector(selectDistrictLoading);
-
-  // ✅ Users from userSlice
-  const users = useSelector(selectBrandUsers) || [];
-  const usersLoading = useSelector(selectUserLoading);
-
-  // ✅ Orders from orderSlice
-  const brandOrders = useSelector(selectOrdersByBrand) || [];
-
-  // ✅ Videos from videoSlice (global)
-  const allVideos = useSelector(selectVideos) || [];
-
-  // ✅ Local state for brand-specific videos
+  // Existing state
+  const shops = useSelector(selectShopsForBrand(brandId));
+  const brandOrders = useSelector(selectOrdersByBrand);
+  const allVideos = useSelector(selectVideos);
   const [brandVideos, setBrandVideos] = useState([]);
   const [shopVideosMap, setShopVideosMap] = useState({});
   const [loadingBrandData, setLoadingBrandData] = useState(false);
 
-  // ✅ Video Edit stats
-  const allEditDetails = useSelector(selectEditDetailsList) || [];
-  const brandEditDetails = useSelector(selectBrandEditDetails) || [];
-  const totalEditCount = useSelector(selectTotalEditCount);
+  // NEW - Users and Districts state
+  const [districtManagers, setDistrictManagers] = useState([]);
+  const [shopManagersMap, setShopManagersMap] = useState({});
+  const [loadingManagers, setLoadingManagers] = useState(false);
+  const [expandedDistricts, setExpandedDistricts] = useState({});
 
-  // UI state for districts dropdown
-  const [expandedDistrict, setExpandedDistrict] = useState(null);
-  const [expandedShop, setExpandedShop] = useState(null);
-  const [districtManagers, setDistrictManagers] = useState({});
-  const [shopManagers, setShopManagers] = useState({});
-  const [shopsByDistrict, setShopsByDistrict] = useState({});
+  // Video Edit stats
+  const allEditDetails = useSelector(selectEditDetailsList);
+  const brandEditDetails = useSelector(selectBrandEditDetails);
+  const totalEditCount = useSelector(selectTotalEditCount);
 
   // Loading states
   const shopsLoading = useSelector(selectShopLoading);
   const ordersLoading = useSelector(selectOrderLoading);
   const videosLoading = useSelector(selectVideoLoading);
+  const usersLoading = useSelector(selectUserLoading);
+  const districtsLoading = useSelector(selectDistrictLoading);
 
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -248,9 +247,10 @@ const Overview = () => {
     shopsLoading ||
     ordersLoading ||
     videosLoading ||
-    districtsLoading ||
+    loadingBrandData ||
     usersLoading ||
-    loadingBrandData;
+    districtsLoading ||
+    loadingManagers;
 
   // Fetch all data
   useEffect(() => {
@@ -266,33 +266,33 @@ const Overview = () => {
     setIsInitialLoad(true);
     console.log("🚀 Fetching brand data for brand:", brandId);
     try {
-      // ✅ 1. Fetch shops for this brand
+      // 1. Fetch shops for this brand
       console.log("🏪 Fetching shops for brand:", brandId);
       await dispatch(getShopsByBrand(brandId));
 
-      // ✅ 2. Fetch districts for this brand
-      console.log("🗺️ Fetching districts for brand:", brandId);
-      await dispatch(getDistrictsByBrand(brandId));
-
-      // ✅ 3. Fetch users for this brand
-      console.log("👥 Fetching users for brand:", brandId);
-      await dispatch(getBrandUsers(brandId));
-
-      // ✅ 4. Fetch orders for this brand
+      // 2. Fetch orders for this brand
       console.log("📦 Fetching orders for brand:", brandId);
       await dispatch(getOrdersByBrand(brandId));
 
-      // ✅ 5. Fetch videos for this brand
+      // 3. Fetch videos for this brand
       console.log("🎬 Fetching videos for brand:", brandId);
       await fetchBrandVideos(brandId);
 
-      // ✅ 6. Fetch all edit details for video stats
+      // 4. Fetch all edit details for video stats
       console.log("📊 Fetching video edit details...");
       await dispatch(getAllEditDetails());
 
-      // ✅ 7. Fetch brand-specific edit details
+      // 5. Fetch brand-specific edit details
       console.log("📊 Fetching brand edit details for:", brandId);
       await dispatch(getEditDetailsByBrand(brandId));
+
+      // 6. Fetch districts for this brand
+      console.log("🏘️ Fetching districts for brand:", brandId);
+      await dispatch(getDistrictsByBrand(brandId));
+
+      // 7. Fetch all users for this brand (including district managers)
+      console.log("👥 Fetching brand users for brand:", brandId);
+      await fetchBrandUsers();
 
       // Add a small delay to show skeletons
       setTimeout(() => setIsInitialLoad(false), 300);
@@ -345,55 +345,59 @@ const Overview = () => {
     setShopVideosMap(videosByShop);
   };
 
-  // Organize data by districts and roles
-  useEffect(() => {
-    if (users?.length > 0 && districts?.length > 0 && shops?.length > 0) {
-      // Group district managers by district
-      const managersByDistrict = {};
-      const managersByShop = {};
+  // NEW - Fetch brand users and filter district managers
+  const fetchBrandUsers = async () => {
+    setLoadingManagers(true);
+    try {
+      const result = await dispatch(getBrandUsers(brandId)).unwrap();
+      console.log("✅ Brand users fetched:", result);
       
-      // First, find all district managers
-      const districtManagersList = users.filter(u => u.role === 'district_manager');
+      // Filter users to get district managers
+      const usersData = result?.data || result || [];
+      const managers = usersData.filter(user => user.role === 'district_manager');
+      setDistrictManagers(managers);
       
-      // Assign district managers to districts (assuming district_id field exists on user)
-      districtManagersList.forEach(manager => {
-        if (manager.district_id) {
-          if (!managersByDistrict[manager.district_id]) {
-            managersByDistrict[manager.district_id] = [];
-          }
-          managersByDistrict[manager.district_id].push(manager);
-        }
+      // Initialize expanded state for all district managers
+      const expanded = {};
+      managers.forEach(manager => {
+        expanded[manager.id] = false;
       });
+      setExpandedDistricts(expanded);
       
-      // Find all shop managers
-      const shopManagersList = users.filter(u => u.role === 'shop_manager');
+      // Fetch shop managers for each district
+      await fetchAllShopManagers(managers);
       
-      // Assign shop managers to shops
-      shopManagersList.forEach(manager => {
-        if (manager.shop_id) {
-          if (!managersByShop[manager.shop_id]) {
-            managersByShop[manager.shop_id] = [];
-          }
-          managersByShop[manager.shop_id].push(manager);
-        }
-      });
-      
-      setDistrictManagers(managersByDistrict);
-      setShopManagers(managersByShop);
-      
-      // Group shops by district
-      const shopsByDistrictMap = {};
-      shops.forEach(shop => {
-        if (shop.district_id) {
-          if (!shopsByDistrictMap[shop.district_id]) {
-            shopsByDistrictMap[shop.district_id] = [];
-          }
-          shopsByDistrictMap[shop.district_id].push(shop);
-        }
-      });
-      setShopsByDistrict(shopsByDistrictMap);
+    } catch (error) {
+      console.error(`Error fetching brand users:`, error);
+      setDistrictManagers([]);
+    } finally {
+      setLoadingManagers(false);
     }
-  }, [users, districts, shops]);
+  };
+
+  // NEW - Fetch shop managers for each district
+  const fetchAllShopManagers = async (managers) => {
+    const managersByDistrict = {};
+    
+    for (const manager of managers) {
+      if (manager.district_id) {
+        try {
+          const result = await dispatch(getUsersByDistrict(manager.district_id)).unwrap();
+          const usersData = result?.data || result || [];
+          // Filter to get only shop managers
+          const shopManagers = usersData.filter(user => user.role === 'shop_manager');
+          managersByDistrict[manager.id] = shopManagers;
+        } catch (error) {
+          console.error(`Error fetching shop managers for district ${manager.district_id}:`, error);
+          managersByDistrict[manager.id] = [];
+        }
+      } else {
+        managersByDistrict[manager.id] = [];
+      }
+    }
+    
+    setShopManagersMap(managersByDistrict);
+  };
 
   // Calculate shop videos map when shops and brandVideos are loaded
   useEffect(() => {
@@ -475,7 +479,41 @@ const Overview = () => {
     }
   }, [brandOrders, shops, shopVideosMap]);
 
-  // Calculate video stats
+  // Calculate brand-specific edit stats
+  const brandEditStats = useMemo(() => {
+    if (!brandId) return null;
+
+    const brandEdits =
+      allEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
+    const brandSpecificEdits =
+      brandEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
+
+    const totalBrandEdits = brandEdits.length + brandSpecificEdits.length;
+
+    const aiCorrect = brandEdits.filter(
+      (edit) => edit.feedback_reason === "correct",
+    ).length;
+    const aiErrors = brandEdits.filter(
+      (edit) => edit.feedback_reason === "incorrect",
+    ).length;
+
+    return {
+      totalEdits: totalBrandEdits,
+      aiCorrect,
+      aiErrors,
+      aiSuccessRate:
+        totalBrandEdits > 0
+          ? ((aiCorrect / totalBrandEdits) * 100).toFixed(1)
+          : "0.00",
+      aiErrorRate:
+        totalBrandEdits > 0
+          ? ((aiErrors / totalBrandEdits) * 100).toFixed(1)
+          : "0.00",
+      totalSegments: brandEdits.length + brandSpecificEdits.length,
+    };
+  }, [brandId, allEditDetails, brandEditDetails]);
+
+  // Calculate video stats manually using brandVideos local state
   const videoStats = useMemo(() => {
     if (!brandVideos?.length) {
       return {
@@ -523,11 +561,62 @@ const Overview = () => {
     };
   }, [brandVideos]);
 
-  // ✅ Memoized derived values
+  // Calculate dashboard summary manually
+  const dashboardSummary = useMemo(() => {
+    if (!brandVideos?.length) {
+      return {
+        total: 0,
+        uploaded: 0,
+        processing: 0,
+        completed: 0,
+        failed: 0,
+        today: 0,
+        yesterday: 0,
+        lastWeek: 0,
+      };
+    }
+
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+
+    const isToday = (date) => {
+      if (!date) return false;
+      const videoDate = new Date(date);
+      return videoDate.toDateString() === today.toDateString();
+    };
+
+    const isYesterday = (date) => {
+      if (!date) return false;
+      const videoDate = new Date(date);
+      return videoDate.toDateString() === yesterday.toDateString();
+    };
+
+    const isLastWeek = (date) => {
+      if (!date) return false;
+      const videoDate = new Date(date);
+      return videoDate >= lastWeek && videoDate < today;
+    };
+
+    return {
+      total: brandVideos.length,
+      uploaded: brandVideos.filter((v) => v.status === "uploading").length,
+      processing: brandVideos.filter((v) => v.status === "processing").length,
+      completed: brandVideos.filter((v) =>
+        ["completed", "pending"].includes(v.status),
+      ).length,
+      failed: brandVideos.filter((v) => v.status === "failed").length,
+      today: brandVideos.filter((v) => isToday(v.created_at)).length,
+      yesterday: brandVideos.filter((v) => isYesterday(v.created_at)).length,
+      lastWeek: brandVideos.filter((v) => isLastWeek(v.created_at)).length,
+    };
+  }, [brandVideos]);
+
+  // Memoized derived values
   const brandVideoRequestsCount = brandVideos?.length || 0;
-
   const totalShops = shops?.length || 0;
-
   const activeShops = useMemo(
     () => shops?.filter((shop) => shop.is_active).length || 0,
     [shops],
@@ -535,7 +624,6 @@ const Overview = () => {
 
   const shopsWithAIRequests = useMemo(() => {
     if (Object.keys(shopVideosMap).length === 0) return 0;
-
     return Object.keys(shopVideosMap).filter((shopId) => {
       const shopVideos = shopVideosMap[shopId] || [];
       return shopVideos.some((video) =>
@@ -562,6 +650,16 @@ const Overview = () => {
     [brandOrders],
   );
 
+  const pendingOrders = useMemo(
+    () =>
+      brandOrders?.filter((order) => {
+        if (!order?.status) return false;
+        const status = order.status.toLowerCase();
+        return ["estimate", "pending"].includes(status);
+      }).length || 0,
+    [brandOrders],
+  );
+
   const inProgressOrders = useMemo(
     () =>
       brandOrders?.filter((order) => {
@@ -577,61 +675,15 @@ const Overview = () => {
     [brandOrders],
   );
 
-  // Count district managers and shop managers
-  const districtManagersCount = useMemo(
-    () => users?.filter(u => u.role === 'district_manager').length || 0,
-    [users]
-  );
-
-  const shopManagersCount = useMemo(
-    () => users?.filter(u => u.role === 'shop_manager').length || 0,
-    [users]
-  );
-
-  // Handle district open - Navigate to District Manager Portal
-  const handleOpenDistrict = (districtId) => {
-    const district = districts.find(d => d.id === districtId);
-    navigate(`/district-manager`, { 
-      state: { 
-        districtId,
-        districtName: district?.name,
-        fromBrand: true
-      } 
-    });
-  };
-
-  // Handle shop open - Navigate to Shop Manager Portal
-  const handleOpenShop = (shopId) => {
-    const shop = shops.find(s => s.id === shopId);
-    navigate(`/shop-manager`, { 
-      state: { 
-        shopId,
-        shopName: shop?.name,
-        fromBrand: true
-      } 
-    });
-  };
-
-  // Toggle district dropdown
-  const toggleDistrictDropdown = (districtId) => {
-    setExpandedDistrict(expandedDistrict === districtId ? null : districtId);
-    setExpandedShop(null); // Close any open shop dropdowns
-  };
-
-  // Toggle shop dropdown
-  const toggleShopDropdown = (shopId) => {
-    setExpandedShop(expandedShop === shopId ? null : shopId);
-  };
-
-  // Get profile picture URL
+  // Helper functions for profile pictures
   const getProfilePicUrl = (profilePicData) => {
-    if (!profilePicData) return 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+    if (!profilePicData) return DEFAULT_PROFILE_PIC;
     
     if (typeof profilePicData === 'string') {
       if (profilePicData.startsWith('{')) {
         try {
           const parsed = JSON.parse(profilePicData);
-          return parsed.publicUrl || parsed.signedUrl || parsed.filePath || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+          return parsed.publicUrl || parsed.signedUrl || parsed.filePath || DEFAULT_PROFILE_PIC;
         } catch (e) {
           return profilePicData;
         }
@@ -639,8 +691,47 @@ const Overview = () => {
       return profilePicData;
     }
     
-    return 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+    return DEFAULT_PROFILE_PIC;
   };
+
+  // Toggle dropdown for district manager
+  const toggleDistrictExpanded = (districtManagerId) => {
+    setExpandedDistricts(prev => ({
+      ...prev,
+      [districtManagerId]: !prev[districtManagerId]
+    }));
+  };
+
+  // Debug logging
+  useEffect(() => {
+    console.log("📊 Brand Overview State:", {
+      brandId,
+      totalShops,
+      activeShops,
+      totalOrders,
+      brandVideos: brandVideos?.length,
+      brandVideoRequestsCount,
+      shopsWithAIRequests,
+      topShop: topShop?.name,
+      dailyOrders,
+      totalEditCount,
+      brandEditStats,
+      districtManagers: districtManagers?.length,
+    });
+  }, [
+    brandId,
+    totalShops,
+    activeShops,
+    totalOrders,
+    brandVideos,
+    brandVideoRequestsCount,
+    shopsWithAIRequests,
+    topShop,
+    dailyOrders,
+    totalEditCount,
+    brandEditStats,
+    districtManagers,
+  ]);
 
   // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
@@ -651,18 +742,7 @@ const Overview = () => {
           <div className="h-4 bg-gray-200 rounded animate-pulse w-96"></div>
         </div>
         <StatsSkeleton />
-        
-        {/* Districts Section Skeleton */}
-        <div className="mt-8 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
-            <div className="h-6 bg-gray-200 rounded-full animate-pulse w-20"></div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map(i => <DistrictCardSkeleton key={i} />)}
-          </div>
-        </div>
-        
+        <DistrictManagersSkeleton />
         <ShopsSummarySkeleton />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <TopShopSkeleton />
@@ -790,306 +870,205 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Districts Section with District Managers and Shop Managers */}
-      <div className="mt-8 mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Districts & Managers</h2>
-          <div className="flex space-x-3">
-            <span className="bg-purple-600 text-white px-3 py-1 rounded-full text-sm">
-              {districtManagersCount} District Managers
-            </span>
-            <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm">
-              {shopManagersCount} Shop Managers
-            </span>
-          </div>
+      {/* NEW SECTION: District Managers */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-800">District Managers</h2>
+          <Link
+            to="/brand-admin/districts"
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
+          >
+            Manage Districts
+            <svg
+              className="w-4 h-4 ml-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </Link>
         </div>
 
-        {districts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {districts.map((district) => {
-              const shopsInDistrict = shopsByDistrict[district.id] || [];
-              const managersForDistrict = districtManagers[district.id] || [];
-              const activeShopsInDistrict = shopsInDistrict.filter(s => s.is_active).length;
+        {loadingManagers || (usersLoading && districtManagers.length === 0) ? (
+          <div className="py-8 text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-gray-600">Loading district managers...</p>
+          </div>
+        ) : districtManagers && districtManagers.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {districtManagers.map((manager) => {
+              const shopManagers = shopManagersMap[manager.id] || [];
+              const isExpanded = expandedDistricts[manager.id] || false;
               
               return (
-                <div key={district.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-200">
-                  {/* District Header */}
-                  <div className="p-4 bg-gradient-to-r from-purple-50 to-white border-b">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                          {district.name ? district.name.charAt(0).toUpperCase() : 'D'}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-800">{district.name}</h3>
-                          <p className="text-xs text-gray-500">
-                            {shopsInDistrict.length} shops • {activeShopsInDistrict} active
-                          </p>
-                        </div>
+                <div
+                  key={manager.id}
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  {/* District Manager Info */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 rounded-full overflow-hidden border bg-gray-100 flex-shrink-0">
+                        <img
+                          src={getProfilePicUrl(manager.profile_pic_url)}
+                          alt={`${manager.first_name} ${manager.last_name}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.src = DEFAULT_PROFILE_PIC;
+                          }}
+                        />
                       </div>
-                      <div className="flex space-x-2">
-                        {/* Open District Manager Portal Button */}
-                        <button
-                          onClick={() => handleOpenDistrict(district.id)}
-                          className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 flex items-center"
-                          title="Open District Manager Portal"
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                          Open
-                        </button>
-                        
-                        {/* Dropdown Toggle Button */}
-                        <button
-                          onClick={() => toggleDistrictDropdown(district.id)}
-                          className="p-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
-                          title={expandedDistrict === district.id ? "Hide Details" : "Show Details"}
-                        >
-                          <svg 
-                            className={`w-5 h-5 transform transition-transform ${expandedDistrict === district.id ? 'rotate-180' : ''}`} 
-                            fill="none" 
-                            stroke="currentColor" 
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
+                      <div>
+                        <h3 className="font-medium text-gray-800">
+                          {manager.first_name} {manager.last_name}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {manager.email}
+                        </p>
                       </div>
                     </div>
+                    
+                    {/* Option 1: Open Button - Direct link to district manager portal */}
+                    <Link
+                      to={`/district-manager?userId=${manager.id}`}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
+                      title="Open District Manager Portal"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      Open
+                    </Link>
                   </div>
 
-                  {/* District Details Dropdown */}
-                  {expandedDistrict === district.id && (
-                    <div className="p-4 bg-gray-50 border-t max-h-96 overflow-y-auto">
-                      {/* District Managers Section */}
-                      <div className="mb-4">
-                        <h4 className="text-sm font-medium text-purple-700 mb-2 flex items-center">
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          District Managers ({managersForDistrict.length})
-                        </h4>
-                        
-                        {managersForDistrict.length > 0 ? (
-                          <div className="space-y-2 mb-3">
-                            {managersForDistrict.map((manager) => (
-                              <div key={manager.id} className="flex items-center p-2 bg-purple-50 rounded-lg border border-purple-100">
-                                <div className="w-8 h-8 rounded-full overflow-hidden mr-2 bg-purple-200 flex-shrink-0">
-                                  <img 
-                                    src={getProfilePicUrl(manager.profile_pic_url)} 
-                                    alt={manager.first_name}
+                  {/* Dropdown for Shop Managers */}
+                  <div className="mt-3 border-t pt-3">
+                    <button
+                      onClick={() => toggleDistrictExpanded(manager.id)}
+                      className="w-full flex justify-between items-center text-sm font-medium text-gray-700 hover:text-gray-900"
+                    >
+                      <span>Shop Managers ({shopManagers.length})</span>
+                      <svg
+                        className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+                        {shopManagers.length > 0 ? (
+                          shopManagers.map((shopManager) => (
+                            <div
+                              key={shopManager.id}
+                              className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 rounded-full overflow-hidden border bg-gray-100 flex-shrink-0">
+                                  <img
+                                    src={getProfilePicUrl(shopManager.profile_pic_url)}
+                                    alt={`${shopManager.first_name} ${shopManager.last_name}`}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
-                                      e.target.src = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+                                      e.target.src = DEFAULT_PROFILE_PIC;
                                     }}
                                   />
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-800 truncate">
-                                    {manager.first_name} {manager.last_name}
+                                <div>
+                                  <p className="text-sm font-medium text-gray-800">
+                                    {shopManager.first_name} {shopManager.last_name}
                                   </p>
-                                  <p className="text-xs text-gray-500 truncate">{manager.email}</p>
+                                  <p className="text-xs text-gray-500 truncate max-w-[120px]">
+                                    {shopManager.email}
+                                  </p>
                                 </div>
-                                <button
-                                  onClick={() => handleOpenDistrict(district.id)}
-                                  className="ml-2 text-xs text-purple-600 hover:text-purple-800"
-                                >
-                                  View
-                                </button>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-400 italic mb-3">No district manager assigned</p>
-                        )}
-                      </div>
-
-                      {/* Shops in District Section */}
-                      <div>
-                        <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center">
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                          </svg>
-                          Shops in {district.name} ({shopsInDistrict.length})
-                        </h4>
-                        
-                        {shopsInDistrict.length > 0 ? (
-                          <div className="space-y-2">
-                            {shopsInDistrict.map((shop) => {
-                              const shopManagersList = shopManagers[shop.id] || [];
-                              const shopVideos = shopVideosMap[shop.id] || [];
-                              const videoCount = shopVideos.length;
                               
-                              return (
-                                <div key={shop.id} className="border rounded-lg bg-white overflow-hidden">
-                                  {/* Shop Header */}
-                                  <div className="flex items-center justify-between p-3 hover:bg-gray-50">
-                                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${shop.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-800 truncate">{shop.name}</p>
-                                        <div className="flex items-center text-xs text-gray-500">
-                                          <span className="truncate">{shop.city || 'No city'}</span>
-                                          {videoCount > 0 && (
-                                            <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">
-                                              {videoCount} videos
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center space-x-2">
-                                      {/* Open Shop Manager Portal Button */}
-                                      <button
-                                        onClick={() => handleOpenShop(shop.id)}
-                                        className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 flex items-center whitespace-nowrap"
-                                        title="Open Shop Manager Portal"
-                                      >
-                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                        Open
-                                      </button>
-                                      
-                                      {/* Shop Dropdown Toggle */}
-                                      <button
-                                        onClick={() => toggleShopDropdown(shop.id)}
-                                        className="p-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
-                                      >
-                                        <svg 
-                                          className={`w-4 h-4 transform transition-transform ${expandedShop === shop.id ? 'rotate-180' : ''}`} 
-                                          fill="none" 
-                                          stroke="currentColor" 
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {/* Shop Managers Dropdown */}
-                                  {expandedShop === shop.id && (
-                                    <div className="p-3 bg-gray-50 border-t">
-                                      <h5 className="text-xs font-medium text-gray-600 mb-2 flex items-center">
-                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                        </svg>
-                                        Shop Managers ({shopManagersList.length})
-                                      </h5>
-                                      
-                                      {shopManagersList.length > 0 ? (
-                                        <div className="space-y-2">
-                                          {shopManagersList.map((manager) => (
-                                            <div key={manager.id} className="flex items-center p-2 bg-green-50 rounded-lg border border-green-100">
-                                              <div className="w-6 h-6 rounded-full overflow-hidden mr-2 bg-green-200 flex-shrink-0">
-                                                <img 
-                                                  src={getProfilePicUrl(manager.profile_pic_url)} 
-                                                  alt={manager.first_name}
-                                                  className="w-full h-full object-cover"
-                                                  onError={(e) => {
-                                                    e.target.src = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-                                                  }}
-                                                />
-                                              </div>
-                                              <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-medium text-gray-800 truncate">
-                                                  {manager.first_name} {manager.last_name}
-                                                </p>
-                                                <p className="text-xs text-gray-500 truncate">{manager.email}</p>
-                                              </div>
-                                              <button
-                                                onClick={() => handleOpenShop(shop.id)}
-                                                className="ml-2 text-xs text-green-600 hover:text-green-800"
-                                              >
-                                                View
-                                              </button>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <p className="text-xs text-gray-400 italic">No shop manager assigned</p>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                              {/* Option 2: Open Button for Shop Manager */}
+                              <Link
+                                to={`/shop-manager?userId=${shopManager.id}`}
+                                className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs flex items-center transition-colors"
+                                title="Open Shop Manager Portal"
+                              >
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                Open
+                              </Link>
+                            </div>
+                          ))
                         ) : (
-                          <p className="text-sm text-gray-400 italic">No shops in this district</p>
+                          <p className="text-sm text-gray-500 italic text-center py-2">
+                            No shop managers assigned
+                          </p>
                         )}
                       </div>
-                    </div>
-                  )}
-
-                  {/* District Footer Stats */}
-                  <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-500 flex justify-between">
-                    <span className="flex items-center">
-                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      {shopsInDistrict.length} shops
-                    </span>
-                    <span className="flex items-center">
-                      <svg className="w-3 h-3 mr-1 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      {managersForDistrict.length} managers
-                    </span>
-                    <span className="flex items-center">
-                      <svg className="w-3 h-3 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      {activeShopsInDistrict} active
-                    </span>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center border border-gray-200">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Districts Found</h3>
-            <p className="text-gray-500 mb-4 max-w-md mx-auto">
-              No districts are associated with your brand yet. Districts help you organize your shops and assign district managers.
-            </p>
-            <Link
-              to="/brand-admin/districts"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+            <svg
+              className="w-12 h-12 text-gray-300 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1}
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+            <p className="text-gray-500">No district managers found</p>
+            <Link
+              to="/brand-admin/users"
+              className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+            >
+              <svg
+                className="w-4 h-4 mr-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
               </svg>
-              Manage Districts
+              Add district managers
             </Link>
           </div>
         )}
-        
-        {districts.length > 0 && (
-          <div className="mt-4 text-right">
+
+        {districtManagers && districtManagers.length > 6 && (
+          <div className="mt-4 text-center">
             <Link
-              to="/brand-admin/districts"
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium inline-flex items-center"
+              to="/brand-admin/users"
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
-              View All Districts
-              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+              View all {districtManagers.length} district managers →
             </Link>
           </div>
         )}
       </div>
 
-      {/* Shops Summary Section */}
+      {/* Shops Summary Section (Existing) */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">Your Shops</h2>
@@ -1123,7 +1102,6 @@ const Overview = () => {
                   v?.status,
                 ),
               ).length;
-              const shopManagersList = shopManagers[shop.id] || [];
 
               return (
                 <div
@@ -1149,7 +1127,7 @@ const Overview = () => {
                         {shop.name}
                       </h3>
                       <p className="text-xs text-gray-500 truncate">
-                        {shop.city || 'No city'}
+                        {shop.city}
                         {shop.state ? `, ${shop.state}` : ""}
                       </p>
                     </div>
@@ -1163,78 +1141,30 @@ const Overview = () => {
                       {shop.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
-                  
                   <div className="flex justify-between items-center mt-2 text-sm">
                     <span className="text-gray-600">AI Video Requests:</span>
                     <span className="font-bold text-red-600">{aiRequests}</span>
                   </div>
-                  
-                  <div className="flex justify-between items-center mt-1 text-xs">
-                    <span className="text-gray-500">Shop Managers:</span>
-                    <span className="font-medium text-green-600">{shopManagersList.length}</span>
-                  </div>
 
-                  <div className="flex justify-end mt-3 space-x-2">
-                    <button
-                      onClick={() => toggleShopDropdown(shop.id)}
-                      className="text-xs text-gray-600 hover:text-gray-800 flex items-center"
+                  <Link
+                    to="/brand-admin/analytics"
+                    className="mt-3 text-xs text-blue-600 hover:text-blue-800 flex items-center justify-end"
+                  >
+                    View Details
+                    <svg
+                      className="w-4 h-4 ml-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      {expandedShop === shop.id ? 'Hide Managers' : 'Show Managers'}
-                    </button>
-                    
-                    <button
-                      onClick={() => handleOpenShop(shop.id)}
-                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
-                      title="Open Shop Manager Portal"
-                    >
-                      Open Portal
-                      <svg
-                        className="w-4 h-4 ml-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Shop Managers Dropdown in Shop Card */}
-                  {expandedShop === shop.id && shopManagersList.length > 0 && (
-                    <div className="mt-3 p-2 bg-gray-50 rounded-lg border">
-                      <h5 className="text-xs font-medium text-gray-600 mb-2">Shop Managers:</h5>
-                      <div className="space-y-2">
-                        {shopManagersList.map((manager) => (
-                          <div key={manager.id} className="flex items-center p-2 bg-white rounded-lg border">
-                            <div className="w-6 h-6 rounded-full overflow-hidden mr-2 bg-green-200 flex-shrink-0">
-                              <img 
-                                src={getProfilePicUrl(manager.profile_pic_url)} 
-                                alt={manager.first_name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-                                }}
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-gray-800 truncate">
-                                {manager.first_name} {manager.last_name}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">{manager.email}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
                 </div>
               );
             })
@@ -1255,7 +1185,7 @@ const Overview = () => {
               </svg>
               <p className="text-gray-500">No shops found for this company</p>
               <Link
-                to="/brand-admin/shops"
+                to="/brand-admin/shops/add"
                 className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
               >
                 <svg
@@ -1289,7 +1219,7 @@ const Overview = () => {
         )}
       </div>
 
-      {/* Top Shop & Quick Actions Section */}
+      {/* Top Shop & Quick Actions Section (Existing) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Top Performing Shop */}
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
@@ -1323,9 +1253,14 @@ const Overview = () => {
                 <div>
                   <h3 className="font-bold text-lg">{topShop.name}</h3>
                   <p className="text-sm text-gray-500">
-                    {topShop.city || 'No city'}
+                    {topShop.city}
                     {topShop.state ? `, ${topShop.state}` : ""}
                   </p>
+                  {topShop.tekmetric_shop_id && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Tekmetric ID: {topShop.tekmetric_shop_id}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1419,9 +1354,9 @@ const Overview = () => {
                     </svg>
                     <div>
                       <div className="text-xl font-bold text-purple-600">
-                        {shopManagers[topShop.id]?.length || 0}
+                        {topShop.is_active ? "Active" : "Inactive"}
                       </div>
-                      <div className="text-xs text-purple-500">Shop Managers</div>
+                      <div className="text-xs text-purple-500">Status</div>
                     </div>
                   </div>
                 </div>
@@ -1496,9 +1431,9 @@ const Overview = () => {
 
             <Link
               to="/brand-admin/districts"
-              className="flex items-center p-4 border rounded-lg hover:bg-purple-50 transition-colors group"
+              className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-colors group"
             >
-              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-purple-700 transition-colors">
+              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
                 <svg
                   className="w-6 h-6 text-white"
                   fill="none"
@@ -1516,7 +1451,7 @@ const Overview = () => {
               <div className="flex-1">
                 <h3 className="font-medium text-gray-800">Manage Districts</h3>
                 <p className="text-sm text-gray-500">
-                  Organize your shops and assign district managers
+                  Organize your shops by districts
                 </p>
               </div>
               <svg
@@ -1553,9 +1488,9 @@ const Overview = () => {
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-gray-800">Manage Users</h3>
+                <h3 className="font-medium text-gray-800">View Users</h3>
                 <p className="text-sm text-gray-500">
-                  Create and manage district and shop managers
+                  Check all users in your company
                 </p>
               </div>
               <svg
@@ -1575,9 +1510,9 @@ const Overview = () => {
 
             <Link
               to="/brand-admin/analytics"
-              className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-colors group"
+              className="flex items-center p-4 border rounded-lg hover:bg-purple-50 transition-colors group"
             >
-              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
+              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-purple-700 transition-colors">
                 <svg
                   className="w-6 h-6 text-white"
                   fill="none"
