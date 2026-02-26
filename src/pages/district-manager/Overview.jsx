@@ -19,7 +19,8 @@ import {
 import {
   getUsersByDistrict,
   selectUsersByDistrict,
-  selectUserLoading
+  selectUserLoading,
+  selectUsersByRoleName
 } from '../../redux/slice/userSlice';
 import { Link } from 'react-router-dom';
 
@@ -55,9 +56,6 @@ const ShopManagerCardSkeleton = () => (
     <div className="space-y-2">
       <div className="h-3 bg-gray-200 rounded w-24"></div>
       <div className="h-3 bg-gray-200 rounded w-32"></div>
-    </div>
-    <div className="mt-3 pt-3 border-t border-gray-100">
-      <div className="h-8 bg-gray-200 rounded w-full"></div>
     </div>
   </div>
 );
@@ -141,19 +139,18 @@ const Overview = () => {
   const orderLoading = useSelector(selectOrderLoading);
   const userLoading = useSelector(selectUserLoading);
   
-  // Local state
+  // Filter shop managers from district users - FOLLOWING BRAND ADMIN LOGIC
+  const shopManagers = useMemo(() => {
+    return districtUsers.filter(user => user.role === 'shop_manager');
+  }, [districtUsers]);
+
+  // Local state for videos
   const [districtVideos, setDistrictVideos] = useState([]);
   const [topShopVideos, setTopShopVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
-  const [expandedShop, setExpandedShop] = useState(null);
-
-  // Filter shop managers from district users
-  const shopManagers = useMemo(() => {
-    return districtUsers.filter(user => user.role === 'shop_manager');
-  }, [districtUsers]);
 
   const filteredShops = useMemo(() => {
     if (!shopsByDistrict) return [];
@@ -194,8 +191,6 @@ const Overview = () => {
 
   // Calculate video stats
   const totalVideos = districtVideos.length;
-  const completedVideos = districtVideos.filter(v => v.status === 'completed').length;
-  const processingVideos = districtVideos.filter(v => v.status === 'processing').length;
   
   // Shop stats
   const totalShops = filteredShops.length;
@@ -313,11 +308,6 @@ const Overview = () => {
     });
   };
 
-  // Toggle shop expansion
-  const toggleShopExpansion = (shopId) => {
-    setExpandedShop(expandedShop === shopId ? null : shopId);
-  };
-
   // Get profile picture URL
   const getProfilePicUrl = (profilePicData) => {
     if (!profilePicData) return 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -431,7 +421,7 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* SHOP MANAGERS SECTION - NEW */}
+      {/* SHOP MANAGERS SECTION - FOLLOWING BRAND ADMIN LOGIC */}
       <div className="mt-8 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800">Shop Managers in {districtName}</h2>
@@ -647,7 +637,7 @@ const Overview = () => {
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-gray-800">Manage Users</h3>
+                <h3 className="font-medium text-gray-800">Manage Shop Managers</h3>
                 <p className="text-sm text-gray-500">View and manage shop managers</p>
               </div>
               <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
