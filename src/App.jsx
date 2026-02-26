@@ -27,7 +27,7 @@ import BrandAdminOrders from './pages/brand-admin/Orders';
 import DistrictManagerLayout from './components/district-manager/DistrictManagerLayout';
 import DistrictManagerOverview from './pages/district-manager/Overview';
 import DistrictManagerShops from './pages/district-manager/Shops';
-import DistrictManagerUsers from './pages/district-manager/Users'; // Import Users page for District Manager
+import DistrictManagerUsers from './pages/district-manager/Users';
 import DistrictManagerAnalytics from './pages/district-manager/Analytics';
 
 // Import Shop Manager components
@@ -37,18 +37,23 @@ import ShopManagerOrders from './pages/shop-manager/Orders';
 import ShopManagerAnalytics from './pages/shop-manager/Analytics';
 import ShopManagerUsers from './pages/shop-manager/Users';
 
-// Protected Route Wrapper - EXACT SAME LOGIC
+// Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
-// Role-Specific Route Wrapper - EXACT SAME LOGIC
+// Role-Specific Route Wrapper - MODIFIED to accept multiple roles
 const RoleRoute = ({ role, children }) => {
   const user = useSelector(selectCurrentUser);
   
   if (!user) return <Navigate to="/login" />;
-  if (user.role !== role) return <Navigate to="/login" />;
+  
+  // Convert role to array if it's a string, then check if user's role is included
+  const allowedRoles = Array.isArray(role) ? role : [role];
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to="/login" />;
+  }
   
   return children;
 };
@@ -152,10 +157,10 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* District Manager Routes */}
+        {/* District Manager Routes - MODIFIED to allow brand_admin */}
         <Route path="/district-manager" element={
           <ProtectedRoute>
-            <RoleRoute role="district_manager">
+            <RoleRoute role={['district_manager', 'brand_admin']}>
               <DistrictManagerLayout>
                 <DistrictManagerOverview />
               </DistrictManagerLayout>
@@ -165,7 +170,7 @@ function AppContent() {
         
         <Route path="/district-manager/shops" element={
           <ProtectedRoute>
-            <RoleRoute role="district_manager">
+            <RoleRoute role={['district_manager', 'brand_admin']}>
               <DistrictManagerLayout>
                 <DistrictManagerShops />
               </DistrictManagerLayout>
@@ -173,10 +178,9 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* NEW: District Manager Users Route */}
         <Route path="/district-manager/users" element={
           <ProtectedRoute>
-            <RoleRoute role="district_manager">
+            <RoleRoute role={['district_manager', 'brand_admin']}>
               <DistrictManagerLayout>
                 <DistrictManagerUsers />
               </DistrictManagerLayout>
@@ -186,7 +190,7 @@ function AppContent() {
         
         <Route path="/district-manager/analytics" element={
           <ProtectedRoute>
-            <RoleRoute role="district_manager">
+            <RoleRoute role={['district_manager', 'brand_admin']}>
               <DistrictManagerLayout>
                 <DistrictManagerAnalytics />
               </DistrictManagerLayout>
@@ -194,10 +198,10 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* Shop Manager Routes */}
+        {/* Shop Manager Routes - MODIFIED to allow brand_admin */}
         <Route path="/shop-manager" element={
           <ProtectedRoute>
-            <RoleRoute role="shop_manager">
+            <RoleRoute role={['shop_manager', 'brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerOverview />
               </ShopManagerLayout>
@@ -207,7 +211,7 @@ function AppContent() {
         
         <Route path="/shop-manager/orders" element={
           <ProtectedRoute>
-            <RoleRoute role="shop_manager">
+            <RoleRoute role={['shop_manager', 'brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerOrders />
               </ShopManagerLayout>
@@ -217,7 +221,7 @@ function AppContent() {
         
         <Route path="/shop-manager/analytics" element={
           <ProtectedRoute>
-            <RoleRoute role="shop_manager">
+            <RoleRoute role={['shop_manager', 'brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerAnalytics />
               </ShopManagerLayout>
@@ -227,7 +231,7 @@ function AppContent() {
         
         <Route path="/shop-manager/users" element={
           <ProtectedRoute>
-            <RoleRoute role="shop_manager">
+            <RoleRoute role={['shop_manager', 'brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerUsers />
               </ShopManagerLayout>
