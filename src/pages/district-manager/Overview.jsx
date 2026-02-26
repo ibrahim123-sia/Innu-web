@@ -17,10 +17,9 @@ import {
   selectVideoLoading,
 } from '../../redux/slice/videoSlice';
 import {
-  getUsersByDistrict,
-  selectUsersByDistrict,
-  selectUserLoading,
-  selectUsersByRoleName
+  getBrandUsers,  // Use getBrandUsers instead of getUsersByDistrict
+  selectBrandUsers,
+  selectUserLoading
 } from '../../redux/slice/userSlice';
 import { Link } from 'react-router-dom';
 
@@ -127,31 +126,38 @@ const Overview = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const currentUser = useSelector(state => state.user.currentUser);
+  const brandId = currentUser?.brand_id;
   const districtId = currentUser?.district_id;
   const districtName = currentUser?.district_name || 'Your District';
   
-  // Get data from Redux
+  // Get data from Redux - using same pattern as reference file
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
-  const districtUsers = useSelector(selectUsersByDistrict) || [];
+  const allUsers = useSelector(selectBrandUsers) || []; // Get all brand users
   
   const videoLoading = useSelector(selectVideoLoading);
   const orderLoading = useSelector(selectOrderLoading);
   const userLoading = useSelector(selectUserLoading);
   
-  // Filter shop managers from district users - FOLLOWING BRAND ADMIN LOGIC
-  const shopManagers = useMemo(() => {
-    return districtUsers.filter(user => user.role === 'shop_manager');
-  }, [districtUsers]);
-
-  // Local state for videos
+  // Local state
   const [districtVideos, setDistrictVideos] = useState([]);
   const [topShopVideos, setTopShopVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
+  
+  // Filter users to get only shop managers under this district - FOLLOWING REFERENCE PATTERN
+  const shopManagers = useMemo(() => {
+    if (!allUsers || allUsers.length === 0) return [];
+    
+    return allUsers.filter(user => 
+      user.role === 'shop_manager' && 
+      user.district_id === districtId
+    );
+  }, [allUsers, districtId]);
 
+  // Filter shops
   const filteredShops = useMemo(() => {
     if (!shopsByDistrict) return [];
     
@@ -167,17 +173,10 @@ const Overview = () => {
       return shopsByDistrict.shops;
     }
     
-    if (typeof shopsByDistrict === 'object') {
-      const values = Object.values(shopsByDistrict);
-      if (values.length > 0 && Array.isArray(values[0])) {
-        return values[0];
-      }
-    }
-    
     return [];
   }, [shopsByDistrict]);
 
-  // Calculate DAILY ORDERS (last 24 hours)
+  // Calculate DAILY ORDERS
   const dailyOrders = useMemo(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -201,21 +200,21 @@ const Overview = () => {
     return filteredShops.length > 0 ? filteredShops[0] : null;
   }, [filteredShops]);
 
-  // Fetch videos for top shop when it changes
+  // Fetch videos for top shop
   useEffect(() => {
     if (topShop?.id) {
       fetchTopShopVideos(topShop.id);
     }
   }, [topShop]);
 
-  // Fetch initial data when districtId changes
+  // Fetch initial data
   useEffect(() => {
-    if (districtId) {
+    if (brandId && districtId) {
       fetchData();
     }
-  }, [districtId]);
+  }, [brandId, districtId]);
 
-  // Fetch data when shops are loaded
+  // Fetch videos when shops are loaded
   useEffect(() => {
     if (filteredShops && filteredShops.length > 0 && !dataFetched) {
       fetchVideosForDistrict();
@@ -223,16 +222,19 @@ const Overview = () => {
   }, [filteredShops, dataFetched]);
 
   const fetchData = async () => {
-    if (!districtId) return;
+    if (!brandId) return;
     
     setLoading(true);
     setIsInitialLoad(true);
     setDataFetched(false);
     
     try {
-      await dispatch(getShopsByDistrict(districtId)).unwrap();
-      await dispatch(getOrdersByDistrict(districtId)).unwrap();
-      await dispatch(getUsersByDistrict(districtId)).unwrap();
+      // Fetch all data in parallel - using getBrandUsers like reference file
+      await Promise.all([
+        dispatch(getShopsByDistrict(districtId)).unwrap(),
+        dispatch(getOrdersByDistrict(districtId)).unwrap(),
+        dispatch(getBrandUsers(brandId)).unwrap() // This gets all users including shop managers
+      ]);
     } catch (error) {
       console.error('Error fetching base data:', error);
       setIsInitialLoad(false);
@@ -252,11 +254,6 @@ const Overview = () => {
         videosData = result.data;
       } else if (Array.isArray(result)) {
         videosData = result;
-      } else if (result && typeof result === 'object') {
-        const possibleArray = Object.values(result).find(val => Array.isArray(val));
-        if (possibleArray) {
-          videosData = possibleArray;
-        }
       }
       
       setDistrictVideos(videosData);
@@ -284,11 +281,6 @@ const Overview = () => {
         videosData = result.data;
       } else if (Array.isArray(result)) {
         videosData = result;
-      } else if (result && typeof result === 'object') {
-        const possibleArray = Object.values(result).find(val => Array.isArray(val));
-        if (possibleArray) {
-          videosData = possibleArray;
-        }
       }
       
       setTopShopVideos(videosData);
@@ -421,7 +413,7 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* SHOP MANAGERS SECTION - FOLLOWING BRAND ADMIN LOGIC */}
+      {/* SHOP MANAGERS SECTION */}
       <div className="mt-8 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800">Shop Managers in {districtName}</h2>
@@ -581,13 +573,9 @@ const Overview = () => {
               
               <div className="text-gray-600">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium">Status:</span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    topShop.is_active 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {topShop.is_active ? 'Active' : 'Inactive'}
+                  <span className="font-medium">Shop Manager:</span>
+                  <span className="text-sm">
+                    {shopManagers.filter(m => m.shop_id === topShop.id).length || 0} assigned
                   </span>
                 </div>
                 <div className="text-sm">
