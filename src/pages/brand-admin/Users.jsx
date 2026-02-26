@@ -184,6 +184,7 @@ const Users = () => {
   // UI States
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(null); // New state for view modal
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -206,6 +207,7 @@ const Users = () => {
   });
   
   const [editFormData, setEditFormData] = useState({});
+  const [viewUserData, setViewUserData] = useState(null); // New state for view data
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [emailExistsError, setEmailExistsError] = useState('');
@@ -648,6 +650,20 @@ const Users = () => {
     }
   };
 
+  // ============================================
+  // VIEW USER (NEW FUNCTION)
+  // ============================================
+  const handleView = (user) => {
+    setViewUserData({
+      ...user,
+      profile_pic: getProfilePicUrl(user.profile_pic_url),
+      role_label: getRoleLabel(user.role),
+      shop_name: getShopName(user.shop_id),
+      district_name: getDistrictName(user.district_id)
+    });
+    setShowViewModal(user.id);
+  };
+
   // Toggle user status
   const handleToggleStatus = async (user) => {
     try {
@@ -834,6 +850,9 @@ const Users = () => {
     return districts.filter(district => district.is_active);
   };
 
+  // Check if current user is brand_admin
+  const isBrandAdmin = currentUser?.role === 'brand_admin';
+
   // Show skeleton during initial load
   if (isInitialLoad && (localLoading || loading)) {
     return (
@@ -852,6 +871,7 @@ const Users = () => {
   // Debug: Log the current state
   console.log('Rendering with users:', users);
   console.log('Users length:', users?.length);
+  console.log('Current user role:', currentUser?.role);
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
@@ -1212,12 +1232,26 @@ const Users = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(userItem)}
-                          className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
-                        >
-                          Edit
-                        </button>
+                        {/* Show View button for brand_admin, Edit for others */}
+                        {isBrandAdmin ? (
+                          <button
+                            onClick={() => handleView(userItem)}
+                            className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleEdit(userItem)}
+                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
+                          >
+                            Edit
+                          </button>
+                        )}
                         <button
                           onClick={() => handleToggleStatus(userItem)}
                           className={`px-3 py-1 rounded text-sm ${
@@ -1480,6 +1514,123 @@ const Users = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View User Modal (for brand_admin) */}
+      {showViewModal && viewUserData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-blue-600">User Details</h2>
+                <button
+                  onClick={() => {
+                    setShowViewModal(null);
+                    setViewUserData(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Profile Picture */}
+                <div className="flex justify-center">
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-blue-100">
+                    <img 
+                      src={viewUserData.profile_pic}
+                      alt={`${viewUserData.first_name} ${viewUserData.last_name}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = DEFAULT_PROFILE_PIC;
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* User Information Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">First Name</label>
+                      <p className="text-lg font-semibold text-gray-900">{viewUserData.first_name}</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
+                      <p className="text-gray-900">{viewUserData.email}</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Role</label>
+                      <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded">
+                        {viewUserData.role_label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Last Name</label>
+                      <p className="text-lg font-semibold text-gray-900">{viewUserData.last_name}</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Assigned Shop</label>
+                      <p className="text-gray-900">{viewUserData.shop_name}</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Assigned District</label>
+                      <p className="text-gray-900">{viewUserData.district_name}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-500">Account Status</label>
+                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
+                      viewUserData.is_active 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {viewUserData.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Account Info */}
+                <div className="border-t pt-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
+                    <div>
+                      <span className="font-medium">User ID:</span> {viewUserData.id}
+                    </div>
+                    <div>
+                      <span className="font-medium">Created:</span> {viewUserData.created_at ? new Date(viewUserData.created_at).toLocaleDateString() : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowViewModal(null);
+                    setViewUserData(null);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
