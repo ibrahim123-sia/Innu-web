@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // Shop selectors
 import {
@@ -8,6 +8,13 @@ import {
   selectShopsForBrand,
   selectShopLoading,
 } from "../../redux/slice/shopSlice";
+
+// District selectors
+import {
+  getDistrictsByBrand,
+  selectDistrictsByBrand,
+  selectDistrictLoading,
+} from "../../redux/slice/districtSlice";
 
 // Order selectors
 import {
@@ -51,6 +58,35 @@ const StatsSkeleton = () => (
         </div>
       </div>
     ))}
+  </div>
+);
+
+const DistrictCardSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md p-5 animate-pulse">
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center space-x-3">
+        <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+        <div>
+          <div className="h-5 bg-gray-200 rounded w-32 mb-2"></div>
+          <div className="h-3 bg-gray-200 rounded w-24"></div>
+        </div>
+      </div>
+      <div className="flex space-x-2">
+        <div className="h-8 bg-gray-200 rounded w-16"></div>
+        <div className="h-8 bg-gray-200 rounded w-8"></div>
+      </div>
+    </div>
+    <div className="space-y-2">
+      <div className="h-4 bg-gray-200 rounded w-full"></div>
+      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+    </div>
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <div className="flex justify-between">
+        <div className="h-3 bg-gray-200 rounded w-16"></div>
+        <div className="h-3 bg-gray-200 rounded w-12"></div>
+        <div className="h-3 bg-gray-200 rounded w-12"></div>
+      </div>
+    </div>
   </div>
 );
 
@@ -149,11 +185,17 @@ const QuickActionsSkeleton = () => (
 
 const Overview = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const user = useSelector((state) => state.user.currentUser);
   const brandId = user?.brand_id;
+  const brandName = user?.brand_name || 'Your Brand';
 
   // ✅ Shops from shopSlice
   const shops = useSelector(selectShopsForBrand(brandId));
+
+  // ✅ Districts from districtSlice
+  const districts = useSelector(selectDistrictsByBrand) || [];
+  const districtsLoading = useSelector(selectDistrictLoading);
 
   // ✅ Orders from orderSlice
   const brandOrders = useSelector(selectOrdersByBrand);
@@ -170,6 +212,10 @@ const Overview = () => {
   const allEditDetails = useSelector(selectEditDetailsList);
   const brandEditDetails = useSelector(selectBrandEditDetails);
   const totalEditCount = useSelector(selectTotalEditCount);
+
+  // UI state for districts dropdown
+  const [expandedDistrict, setExpandedDistrict] = useState(null);
+  const [districtShops, setDistrictShops] = useState({});
 
   // Loading states
   const shopsLoading = useSelector(selectShopLoading);
@@ -188,6 +234,7 @@ const Overview = () => {
     shopsLoading ||
     ordersLoading ||
     videosLoading ||
+    districtsLoading ||
     loadingBrandData;
 
   // Fetch all data
@@ -208,19 +255,23 @@ const Overview = () => {
       console.log("🏪 Fetching shops for brand:", brandId);
       await dispatch(getShopsByBrand(brandId));
 
-      // ✅ 2. Fetch orders for this brand
+      // ✅ 2. Fetch districts for this brand
+      console.log("🗺️ Fetching districts for brand:", brandId);
+      await dispatch(getDistrictsByBrand(brandId));
+
+      // ✅ 3. Fetch orders for this brand
       console.log("📦 Fetching orders for brand:", brandId);
       await dispatch(getOrdersByBrand(brandId));
 
-      // ✅ 3. Fetch videos for this brand (store in local state like Analytics component)
+      // ✅ 4. Fetch videos for this brand (store in local state like Analytics component)
       console.log("🎬 Fetching videos for brand:", brandId);
       await fetchBrandVideos(brandId);
 
-      // ✅ 4. Fetch all edit details for video stats
+      // ✅ 5. Fetch all edit details for video stats
       console.log("📊 Fetching video edit details...");
       await dispatch(getAllEditDetails());
 
-      // ✅ 5. Fetch brand-specific edit details
+      // ✅ 6. Fetch brand-specific edit details
       console.log("📊 Fetching brand edit details for:", brandId);
       await dispatch(getEditDetailsByBrand(brandId));
 
@@ -284,6 +335,20 @@ const Overview = () => {
       calculateShopVideosMap();
     }
   }, [shops, brandVideos]);
+
+  // Group shops by district
+  useEffect(() => {
+    if (shops?.length > 0 && districts?.length > 0) {
+      const shopsByDistrict = {};
+      shops.forEach(shop => {
+        if (!shopsByDistrict[shop.district_id]) {
+          shopsByDistrict[shop.district_id] = [];
+        }
+        shopsByDistrict[shop.district_id].push(shop);
+      });
+      setDistrictShops(shopsByDistrict);
+    }
+  }, [shops, districts]);
 
   const calculateShopVideosMap = useCallback(() => {
     const videosByShop = {};
@@ -560,6 +625,21 @@ const Overview = () => {
     [brandOrders],
   );
 
+  // Handle district open
+  const handleOpenDistrict = (districtId) => {
+    navigate(`/district-manager`, { state: { districtId } });
+  };
+
+  // Handle shop open
+  const handleOpenShop = (shopId) => {
+    navigate(`/shop-manager`, { state: { shopId } });
+  };
+
+  // Toggle district dropdown
+  const toggleDistrictDropdown = (districtId) => {
+    setExpandedDistrict(expandedDistrict === districtId ? null : districtId);
+  };
+
   // Debug logging
   useEffect(() => {
     console.log("📊 Brand Overview State:", {
@@ -574,6 +654,7 @@ const Overview = () => {
       dailyOrders,
       totalEditCount,
       brandEditStats,
+      districtsCount: districts.length,
     });
   }, [
     brandId,
@@ -587,6 +668,7 @@ const Overview = () => {
     dailyOrders,
     totalEditCount,
     brandEditStats,
+    districts,
   ]);
 
   // Show skeleton during initial load
@@ -598,6 +680,18 @@ const Overview = () => {
           <div className="h-4 bg-gray-200 rounded animate-pulse w-96"></div>
         </div>
         <StatsSkeleton />
+        
+        {/* Districts Section Skeleton */}
+        <div className="mt-8 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
+            <div className="h-6 bg-gray-200 rounded-full animate-pulse w-20"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => <DistrictCardSkeleton key={i} />)}
+          </div>
+        </div>
+        
         <ShopsSummarySkeleton />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <TopShopSkeleton />
@@ -725,6 +819,196 @@ const Overview = () => {
         </div>
       </div>
 
+      {/* Districts Section - NEW */}
+      <div className="mt-8 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-800">Districts under {brandName}</h2>
+          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+            {districts.length} {districts.length === 1 ? 'District' : 'Districts'}
+          </span>
+        </div>
+
+        {districts.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {districts.map((district) => {
+              const shopsInDistrict = districtShops[district.id] || [];
+              const activeShopsInDistrict = shopsInDistrict.filter(s => s.is_active).length;
+              const shopsWithVideosInDistrict = shopsInDistrict.filter(shop => {
+                const shopVideos = shopVideosMap[shop.id] || [];
+                return shopVideos.length > 0;
+              }).length;
+              
+              return (
+                <div key={district.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-200">
+                  {/* District Header */}
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-white border-b">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                          {district.name ? district.name.charAt(0).toUpperCase() : 'D'}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-800">{district.name}</h3>
+                          <p className="text-xs text-gray-500">
+                            {shopsInDistrict.length} shops • {activeShopsInDistrict} active
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        {/* Open District Button */}
+                        <button
+                          onClick={() => handleOpenDistrict(district.id)}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center"
+                          title="Open District Portal"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          Open
+                        </button>
+                        
+                        {/* Dropdown Toggle Button */}
+                        <button
+                          onClick={() => toggleDistrictDropdown(district.id)}
+                          className="p-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                          title={expandedDistrict === district.id ? "Hide Shops" : "Show Shops"}
+                        >
+                          <svg 
+                            className={`w-5 h-5 transform transition-transform ${expandedDistrict === district.id ? 'rotate-180' : ''}`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shops Dropdown */}
+                  {expandedDistrict === district.id && (
+                    <div className="p-4 bg-gray-50 border-t max-h-64 overflow-y-auto">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                        <svg className="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        Shops in {district.name} ({shopsInDistrict.length})
+                      </h4>
+                      
+                      {shopsInDistrict.length > 0 ? (
+                        <div className="space-y-2">
+                          {shopsInDistrict.map((shop) => {
+                            const shopVideos = shopVideosMap[shop.id] || [];
+                            const videoCount = shopVideos.length;
+                            
+                            return (
+                              <div 
+                                key={shop.id} 
+                                className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-blue-300 transition-colors"
+                              >
+                                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${shop.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-800 truncate">{shop.name}</p>
+                                    <div className="flex items-center text-xs text-gray-500">
+                                      <span className="truncate">{shop.city || 'No city'}</span>
+                                      {videoCount > 0 && (
+                                        <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">
+                                          {videoCount} videos
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Open Shop Button */}
+                                <button
+                                  onClick={() => handleOpenShop(shop.id)}
+                                  className="ml-2 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 flex items-center whitespace-nowrap flex-shrink-0"
+                                  title="Open Shop Portal"
+                                >
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                  Open
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 bg-white rounded-lg border">
+                          <p className="text-sm text-gray-400">No shops in this district</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* District Footer Stats */}
+                  <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-500 flex justify-between">
+                    <span className="flex items-center">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      {shopsInDistrict.length} shops
+                    </span>
+                    <span className="flex items-center">
+                      <svg className="w-3 h-3 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {activeShopsInDistrict} active
+                    </span>
+                    <span className="flex items-center">
+                      <svg className="w-3 h-3 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      {shopsWithVideosInDistrict} with videos
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center border border-gray-200">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Districts Found</h3>
+            <p className="text-gray-500 mb-4 max-w-md mx-auto">
+              No districts are associated with your brand yet. Districts help you organize your shops by location.
+            </p>
+            <Link
+              to="/brand-admin/districts"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Manage Districts
+            </Link>
+          </div>
+        )}
+        
+        {districts.length > 0 && (
+          <div className="mt-4 text-right">
+            <Link
+              to="/brand-admin/districts"
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium inline-flex items-center"
+            >
+              View All Districts
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* Shops Summary Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="flex justify-between items-center mb-4">
@@ -784,7 +1068,7 @@ const Overview = () => {
                         {shop.name}
                       </h3>
                       <p className="text-xs text-gray-500 truncate">
-                        {shop.city}
+                        {shop.city || 'No city'}
                         {shop.state ? `, ${shop.state}` : ""}
                       </p>
                     </div>
@@ -803,11 +1087,11 @@ const Overview = () => {
                     <span className="font-bold text-red-600">{aiRequests}</span>
                   </div>
 
-                  <Link
-                    to="/brand-admin/analytics"
-                    className="mt-3 text-xs text-blue-600 hover:text-blue-800 flex items-center justify-end"
+                  <button
+                    onClick={() => handleOpenShop(shop.id)}
+                    className="mt-3 text-xs text-blue-600 hover:text-blue-800 flex items-center justify-end w-full"
                   >
-                    View Details
+                    Open Shop Portal
                     <svg
                       className="w-4 h-4 ml-1"
                       fill="none"
@@ -821,7 +1105,7 @@ const Overview = () => {
                         d="M9 5l7 7-7 7"
                       />
                     </svg>
-                  </Link>
+                  </button>
                 </div>
               );
             })
@@ -842,7 +1126,7 @@ const Overview = () => {
               </svg>
               <p className="text-gray-500">No shops found for this company</p>
               <Link
-                to="/brand-admin/shops/add"
+                to="/brand-admin/shops"
                 className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
               >
                 <svg
@@ -910,7 +1194,7 @@ const Overview = () => {
                 <div>
                   <h3 className="font-bold text-lg">{topShop.name}</h3>
                   <p className="text-sm text-gray-500">
-                    {topShop.city}
+                    {topShop.city || 'No city'}
                     {topShop.state ? `, ${topShop.state}` : ""}
                   </p>
                   {topShop.tekmetric_shop_id && (
