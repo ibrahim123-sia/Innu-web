@@ -625,14 +625,28 @@ const Overview = () => {
     [brandOrders],
   );
 
-  // Handle district open
+  // Handle district open - Navigate to District Manager Portal
   const handleOpenDistrict = (districtId) => {
-    navigate(`/district-manager`, { state: { districtId } });
+    const district = districts.find(d => d.id === districtId);
+    navigate(`/district-manager`, { 
+      state: { 
+        districtId,
+        districtName: district?.name,
+        fromBrand: true
+      } 
+    });
   };
 
-  // Handle shop open
+  // Handle shop open - Navigate to Shop Manager Portal
   const handleOpenShop = (shopId) => {
-    navigate(`/shop-manager`, { state: { shopId } });
+    const shop = shops.find(s => s.id === shopId);
+    navigate(`/shop-manager`, { 
+      state: { 
+        shopId,
+        shopName: shop?.name,
+        fromBrand: true
+      } 
+    });
   };
 
   // Toggle district dropdown
@@ -819,7 +833,7 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Districts Section - NEW */}
+      {/* Districts Section */}
       <div className="mt-8 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800">Districts under {brandName}</h2>
@@ -855,11 +869,11 @@ const Overview = () => {
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        {/* Open District Button */}
+                        {/* Open District Manager Portal Button */}
                         <button
                           onClick={() => handleOpenDistrict(district.id)}
                           className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center"
-                          title="Open District Portal"
+                          title="Open District Manager Portal"
                         >
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -922,11 +936,11 @@ const Overview = () => {
                                   </div>
                                 </div>
                                 
-                                {/* Open Shop Button */}
+                                {/* Open Shop Manager Portal Button */}
                                 <button
                                   onClick={() => handleOpenShop(shop.id)}
                                   className="ml-2 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 flex items-center whitespace-nowrap flex-shrink-0"
-                                  title="Open Shop Portal"
+                                  title="Open Shop Manager Portal"
                                 >
                                   <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -1087,9 +1101,11 @@ const Overview = () => {
                     <span className="font-bold text-red-600">{aiRequests}</span>
                   </div>
 
+                  {/* Open Shop Manager Portal Button */}
                   <button
                     onClick={() => handleOpenShop(shop.id)}
                     className="mt-3 text-xs text-blue-600 hover:text-blue-800 flex items-center justify-end w-full"
+                    title="Open Shop Manager Portal"
                   >
                     Open Shop Portal
                     <svg
