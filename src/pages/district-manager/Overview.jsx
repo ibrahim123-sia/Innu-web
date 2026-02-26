@@ -17,8 +17,8 @@ import {
   selectVideoLoading,
 } from '../../redux/slice/videoSlice';
 import {
-  getBrandUsers,  // Use getBrandUsers instead of getUsersByDistrict
-  selectBrandUsers,
+  getUsersByDistrict,  // Use getUsersByDistrict
+  selectUsersByDistrict, // Use selectUsersByDistrict
   selectUserLoading
 } from '../../redux/slice/userSlice';
 import { Link } from 'react-router-dom';
@@ -130,32 +130,33 @@ const Overview = () => {
   const districtId = currentUser?.district_id;
   const districtName = currentUser?.district_name || 'Your District';
   
-  // Get data from Redux - using same pattern as reference file
+  // Get data from Redux - using getUsersByDistrict
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
-  const allUsers = useSelector(selectBrandUsers) || []; // Get all brand users
+  const districtUsers = useSelector(selectUsersByDistrict) || []; // Get users for this district
   
   const videoLoading = useSelector(selectVideoLoading);
   const orderLoading = useSelector(selectOrderLoading);
   const userLoading = useSelector(selectUserLoading);
   
+  // Add initial load state
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
+  
   // Local state
   const [districtVideos, setDistrictVideos] = useState([]);
   const [topShopVideos, setTopShopVideos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isDataReady, setIsDataReady] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   
-  // Filter users to get only shop managers under this district - FOLLOWING REFERENCE PATTERN
+  // Filter users to get only shop managers under this district
   const shopManagers = useMemo(() => {
-    if (!allUsers || allUsers.length === 0) return [];
+    if (!districtUsers || districtUsers.length === 0) return [];
     
-    return allUsers.filter(user => 
-      user.role === 'shop_manager' && 
-      user.district_id === districtId
+    return districtUsers.filter(user => 
+      user.role === 'shop_manager'
     );
-  }, [allUsers, districtId]);
+  }, [districtUsers]);
 
   // Filter shops
   const filteredShops = useMemo(() => {
@@ -209,10 +210,10 @@ const Overview = () => {
 
   // Fetch initial data
   useEffect(() => {
-    if (brandId && districtId) {
+    if (districtId) {
       fetchData();
     }
-  }, [brandId, districtId]);
+  }, [districtId]);
 
   // Fetch videos when shops are loaded
   useEffect(() => {
@@ -221,19 +222,29 @@ const Overview = () => {
     }
   }, [filteredShops, dataFetched]);
 
+  // Handle loading completion
+  useEffect(() => {
+    if (!loading && !videoLoading && !orderLoading && !userLoading) {
+      setTimeout(() => {
+        setIsInitialLoad(false);
+        setIsDataReady(true);
+      }, 300);
+    }
+  }, [loading, videoLoading, orderLoading, userLoading]);
+
   const fetchData = async () => {
-    if (!brandId) return;
+    if (!districtId) return;
     
     setLoading(true);
     setIsInitialLoad(true);
     setDataFetched(false);
     
     try {
-      // Fetch all data in parallel - using getBrandUsers like reference file
+      // Fetch all data in parallel - using getUsersByDistrict
       await Promise.all([
         dispatch(getShopsByDistrict(districtId)).unwrap(),
         dispatch(getOrdersByDistrict(districtId)).unwrap(),
-        dispatch(getBrandUsers(brandId)).unwrap() // This gets all users including shop managers
+        dispatch(getUsersByDistrict(districtId)).unwrap() // This gets users for this district
       ]);
     } catch (error) {
       console.error('Error fetching base data:', error);
@@ -264,8 +275,6 @@ const Overview = () => {
       setDistrictVideos([]);
     } finally {
       setTimeout(() => {
-        setIsInitialLoad(false);
-        setIsDataReady(true);
         setLoading(false);
       }, 300);
     }
