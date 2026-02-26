@@ -112,37 +112,18 @@ const Analytics = () => {
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
   const [selectedBrandForFeedback, setSelectedBrandForFeedback] = useState(null);
-  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Monitor brandEdits changes
-  useEffect(() => {
-    if (Object.keys(brandEdits).length > 0) {
-      console.log('Brand edits updated:', brandEdits);
-      
-      // Check each brand to see if it has edits
-      brands?.forEach(brand => {
-        const edits = brandEdits[brand.id];
-        if (edits && edits.length > 0) {
-          console.log(`Brand ${brand.name} (${brand.id}) has ${edits.length} edits in state`);
-        } else {
-          console.log(`Brand ${brand.name} (${brand.id}) has NO edits in state`);
-        }
-      });
-    }
-  }, [brandEdits, brands]);
-
   // Load brand-specific data for ALL brands once main data is ready
   useEffect(() => {
-    if (brands && brands.length > 0 && isDataReady && !dataLoaded) {
+    if (brands && brands.length > 0 && isDataReady) {
       console.log('Loading brand-specific data for all brands:', brands.length);
       loadAllBrandData();
-      setDataLoaded(true);
     }
-  }, [brands, isDataReady, dataLoaded]);
+  }, [brands, isDataReady]);
 
   const fetchData = async () => {
     setLocalLoading(true);
@@ -154,6 +135,7 @@ const Analytics = () => {
       await dispatch(getAllEditDetails()).unwrap();
       
       console.log('Initial data fetched successfully');
+      console.log('Total edit details:', editDetailsList?.length);
       
       setTimeout(() => {
         setIsInitialLoad(false);
@@ -207,6 +189,7 @@ const Analytics = () => {
     // Wait for all promises to complete
     await Promise.allSettled(promises);
     console.log('All brand-specific data loaded');
+    console.log('Final brandEdits state:', brandEdits);
   };
 
   // Fetch brand-specific videos
@@ -306,20 +289,44 @@ const Analytics = () => {
     ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(2) 
     : 0;
 
-  // Get brand-specific stats for main table - USING ONLY BRAND-SPECIFIC DATA
+  // Get brand-specific stats for main table - FIXED VERSION
   const getBrandStats = (brandId) => {
-    // ALWAYS use brand-specific data from the API calls
+    // Get brand-specific data
     const brandSpecificVideos = brandVideos[brandId] || [];
     const brandSpecificEdits = brandEdits[brandId] || [];
     
-    // Log for debugging (remove in production)
-    if (brandSpecificEdits.length > 0) {
-      console.log(`Brand ${brandId} has ${brandSpecificEdits.length} edits from getEditDetailsByBrand`);
+    // Also try to get edits from the global list that belong to this brand's videos
+    let additionalEdits = [];
+    if (brandSpecificVideos.length > 0) {
+      const videoIds = brandSpecificVideos.map(v => v.id);
+      additionalEdits = editDetailsList?.filter(edit => 
+        edit.video_id && videoIds.includes(edit.video_id) && 
+        !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
+      ) || [];
     }
     
-    // Use brand-specific data exclusively
+    // Combine both sources of edits
+    const allBrandEdits = [...brandSpecificEdits, ...additionalEdits];
+    
+    // Remove duplicates based on edit_id or id
+    const uniqueEdits = allBrandEdits.filter((edit, index, self) => 
+      index === self.findIndex(e => 
+        (e.edit_id && e.edit_id === edit.edit_id) || 
+        (e.id && e.id === edit.id)
+      )
+    );
+    
     const brandVideoCount = brandSpecificVideos.length;
-    const brandManualCorrections = brandSpecificEdits.length;
+    const brandManualCorrections = uniqueEdits.length;
+    
+    // Log for debugging
+    if (brandManualCorrections > 0) {
+      console.log(`Brand ${brandId} has ${brandManualCorrections} total edits:`, {
+        fromBrandApi: brandSpecificEdits.length,
+        fromGlobal: additionalEdits.length,
+        unique: uniqueEdits.length
+      });
+    }
     
     const brandSuccess = brandVideoCount > brandManualCorrections 
       ? brandVideoCount - brandManualCorrections 
@@ -351,13 +358,28 @@ const Analytics = () => {
     const brandSpecificVideos = brandVideos[brandId] || [];
     const brandSpecificEdits = brandEdits[brandId] || [];
     
+    // Also get edits from global list that belong to this brand's videos
+    let additionalEdits = [];
+    if (brandSpecificVideos.length > 0) {
+      const videoIds = brandSpecificVideos.map(v => v.id);
+      additionalEdits = editDetailsList?.filter(edit => 
+        edit.video_id && videoIds.includes(edit.video_id) && 
+        !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
+      ) || [];
+    }
+    
+    // Combine both sources
+    const allEdits = [...brandSpecificEdits, ...additionalEdits];
+    
     console.log(`Detailed stats for brand ${brandId}:`, {
       videos: brandSpecificVideos.length,
-      edits: brandSpecificEdits.length
+      editsFromBrandApi: brandSpecificEdits.length,
+      editsFromGlobal: additionalEdits.length,
+      totalEdits: allEdits.length
     });
     
     const totalVideos = brandSpecificVideos.length;
-    const manualCorrections = brandSpecificEdits.length;
+    const manualCorrections = allEdits.length;
     const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
     
     const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0;
@@ -374,7 +396,7 @@ const Analytics = () => {
       pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
       failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
       brandVideos: brandSpecificVideos,
-      brandEdits: brandSpecificEdits,
+      brandEdits: allEdits,
     };
   };
 
