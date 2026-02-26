@@ -872,6 +872,7 @@ const Users = () => {
   console.log('Rendering with users:', users);
   console.log('Users length:', users?.length);
   console.log('Current user role:', currentUser?.role);
+  console.log('Is brand admin:', isBrandAdmin);
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
@@ -1237,6 +1238,7 @@ const Users = () => {
                           <button
                             onClick={() => handleView(userItem)}
                             className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm flex items-center"
+                            title="View User Details"
                           >
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
