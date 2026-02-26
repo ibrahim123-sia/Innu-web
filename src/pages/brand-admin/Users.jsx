@@ -1,23 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { 
+import React, { useState, useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import {
   getBrandUsers,
   createUser,
-  updateUser
-} from '../../redux/slice/userSlice';
+  updateUser,
+} from "../../redux/slice/userSlice";
 import {
   getShopsByBrand,
-  selectShopsForBrand
-} from '../../redux/slice/shopSlice';
+  selectShopsForBrand,
+} from "../../redux/slice/shopSlice";
 import {
   selectDistrictsByBrand,
-  getDistrictsByBrand
-} from '../../redux/slice/districtSlice';
+  getDistrictsByBrand,
+} from "../../redux/slice/districtSlice";
 
 // Import SweetAlert for popup notifications
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
 
-const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const DEFAULT_PROFILE_PIC =
+  "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
 // Validation functions
 const validateEmail = (email) => {
@@ -33,7 +34,7 @@ const validateName = (name) => {
 const validateNameLength = (name, fieldName) => {
   if (name.length < 2) return `${fieldName} must be at least 2 characters long`;
   if (name.length > 50) return `${fieldName} must be less than 50 characters`;
-  return '';
+  return "";
 };
 
 // Skeleton Loader Components
@@ -75,7 +76,14 @@ const TableSkeleton = () => (
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            {['User', 'Role', 'Assigned Shop', 'Assigned District', 'Status', 'Actions'].map((header) => (
+            {[
+              "User",
+              "Role",
+              "Assigned Shop",
+              "Assigned District",
+              "Status",
+              "Actions",
+            ].map((header) => (
               <th key={header} className="px-6 py-3 text-left">
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
               </th>
@@ -162,72 +170,74 @@ const FormSkeleton = () => (
 
 const Users = () => {
   const dispatch = useDispatch();
-  const currentUser = useSelector(state => state.user.currentUser);
+  const currentUser = useSelector((state) => state.user.currentUser);
   const brandId = currentUser?.brand_id;
-  
+
   // Data from Redux - FIXED: Direct access to state.user.users
-  const users = useSelector(state => state.user.users) || [];
-  const loading = useSelector(state => state.user.loading);
-  const error = useSelector(state => state.user.error);
-  
+  const users = useSelector((state) => state.user.users) || [];
+  const loading = useSelector((state) => state.user.loading);
+  const error = useSelector((state) => state.user.error);
+
   const shops = useSelector(selectShopsForBrand(brandId)) || [];
   const districts = useSelector(selectDistrictsByBrand) || [];
-  
+
   // Debug logging
   useEffect(() => {
-    console.log('Current brand users from state:', users);
-    console.log('Brand ID:', brandId);
-    console.log('Loading state:', loading);
-    console.log('Error state:', error);
+    console.log("Current brand users from state:", users);
+    console.log("Brand ID:", brandId);
+    console.log("Loading state:", loading);
+    console.log("Error state:", error);
   }, [users, brandId, loading, error]);
-  
+
   // UI States
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(null); // New state for view modal
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  
+
   // File states
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [profilePicPreview, setProfilePicPreview] = useState(null);
   const [editProfilePicFile, setEditProfilePicFile] = useState(null);
   const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
-  
+
   // Form states with validation errors
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    role: 'user',
-    shop_id: '',
-    district_id: '',
-    is_active: true
+    first_name: "",
+    last_name: "",
+    email: "",
+    role: "user",
+    shop_id: "",
+    district_id: "",
+    is_active: true,
   });
-  
+
   const [editFormData, setEditFormData] = useState({});
-  const [formError, setFormError] = useState('');
-  const [formSuccess, setFormSuccess] = useState('');
-  const [emailExistsError, setEmailExistsError] = useState('');
-  
+  const [viewUserData, setViewUserData] = useState(null); // New state for view data
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+  const [emailExistsError, setEmailExistsError] = useState("");
+
   // Validation error states
   const [validationErrors, setValidationErrors] = useState({
-    first_name: '',
-    last_name: '',
-    email: ''
+    first_name: "",
+    last_name: "",
+    email: "",
   });
-  
+
   const [editValidationErrors, setEditValidationErrors] = useState({
-    first_name: '',
-    last_name: ''
+    first_name: "",
+    last_name: "",
   });
 
   // Role options
   const roles = [
-    { value: 'district_manager', label: 'District Manager' },
-    { value: 'shop_manager', label: 'Shop Manager' },
-    { value: 'technician', label: 'Technician' },
-    { value: 'user', label: 'User' }
+    { value: "district_manager", label: "District Manager" },
+    { value: "shop_manager", label: "Shop Manager" },
+    { value: "technician", label: "Technician" },
+    { value: "user", label: "User" },
   ];
 
   // ============================================
@@ -244,22 +254,24 @@ const Users = () => {
     setLocalLoading(true);
     setIsInitialLoad(true);
     try {
-      console.log('Fetching brand users for brand ID:', currentUser.brand_id);
-      const result = await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
-      console.log('Fetch result:', result);
-      
+      console.log("Fetching brand users for brand ID:", currentUser.brand_id);
+      const result = await dispatch(
+        getBrandUsers(currentUser.brand_id),
+      ).unwrap();
+      console.log("Fetch result:", result);
+
       await Promise.all([
         dispatch(getShopsByBrand(currentUser.brand_id)),
-        dispatch(getDistrictsByBrand(currentUser.brand_id))
+        dispatch(getDistrictsByBrand(currentUser.brand_id)),
       ]);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to load users. Please try again.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Error",
+        text: "Failed to load users. Please try again.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
     } finally {
       setLocalLoading(false);
@@ -272,47 +284,54 @@ const Users = () => {
   // ============================================
 
   const validateFirstName = (name) => {
-    if (!name.trim()) return 'First name is required';
-    if (!validateName(name)) return 'First name can only contain letters, spaces, hyphens, and apostrophes';
-    return validateNameLength(name, 'First name');
+    if (!name.trim()) return "First name is required";
+    if (!validateName(name))
+      return "First name can only contain letters, spaces, hyphens, and apostrophes";
+    return validateNameLength(name, "First name");
   };
 
   const validateLastName = (name) => {
-    if (!name.trim()) return 'Last name is required';
-    if (!validateName(name)) return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
-    return validateNameLength(name, 'Last name');
+    if (!name.trim()) return "Last name is required";
+    if (!validateName(name))
+      return "Last name can only contain letters, spaces, hyphens, and apostrophes";
+    return validateNameLength(name, "Last name");
   };
 
   const validateEmailField = (email) => {
-    if (!email.trim()) return 'Email is required';
-    if (!validateEmail(email)) return 'Please enter a valid email address (e.g., name@example.com)';
-    if (email.length > 100) return 'Email must be less than 100 characters';
-    return '';
+    if (!email.trim()) return "Email is required";
+    if (!validateEmail(email))
+      return "Please enter a valid email address (e.g., name@example.com)";
+    if (email.length > 100) return "Email must be less than 100 characters";
+    return "";
   };
 
   const validateForm = () => {
     const errors = {
       first_name: validateFirstName(formData.first_name),
       last_name: validateLastName(formData.last_name),
-      email: validateEmailField(formData.email)
+      email: validateEmailField(formData.email),
     };
-    
+
     setValidationErrors(errors);
-    
+
     // Check if there are any errors
-    return !Object.values(errors).some(error => error !== '');
+    return !Object.values(errors).some((error) => error !== "");
   };
 
   const validateEditForm = () => {
     const errors = {
-      first_name: editFormData.first_name ? validateFirstName(editFormData.first_name) : '',
-      last_name: editFormData.last_name ? validateLastName(editFormData.last_name) : ''
+      first_name: editFormData.first_name
+        ? validateFirstName(editFormData.first_name)
+        : "",
+      last_name: editFormData.last_name
+        ? validateLastName(editFormData.last_name)
+        : "",
     };
-    
+
     setEditValidationErrors(errors);
-    
+
     // Check if there are any errors
-    return !Object.values(errors).some(error => error !== '');
+    return !Object.values(errors).some((error) => error !== "");
   };
 
   // ============================================
@@ -321,69 +340,82 @@ const Users = () => {
 
   // Generate random password
   const generateRandomPassword = () => {
-    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-    const numbers = '0123456789';
-    const special = '!@#$%^&*';
-    
-    let password = '';
+    const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lowercase = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    const special = "!@#$%^&*";
+
+    let password = "";
     password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
     password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
     password += numbers.charAt(Math.floor(Math.random() * numbers.length));
     password += special.charAt(Math.floor(Math.random() * special.length));
-    
+
     const allChars = uppercase + lowercase + numbers + special;
     for (let i = 0; i < 6; i++) {
       password += allChars.charAt(Math.floor(Math.random() * allChars.length));
     }
-    
-    return password.split('').sort(() => Math.random() - 0.5).join('');
+
+    return password
+      .split("")
+      .sort(() => Math.random() - 0.5)
+      .join("");
   };
 
   // Check if email already exists
   const checkEmailExists = (email, excludeUserId = null) => {
     if (!email) return false;
-    const exists = users.some(u => 
-      u.email?.toLowerCase() === email.toLowerCase() && 
-      u.id !== excludeUserId
+    const exists = users.some(
+      (u) =>
+        u.email?.toLowerCase() === email.toLowerCase() &&
+        u.id !== excludeUserId,
     );
-    setEmailExistsError(exists ? 'A user with this email already exists in your brand. Please use a different email.' : '');
+    setEmailExistsError(
+      exists
+        ? "A user with this email already exists in your brand. Please use a different email."
+        : "",
+    );
     return exists;
   };
 
   // Extract public URL from profile_pic_url
   const getProfilePicUrl = (profilePicData) => {
     if (!profilePicData) return DEFAULT_PROFILE_PIC;
-    
-    if (typeof profilePicData === 'string') {
-      if (profilePicData.startsWith('{')) {
+
+    if (typeof profilePicData === "string") {
+      if (profilePicData.startsWith("{")) {
         try {
           const parsed = JSON.parse(profilePicData);
-          return parsed.publicUrl || parsed.signedUrl || parsed.filePath || DEFAULT_PROFILE_PIC;
+          return (
+            parsed.publicUrl ||
+            parsed.signedUrl ||
+            parsed.filePath ||
+            DEFAULT_PROFILE_PIC
+          );
         } catch (e) {
           return profilePicData;
         }
       }
       return profilePicData;
     }
-    
+
     return DEFAULT_PROFILE_PIC;
   };
 
   const getShopName = (shopId) => {
-    if (!shopId) return 'None';
-    const shop = shops.find(s => s.id === shopId);
-    return shop ? shop.name : 'Unknown Shop';
+    if (!shopId) return "None";
+    const shop = shops.find((s) => s.id === shopId);
+    return shop ? shop.name : "Unknown Shop";
   };
 
   const getDistrictName = (districtId) => {
-    if (!districtId) return 'None';
-    const district = districts.find(d => d.id === districtId);
-    return district ? district.name : 'Unknown District';
+    if (!districtId) return "None";
+    const district = districts.find((d) => d.id === districtId);
+    return district ? district.name : "Unknown District";
   };
 
   const getRoleLabel = (roleValue) => {
-    const role = roles.find(r => r.value === roleValue);
+    const role = roles.find((r) => r.value === roleValue);
     return role ? role.label : roleValue;
   };
 
@@ -395,33 +427,33 @@ const Users = () => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
       if (!validTypes.includes(file.type)) {
         Swal.fire({
-          icon: 'error',
-          title: 'Invalid File Type',
-          text: 'Please upload only image files (JPEG, PNG, GIF, WEBP)',
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#d33'
+          icon: "error",
+          title: "Invalid File Type",
+          text: "Please upload only image files (JPEG, PNG, GIF, WEBP)",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33",
         });
         return;
       }
-      
+
       // Validate file size (max 5MB)
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       if (file.size > maxSize) {
         Swal.fire({
-          icon: 'error',
-          title: 'File Too Large',
-          text: 'Profile picture must be less than 5MB',
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#d33'
+          icon: "error",
+          title: "File Too Large",
+          text: "Profile picture must be less than 5MB",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33",
         });
         return;
       }
-      
+
       const previewUrl = URL.createObjectURL(file);
-      
+
       if (isEdit) {
         setEditProfilePicFile(file);
         setEditProfilePicPreview(previewUrl);
@@ -437,31 +469,31 @@ const Users = () => {
   // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormError('');
-    setFormSuccess('');
-    
+    setFormError("");
+    setFormSuccess("");
+
     // Validate all fields
     if (!validateForm()) {
-      setFormError('Please fix the validation errors before submitting');
+      setFormError("Please fix the validation errors before submitting");
       Swal.fire({
-        icon: 'error',
-        title: 'Validation Error',
-        text: 'Please fix the validation errors before submitting',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Validation Error",
+        text: "Please fix the validation errors before submitting",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
       return;
     }
 
     // Check if email already exists
     if (checkEmailExists(formData.email)) {
-      setFormError('Email already exists. Please use a different email.');
+      setFormError("Email already exists. Please use a different email.");
       Swal.fire({
-        icon: 'error',
-        title: 'Email Already Exists',
-        text: 'This email is already registered in your brand. Please use a different email address.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Email Already Exists",
+        text: "This email is already registered in your brand. Please use a different email address.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
       return;
     }
@@ -470,45 +502,45 @@ const Users = () => {
 
     try {
       const randomPassword = generateRandomPassword();
-      
+
       const userFormData = new FormData();
-      userFormData.append('email', formData.email.trim());
-      userFormData.append('first_name', formData.first_name.trim());
-      userFormData.append('last_name', formData.last_name.trim());
-      userFormData.append('contact_no', '');
-      userFormData.append('role', formData.role);
-      userFormData.append('brand_id', currentUser.brand_id);
-      
-      if (formData.shop_id && formData.shop_id !== '') {
-        userFormData.append('shop_id', formData.shop_id);
+      userFormData.append("email", formData.email.trim());
+      userFormData.append("first_name", formData.first_name.trim());
+      userFormData.append("last_name", formData.last_name.trim());
+      userFormData.append("contact_no", "");
+      userFormData.append("role", formData.role);
+      userFormData.append("brand_id", currentUser.brand_id);
+
+      if (formData.shop_id && formData.shop_id !== "") {
+        userFormData.append("shop_id", formData.shop_id);
       }
-      
-      if (formData.district_id && formData.district_id !== '') {
-        userFormData.append('district_id', formData.district_id);
+
+      if (formData.district_id && formData.district_id !== "") {
+        userFormData.append("district_id", formData.district_id);
       }
-      
-      userFormData.append('is_active', formData.is_active);
-      userFormData.append('ft_password', randomPassword);
-      userFormData.append('password_type', 'ft_password');
-      userFormData.append('is_first_login', 'true');
-      
+
+      userFormData.append("is_active", formData.is_active);
+      userFormData.append("ft_password", randomPassword);
+      userFormData.append("password_type", "ft_password");
+      userFormData.append("is_first_login", "true");
+
       if (profilePicFile) {
-        userFormData.append('profile_pic', profilePicFile);
+        userFormData.append("profile_pic", profilePicFile);
       }
 
       const result = await dispatch(createUser(userFormData)).unwrap();
-      
+
       if (result.success) {
         Swal.fire({
-          icon: 'success',
-          title: 'User Created Successfully!',
+          icon: "success",
+          title: "User Created Successfully!",
           html: `
             <div style="text-align: left;">
               <p><strong>Name:</strong> ${formData.first_name} ${formData.last_name}</p>
               <p><strong>Email:</strong> ${formData.email}</p>
               <p><strong>Role:</strong> ${getRoleLabel(formData.role)}</p>
-              <p><strong>Shop:</strong> ${formData.shop_id ? getShopName(formData.shop_id) : 'None'}</p>
-              <p><strong>District:</strong> ${formData.district_id ? getDistrictName(formData.district_id) : 'None'}</p>
+              <p><strong>Shop:</strong> ${formData.shop_id ? getShopName(formData.shop_id) : "None"}</p>
+              <p><strong>District:</strong> ${formData.district_id ? getDistrictName(formData.district_id) : "None"}</p>
               <br>
               <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
                 <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
@@ -518,9 +550,9 @@ const Users = () => {
               </div>
             </div>
           `,
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#4CAF50',
-          width: '550px'
+          confirmButtonText: "OK",
+          confirmButtonColor: "#4CAF50",
+          width: "550px",
         });
 
         resetForm();
@@ -530,14 +562,14 @@ const Users = () => {
         }, 100);
       }
     } catch (err) {
-      console.error('User creation failed:', err);
-      setFormError(err?.error || 'Failed to create user. Please try again.');
+      console.error("User creation failed:", err);
+      setFormError(err?.error || "Failed to create user. Please try again.");
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: err?.error || 'Failed to create user. Please try again.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Error",
+        text: err?.error || "Failed to create user. Please try again.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
     } finally {
       setIsSubmitting(false);
@@ -549,18 +581,18 @@ const Users = () => {
   // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    setFormError('');
-    setFormSuccess('');
+    setFormError("");
+    setFormSuccess("");
 
     // Validate edit form
     if (!validateEditForm()) {
-      setFormError('Please fix the validation errors before submitting');
+      setFormError("Please fix the validation errors before submitting");
       Swal.fire({
-        icon: 'error',
-        title: 'Validation Error',
-        text: 'Please fix the validation errors before submitting',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Validation Error",
+        text: "Please fix the validation errors before submitting",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
       return;
     }
@@ -568,64 +600,66 @@ const Users = () => {
     try {
       const userFormData = new FormData();
       let hasChanges = false;
-      
+
       if (editFormData.first_name !== editFormData.original_first_name) {
-        userFormData.append('first_name', editFormData.first_name.trim());
+        userFormData.append("first_name", editFormData.first_name.trim());
         hasChanges = true;
       }
       if (editFormData.last_name !== editFormData.original_last_name) {
-        userFormData.append('last_name', editFormData.last_name.trim());
+        userFormData.append("last_name", editFormData.last_name.trim());
         hasChanges = true;
       }
-      
+
       if (editFormData.role !== editFormData.original_role) {
-        userFormData.append('role', editFormData.role);
+        userFormData.append("role", editFormData.role);
         hasChanges = true;
       }
-      
+
       if (editFormData.shop_id !== editFormData.original_shop_id) {
-        if (editFormData.shop_id && editFormData.shop_id !== '') {
-          userFormData.append('shop_id', editFormData.shop_id);
+        if (editFormData.shop_id && editFormData.shop_id !== "") {
+          userFormData.append("shop_id", editFormData.shop_id);
         } else {
-          userFormData.append('shop_id', '');
+          userFormData.append("shop_id", "");
         }
         hasChanges = true;
       }
-      
+
       if (editFormData.district_id !== editFormData.original_district_id) {
-        if (editFormData.district_id && editFormData.district_id !== '') {
-          userFormData.append('district_id', editFormData.district_id);
+        if (editFormData.district_id && editFormData.district_id !== "") {
+          userFormData.append("district_id", editFormData.district_id);
         } else {
-          userFormData.append('district_id', '');
+          userFormData.append("district_id", "");
         }
         hasChanges = true;
       }
-      
+
       if (editFormData.is_active !== editFormData.original_is_active) {
-        userFormData.append('is_active', editFormData.is_active);
+        userFormData.append("is_active", editFormData.is_active);
         hasChanges = true;
       }
-      
+
       if (editProfilePicFile) {
-        userFormData.append('profile_pic', editProfilePicFile);
+        userFormData.append("profile_pic", editProfilePicFile);
         hasChanges = true;
       }
 
       if (hasChanges) {
-        await dispatch(updateUser({
-          id: showEditModal,
-          data: userFormData
-        })).unwrap();
+        await dispatch(
+          updateUser({
+            id: showEditModal,
+            data: userFormData,
+          }),
+        ).unwrap();
 
         Swal.fire({
-          icon: 'success',
-          title: 'Success!',
-          text: 'User updated successfully!',
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#4CAF50',
-          timer: 2000
+          icon: "success",
+          title: "Success!",
+          text: "User updated successfully!",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#4CAF50",
+          timer: 2000,
         });
-        
+
         resetEditForm();
         await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
         setTimeout(() => {
@@ -634,49 +668,64 @@ const Users = () => {
       } else {
         setShowEditModal(null);
       }
-      
     } catch (err) {
-      console.error('User update failed:', err);
-      setFormError(err?.error || 'Failed to update user. Please try again.');
+      console.error("User update failed:", err);
+      setFormError(err?.error || "Failed to update user. Please try again.");
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: err?.error || 'Failed to update user. Please try again.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Error",
+        text: err?.error || "Failed to update user. Please try again.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
     }
+  };
+
+  // ============================================
+  // VIEW USER (NEW FUNCTION)
+  // ============================================
+  const handleView = (user) => {
+    setViewUserData({
+      ...user,
+      profile_pic: getProfilePicUrl(user.profile_pic_url),
+      role_label: getRoleLabel(user.role),
+      shop_name: getShopName(user.shop_id),
+      district_name: getDistrictName(user.district_id),
+    });
+    setShowViewModal(user.id);
   };
 
   // Toggle user status
   const handleToggleStatus = async (user) => {
     try {
       const userFormData = new FormData();
-      userFormData.append('is_active', !user.is_active);
+      userFormData.append("is_active", !user.is_active);
 
-      await dispatch(updateUser({
-        id: user.id,
-        data: userFormData
-      })).unwrap();
+      await dispatch(
+        updateUser({
+          id: user.id,
+          data: userFormData,
+        }),
+      ).unwrap();
 
       await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
-      
+
       Swal.fire({
-        icon: 'success',
-        title: 'Status Updated',
-        text: `${user.first_name} ${user.last_name} has been ${!user.is_active ? 'activated' : 'deactivated'} successfully.`,
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50',
-        timer: 2000
+        icon: "success",
+        title: "Status Updated",
+        text: `${user.first_name} ${user.last_name} has been ${!user.is_active ? "activated" : "deactivated"} successfully.`,
+        confirmButtonText: "OK",
+        confirmButtonColor: "#4CAF50",
+        timer: 2000,
       });
     } catch (err) {
-      console.error('Failed to toggle user status:', err);
+      console.error("Failed to toggle user status:", err);
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to update user status.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Error",
+        text: "Failed to update user status.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
     }
   };
@@ -687,29 +736,29 @@ const Users = () => {
 
   const resetForm = () => {
     setFormData({
-      first_name: '',
-      last_name: '',
-      email: '',
-      role: 'user',
-      shop_id: '',
-      district_id: '',
-      is_active: true
+      first_name: "",
+      last_name: "",
+      email: "",
+      role: "user",
+      shop_id: "",
+      district_id: "",
+      is_active: true,
     });
     setValidationErrors({
-      first_name: '',
-      last_name: '',
-      email: ''
+      first_name: "",
+      last_name: "",
+      email: "",
     });
     setProfilePicFile(null);
     setProfilePicPreview(null);
-    setEmailExistsError('');
+    setEmailExistsError("");
   };
 
   const resetEditForm = () => {
     setEditFormData({});
     setEditValidationErrors({
-      first_name: '',
-      last_name: ''
+      first_name: "",
+      last_name: "",
     });
     setEditProfilePicFile(null);
     setEditProfilePicPreview(null);
@@ -717,84 +766,84 @@ const Users = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    if (name === 'email') {
-      setFormData(prev => ({
+
+    if (name === "email") {
+      setFormData((prev) => ({
         ...prev,
-        [name]: value
+        [name]: value,
       }));
-      
+
       // Validate email
       const emailError = validateEmailField(value);
-      setValidationErrors(prev => ({
+      setValidationErrors((prev) => ({
         ...prev,
-        email: emailError
+        email: emailError,
       }));
-      
+
       checkEmailExists(value);
-    } else if (name === 'first_name') {
-      setFormData(prev => ({
+    } else if (name === "first_name") {
+      setFormData((prev) => ({
         ...prev,
-        [name]: value
+        [name]: value,
       }));
-      
+
       // Validate first name
       const nameError = validateFirstName(value);
-      setValidationErrors(prev => ({
+      setValidationErrors((prev) => ({
         ...prev,
-        first_name: nameError
+        first_name: nameError,
       }));
-    } else if (name === 'last_name') {
-      setFormData(prev => ({
+    } else if (name === "last_name") {
+      setFormData((prev) => ({
         ...prev,
-        [name]: value
+        [name]: value,
       }));
-      
+
       // Validate last name
       const nameError = validateLastName(value);
-      setValidationErrors(prev => ({
+      setValidationErrors((prev) => ({
         ...prev,
-        last_name: nameError
+        last_name: nameError,
       }));
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        [name]: type === 'checkbox' ? checked : value
+        [name]: type === "checkbox" ? checked : value,
       }));
     }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    if (name === 'first_name') {
-      setEditFormData(prev => ({
+
+    if (name === "first_name") {
+      setEditFormData((prev) => ({
         ...prev,
-        [name]: value
+        [name]: value,
       }));
-      
+
       // Validate first name if not empty
-      const nameError = value ? validateFirstName(value) : '';
-      setEditValidationErrors(prev => ({
+      const nameError = value ? validateFirstName(value) : "";
+      setEditValidationErrors((prev) => ({
         ...prev,
-        first_name: nameError
+        first_name: nameError,
       }));
-    } else if (name === 'last_name') {
-      setEditFormData(prev => ({
+    } else if (name === "last_name") {
+      setEditFormData((prev) => ({
         ...prev,
-        [name]: value
+        [name]: value,
       }));
-      
+
       // Validate last name if not empty
-      const nameError = value ? validateLastName(value) : '';
-      setEditValidationErrors(prev => ({
+      const nameError = value ? validateLastName(value) : "";
+      setEditValidationErrors((prev) => ({
         ...prev,
-        last_name: nameError
+        last_name: nameError,
       }));
     } else {
-      setEditFormData(prev => ({
+      setEditFormData((prev) => ({
         ...prev,
-        [name]: type === 'checkbox' ? checked : value
+        [name]: type === "checkbox" ? checked : value,
       }));
     }
   };
@@ -802,37 +851,40 @@ const Users = () => {
   const handleEdit = (user) => {
     setShowEditModal(user.id);
     setEditFormData({
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      email: user.email || '',
-      role: user.role || 'user',
-      shop_id: user.shop_id || '',
-      district_id: user.district_id || '',
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      email: user.email || "",
+      role: user.role || "user",
+      shop_id: user.shop_id || "",
+      district_id: user.district_id || "",
       is_active: user.is_active,
       profile_pic: getProfilePicUrl(user.profile_pic_url),
-      original_first_name: user.first_name || '',
-      original_last_name: user.last_name || '',
-      original_role: user.role || 'user',
-      original_shop_id: user.shop_id || '',
-      original_district_id: user.district_id || '',
-      original_is_active: user.is_active
+      original_first_name: user.first_name || "",
+      original_last_name: user.last_name || "",
+      original_role: user.role || "user",
+      original_shop_id: user.shop_id || "",
+      original_district_id: user.district_id || "",
+      original_is_active: user.is_active,
     });
     setEditProfilePicPreview(getProfilePicUrl(user.profile_pic_url));
     setEditProfilePicFile(null);
     setEditValidationErrors({
-      first_name: '',
-      last_name: ''
+      first_name: "",
+      last_name: "",
     });
   };
 
   // Filter active shops and districts
   const getAvailableShops = () => {
-    return shops.filter(shop => shop.is_active);
+    return shops.filter((shop) => shop.is_active);
   };
 
   const getAvailableDistricts = () => {
-    return districts.filter(district => district.is_active);
+    return districts.filter((district) => district.is_active);
   };
+
+  // Check if current user is brand_admin
+  const isBrandAdmin = currentUser?.role === "brand_admin";
 
   // Show skeleton during initial load
   if (isInitialLoad && (localLoading || loading)) {
@@ -850,8 +902,10 @@ const Users = () => {
   // ============================================
 
   // Debug: Log the current state
-  console.log('Rendering with users:', users);
-  console.log('Users length:', users?.length);
+  console.log("Rendering with users:", users);
+  console.log("Users length:", users?.length);
+  console.log("Current user role:", currentUser?.role);
+  console.log("Is brand admin:", isBrandAdmin);
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
@@ -866,58 +920,71 @@ const Users = () => {
         <button
           onClick={() => {
             setShowCreateForm(!showCreateForm);
-            setFormError('');
-            setEmailExistsError('');
+            setFormError("");
+            setEmailExistsError("");
             setValidationErrors({
-              first_name: '',
-              last_name: '',
-              email: ''
+              first_name: "",
+              last_name: "",
+              email: "",
             });
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          <svg
+            className="w-5 h-5 mr-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            />
           </svg>
-          {showCreateForm ? 'Cancel' : 'New User'}
+          {showCreateForm ? "Cancel" : "New User"}
         </button>
       </div>
 
       {/* Create User Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New User</h2>
-          
+          <h2 className="text-xl font-bold text-blue-600 mb-4">
+            Create New User
+          </h2>
+
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
               {formError}
             </div>
           )}
-          
+
           {formSuccess && (
             <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
               {formSuccess}
             </div>
           )}
-          
+
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Column: Profile Picture */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-700">Profile Picture</h3>
-                
+
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> A random password will be auto-generated and sent to the user's email.
+                    <strong>Note:</strong> A random password will be
+                    auto-generated and sent to the user's email.
                   </p>
                 </div>
-                
+
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                   {profilePicPreview ? (
                     <div className="space-y-2">
-                      <img 
-                        src={profilePicPreview} 
-                        alt="Profile preview" 
+                      <img
+                        src={profilePicPreview}
+                        alt="Profile preview"
                         className="w-32 h-32 rounded-full mx-auto object-cover"
                       />
                       <button
@@ -933,12 +1000,14 @@ const Users = () => {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <img 
+                      <img
                         src={DEFAULT_PROFILE_PIC}
-                        alt="Default profile" 
+                        alt="Default profile"
                         className="w-32 h-32 rounded-full mx-auto object-cover opacity-50"
                       />
-                      <p className="text-sm text-gray-500">Default profile picture will be used if not uploaded</p>
+                      <p className="text-sm text-gray-500">
+                        Default profile picture will be used if not uploaded
+                      </p>
                     </div>
                   )}
                   <label className="block mt-4">
@@ -953,7 +1022,9 @@ const Users = () => {
                       name="profile_pic"
                     />
                   </label>
-                  <p className="text-xs text-gray-500 mt-2">Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP
+                  </p>
                 </div>
               </div>
 
@@ -961,8 +1032,10 @@ const Users = () => {
               <div className="lg:col-span-2 space-y-6">
                 {/* Basic Information */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Basic Information</h3>
-                  
+                  <h3 className="font-semibold text-gray-700">
+                    Basic Information
+                  </h3>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -974,13 +1047,17 @@ const Users = () => {
                         value={formData.first_name}
                         onChange={handleInputChange}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          validationErrors.first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          validationErrors.first_name
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-300"
                         }`}
                         placeholder="First name"
                         required
                       />
                       {validationErrors.first_name && (
-                        <p className="mt-1 text-sm text-red-600">{validationErrors.first_name}</p>
+                        <p className="mt-1 text-sm text-red-600">
+                          {validationErrors.first_name}
+                        </p>
                       )}
                     </div>
 
@@ -994,13 +1071,17 @@ const Users = () => {
                         value={formData.last_name}
                         onChange={handleInputChange}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          validationErrors.last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          validationErrors.last_name
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-300"
                         }`}
                         placeholder="Last name"
                         required
                       />
                       {validationErrors.last_name && (
-                        <p className="mt-1 text-sm text-red-600">{validationErrors.last_name}</p>
+                        <p className="mt-1 text-sm text-red-600">
+                          {validationErrors.last_name}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -1015,24 +1096,32 @@ const Users = () => {
                       value={formData.email}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        validationErrors.email || emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        validationErrors.email || emailExistsError
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300"
                       }`}
                       placeholder="user@example.com"
                       required
                     />
                     {validationErrors.email && (
-                      <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
+                      <p className="mt-1 text-sm text-red-600">
+                        {validationErrors.email}
+                      </p>
                     )}
                     {!validationErrors.email && emailExistsError && (
-                      <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
+                      <p className="mt-1 text-sm text-red-600">
+                        {emailExistsError}
+                      </p>
                     )}
                   </div>
                 </div>
 
                 {/* Role and Assignments */}
                 <div className="space-y-4 border-t pt-6">
-                  <h3 className="font-semibold text-gray-700">Role & Assignments</h3>
-                  
+                  <h3 className="font-semibold text-gray-700">
+                    Role & Assignments
+                  </h3>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Role <span className="text-red-500">*</span>
@@ -1044,7 +1133,7 @@ const Users = () => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
-                      {roles.map(role => (
+                      {roles.map((role) => (
                         <option key={role.value} value={role.value}>
                           {role.label}
                         </option>
@@ -1063,9 +1152,9 @@ const Users = () => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">None (No shop assigned)</option>
-                      {getAvailableShops().map(shop => (
+                      {getAvailableShops().map((shop) => (
                         <option key={shop.id} value={shop.id}>
-                          {shop.name} {shop.is_active ? '' : '(Inactive)'}
+                          {shop.name} {shop.is_active ? "" : "(Inactive)"}
                         </option>
                       ))}
                     </select>
@@ -1082,9 +1171,10 @@ const Users = () => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">None (No district assigned)</option>
-                      {getAvailableDistricts().map(district => (
+                      {getAvailableDistricts().map((district) => (
                         <option key={district.id} value={district.id}>
-                          {district.name} {district.is_active ? '' : '(Inactive)'}
+                          {district.name}{" "}
+                          {district.is_active ? "" : "(Inactive)"}
                         </option>
                       ))}
                     </select>
@@ -1098,7 +1188,9 @@ const Users = () => {
                       onChange={handleInputChange}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-sm font-medium text-gray-700">Active</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      Active
+                    </span>
                   </label>
                 </div>
               </div>
@@ -1107,14 +1199,24 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={!!emailExistsError || !!validationErrors.first_name || !!validationErrors.last_name || !!validationErrors.email || isSubmitting}
+                disabled={
+                  !!emailExistsError ||
+                  !!validationErrors.first_name ||
+                  !!validationErrors.last_name ||
+                  !!validationErrors.email ||
+                  isSubmitting
+                }
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  emailExistsError || validationErrors.first_name || validationErrors.last_name || validationErrors.email || isSubmitting
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  emailExistsError ||
+                  validationErrors.first_name ||
+                  validationErrors.last_name ||
+                  validationErrors.email ||
+                  isSubmitting
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
                 }`}
               >
-                {isSubmitting ? 'Creating User...' : 'Create User'}
+                {isSubmitting ? "Creating User..." : "Create User"}
               </button>
             </div>
           </form>
@@ -1130,7 +1232,9 @@ const Users = () => {
           </div>
         ) : error ? (
           <div className="py-12 text-center">
-            <p className="text-red-600 mb-4">{typeof error === 'string' ? error : 'Failed to load users'}</p>
+            <p className="text-red-600 mb-4">
+              {typeof error === "string" ? error : "Failed to load users"}
+            </p>
             <button
               onClick={fetchData}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -1169,7 +1273,7 @@ const Users = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 rounded-full overflow-hidden mr-3 border bg-gray-100">
-                          <img 
+                          <img
                             src={getProfilePicUrl(userItem.profile_pic_url)}
                             alt={`${userItem.first_name} ${userItem.last_name}`}
                             className="w-full h-full object-cover"
@@ -1182,7 +1286,9 @@ const Users = () => {
                           <div className="text-sm font-medium text-gray-900">
                             {userItem.first_name} {userItem.last_name}
                           </div>
-                          <div className="text-xs text-gray-500">{userItem.email}</div>
+                          <div className="text-xs text-gray-500">
+                            {userItem.email}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -1192,41 +1298,79 @@ const Users = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {userItem.shop_id ? getShopName(userItem.shop_id) : 
+                      {userItem.shop_id ? (
+                        getShopName(userItem.shop_id)
+                      ) : (
                         <span className="text-gray-400 italic">None</span>
-                      }
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {userItem.district_id ? getDistrictName(userItem.district_id) : 
+                      {userItem.district_id ? (
+                        getDistrictName(userItem.district_id)
+                      ) : (
                         <span className="text-gray-400 italic">None</span>
-                      }
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        userItem.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {userItem.is_active ? 'Active' : 'Inactive'}
+                      <span
+                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          userItem.is_active
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {userItem.is_active ? "Active" : "Inactive"}
                       </span>
                     </td>
+                    {/* In the Actions column, replace the existing buttons with this: */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(userItem)}
-                          className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
-                        >
-                          Edit
-                        </button>
+                        {/* If user is brand_admin, show View button, otherwise show Edit button */}
+                        {userItem.role === "brand_admin" ? (
+                          <button
+                            onClick={() => handleView(userItem)}
+                            className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm flex items-center"
+                            title="View User Details"
+                          >
+                            <svg
+                              className="w-4 h-4 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                              />
+                            </svg>
+                            View
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleEdit(userItem)}
+                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
+                          >
+                            Edit
+                          </button>
+                        )}
+
                         <button
                           onClick={() => handleToggleStatus(userItem)}
                           className={`px-3 py-1 rounded text-sm ${
-                            userItem.is_active 
-                              ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            userItem.is_active
+                              ? "bg-red-100 text-red-700 hover:bg-red-200"
+                              : "bg-green-100 text-green-700 hover:bg-green-200"
                           }`}
                         >
-                          {userItem.is_active ? 'Deactivate' : 'Activate'}
+                          {userItem.is_active ? "Deactivate" : "Activate"}
                         </button>
                       </div>
                     </td>
@@ -1237,13 +1381,17 @@ const Users = () => {
           </div>
         ) : (
           <div className="py-12 text-center">
-            <img 
+            <img
               src={DEFAULT_PROFILE_PIC}
-              alt="No users" 
+              alt="No users"
               className="w-16 h-16 mx-auto mb-4 opacity-50 rounded-full"
             />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Users Found</h3>
-            <p className="text-gray-500 mb-4">Create your first user to get started</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No Users Found
+            </h3>
+            <p className="text-gray-500 mb-4">
+              Create your first user to get started
+            </p>
             <button
               onClick={() => setShowCreateForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
@@ -1259,39 +1407,45 @@ const Users = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit User</h2>
-              
+              <h2 className="text-xl font-bold text-blue-600 mb-4">
+                Edit User
+              </h2>
+
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
                   {formError}
                 </div>
               )}
-              
+
               {formSuccess && (
                 <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
                   {formSuccess}
                 </div>
               )}
-              
+
               <form onSubmit={handleEditSubmit}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Left Column: Profile Picture */}
                   <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-700">Profile Picture</h3>
-                    
+                    <h3 className="font-semibold text-gray-700">
+                      Profile Picture
+                    </h3>
+
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                       {editProfilePicPreview ? (
                         <div className="space-y-2">
-                          <img 
-                            src={editProfilePicPreview} 
-                            alt="Profile preview" 
+                          <img
+                            src={editProfilePicPreview}
+                            alt="Profile preview"
                             className="w-32 h-32 rounded-full mx-auto object-cover"
                           />
                           <button
                             type="button"
                             onClick={() => {
                               setEditProfilePicFile(null);
-                              setEditProfilePicPreview(editFormData.profile_pic);
+                              setEditProfilePicPreview(
+                                editFormData.profile_pic,
+                              );
                             }}
                             className="text-sm text-red-600 hover:text-red-700"
                           >
@@ -1300,12 +1454,16 @@ const Users = () => {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <img 
-                            src={editFormData.profile_pic || DEFAULT_PROFILE_PIC}
-                            alt="Profile" 
+                          <img
+                            src={
+                              editFormData.profile_pic || DEFAULT_PROFILE_PIC
+                            }
+                            alt="Profile"
                             className="w-32 h-32 rounded-full mx-auto object-cover"
                           />
-                          <p className="text-sm text-gray-500">Current profile picture</p>
+                          <p className="text-sm text-gray-500">
+                            Current profile picture
+                          </p>
                         </div>
                       )}
                       <label className="block mt-4">
@@ -1320,7 +1478,9 @@ const Users = () => {
                           name="profile_pic"
                         />
                       </label>
-                      <p className="text-xs text-gray-500 mt-2">Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP
+                      </p>
                     </div>
                   </div>
 
@@ -1328,8 +1488,10 @@ const Users = () => {
                   <div className="lg:col-span-2 space-y-6">
                     {/* Basic Information */}
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-700">Basic Information</h3>
-                      
+                      <h3 className="font-semibold text-gray-700">
+                        Basic Information
+                      </h3>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1338,15 +1500,19 @@ const Users = () => {
                           <input
                             type="text"
                             name="first_name"
-                            value={editFormData.first_name || ''}
+                            value={editFormData.first_name || ""}
                             onChange={handleEditInputChange}
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                              editValidationErrors.first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                              editValidationErrors.first_name
+                                ? "border-red-500 bg-red-50"
+                                : "border-gray-300"
                             }`}
                             placeholder="First name"
                           />
                           {editValidationErrors.first_name && (
-                            <p className="mt-1 text-sm text-red-600">{editValidationErrors.first_name}</p>
+                            <p className="mt-1 text-sm text-red-600">
+                              {editValidationErrors.first_name}
+                            </p>
                           )}
                         </div>
 
@@ -1357,15 +1523,19 @@ const Users = () => {
                           <input
                             type="text"
                             name="last_name"
-                            value={editFormData.last_name || ''}
+                            value={editFormData.last_name || ""}
                             onChange={handleEditInputChange}
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                              editValidationErrors.last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                              editValidationErrors.last_name
+                                ? "border-red-500 bg-red-50"
+                                : "border-gray-300"
                             }`}
                             placeholder="Last name"
                           />
                           {editValidationErrors.last_name && (
-                            <p className="mt-1 text-sm text-red-600">{editValidationErrors.last_name}</p>
+                            <p className="mt-1 text-sm text-red-600">
+                              {editValidationErrors.last_name}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -1377,29 +1547,33 @@ const Users = () => {
                         <input
                           type="email"
                           name="email"
-                          value={editFormData.email || ''}
+                          value={editFormData.email || ""}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
                           readOnly
                         />
-                        <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Email cannot be changed
+                        </p>
                       </div>
                     </div>
 
                     {/* Role and Assignments */}
                     <div className="space-y-4 border-t pt-6">
-                      <h3 className="font-semibold text-gray-700">Role & Assignments</h3>
-                      
+                      <h3 className="font-semibold text-gray-700">
+                        Role & Assignments
+                      </h3>
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Role
                         </label>
                         <select
                           name="role"
-                          value={editFormData.role || 'user'}
+                          value={editFormData.role || "user"}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          {roles.map(role => (
+                          {roles.map((role) => (
                             <option key={role.value} value={role.value}>
                               {role.label}
                             </option>
@@ -1413,14 +1587,14 @@ const Users = () => {
                         </label>
                         <select
                           name="shop_id"
-                          value={editFormData.shop_id || ''}
+                          value={editFormData.shop_id || ""}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">None (No shop assigned)</option>
-                          {getAvailableShops().map(shop => (
+                          {getAvailableShops().map((shop) => (
                             <option key={shop.id} value={shop.id}>
-                              {shop.name} {shop.is_active ? '' : '(Inactive)'}
+                              {shop.name} {shop.is_active ? "" : "(Inactive)"}
                             </option>
                           ))}
                         </select>
@@ -1432,14 +1606,15 @@ const Users = () => {
                         </label>
                         <select
                           name="district_id"
-                          value={editFormData.district_id || ''}
+                          value={editFormData.district_id || ""}
                           onChange={handleEditInputChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">None (No district assigned)</option>
-                          {getAvailableDistricts().map(district => (
+                          {getAvailableDistricts().map((district) => (
                             <option key={district.id} value={district.id}>
-                              {district.name} {district.is_active ? '' : '(Inactive)'}
+                              {district.name}{" "}
+                              {district.is_active ? "" : "(Inactive)"}
                             </option>
                           ))}
                         </select>
@@ -1453,7 +1628,9 @@ const Users = () => {
                           onChange={handleEditInputChange}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="text-sm font-medium text-gray-700">Active</span>
+                        <span className="text-sm font-medium text-gray-700">
+                          Active
+                        </span>
                       </label>
                     </div>
                   </div>
@@ -1469,17 +1646,176 @@ const Users = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={!!editValidationErrors.first_name || !!editValidationErrors.last_name}
+                    disabled={
+                      !!editValidationErrors.first_name ||
+                      !!editValidationErrors.last_name
+                    }
                     className={`px-4 py-2 rounded-lg font-medium ${
-                      editValidationErrors.first_name || editValidationErrors.last_name
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      editValidationErrors.first_name ||
+                      editValidationErrors.last_name
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
                     }`}
                   >
                     Update User
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View User Modal (for brand_admin) */}
+      {showViewModal && viewUserData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-blue-600">
+                  User Details
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowViewModal(null);
+                    setViewUserData(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Profile Picture */}
+                <div className="flex justify-center">
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-blue-100">
+                    <img
+                      src={viewUserData.profile_pic}
+                      alt={`${viewUserData.first_name} ${viewUserData.last_name}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = DEFAULT_PROFILE_PIC;
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* User Information Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        First Name
+                      </label>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {viewUserData.first_name}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        Email
+                      </label>
+                      <p className="text-gray-900">{viewUserData.email}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        Role
+                      </label>
+                      <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded">
+                        {viewUserData.role_label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        Last Name
+                      </label>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {viewUserData.last_name}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        Assigned Shop
+                      </label>
+                      <p className="text-gray-900">{viewUserData.shop_name}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        Assigned District
+                      </label>
+                      <p className="text-gray-900">
+                        {viewUserData.district_name}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-500">
+                      Account Status
+                    </label>
+                    <span
+                      className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
+                        viewUserData.is_active
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {viewUserData.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Account Info */}
+                <div className="border-t pt-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
+                    <div>
+                      <span className="font-medium">User ID:</span>{" "}
+                      {viewUserData.id}
+                    </div>
+                    <div>
+                      <span className="font-medium">Created:</span>{" "}
+                      {viewUserData.created_at
+                        ? new Date(viewUserData.created_at).toLocaleDateString()
+                        : "N/A"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowViewModal(null);
+                    setViewUserData(null);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
