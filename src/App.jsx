@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { useSelector } from 'react-redux';
 import store from './redux/store';
@@ -36,34 +36,6 @@ import ShopManagerOverview from './pages/shop-manager/Overview';
 import ShopManagerOrders from './pages/shop-manager/Orders';
 import ShopManagerAnalytics from './pages/shop-manager/Analytics';
 import ShopManagerUsers from './pages/shop-manager/Users';
-
-// Wrapper components to handle query parameters for district and shop managers
-const DistrictManagerWrapper = () => {
-  const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-  const userId = searchParams.get('userId');
-  
-  console.log("DistrictManagerWrapper - userId from URL:", userId); // Debug log
-  
-  return (
-    <DistrictManagerLayout userId={userId}>
-      {/* Pass userId as prop to Overview component */}
-      <DistrictManagerOverview userId={userId} />
-    </DistrictManagerLayout>
-  );
-};
-
-const ShopManagerWrapper = () => {
-  const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-  const userId = searchParams.get('userId');
-  
-  return (
-    <ShopManagerLayout userId={userId}>
-      <ShopManagerOverview />
-    </ShopManagerLayout>
-  );
-};
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -189,7 +161,9 @@ function AppContent() {
         <Route path="/district-manager" element={
           <ProtectedRoute>
             <RoleRoute role={['district_manager', 'brand_admin']}>
-              <DistrictManagerWrapper />
+              <DistrictManagerLayout>
+                <DistrictManagerOverview />
+              </DistrictManagerLayout>
             </RoleRoute>
           </ProtectedRoute>
         } />
@@ -228,7 +202,9 @@ function AppContent() {
         <Route path="/shop-manager" element={
           <ProtectedRoute>
             <RoleRoute role={['shop_manager', 'brand_admin']}>
-              <ShopManagerWrapper />
+              <ShopManagerLayout>
+                <ShopManagerOverview />
+              </ShopManagerLayout>
             </RoleRoute>
           </ProtectedRoute>
         } />

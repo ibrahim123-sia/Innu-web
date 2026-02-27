@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { 
+  selectAllShops, 
   getShopsByDistrict,
   selectShopsByDistrict 
 } from '../../redux/slice/shopSlice';
 import { 
-  getOrdersByDistrict,
   selectOrdersByDistrict,
+  getOrdersByDistrict,
   selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
@@ -16,14 +17,12 @@ import {
   selectVideoLoading,
 } from '../../redux/slice/videoSlice';
 import {
-  getUsersByDistrict,
-  selectUsersByDistrict,
-  selectUserLoading,
-  getUserById
+  getUsersByDistrict,  // Use getUsersByDistrict
+  selectUsersByDistrict, // Use selectUsersByDistrict
+  selectUserLoading
 } from '../../redux/slice/userSlice';
 import { Link } from 'react-router-dom';
 
-// Skeleton Components
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -123,158 +122,40 @@ const QuickActionsSkeleton = () => (
   </div>
 );
 
-const Overview = ({ userId: propUserId }) => {
+const Overview = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const location = useLocation();
-  
-  // Get userId from props first, then from URL params
-  const searchParams = new URLSearchParams(location.search);
-  const urlUserId = searchParams.get('userId');
-  const userId = propUserId || urlUserId;
-  
   const currentUser = useSelector(state => state.user.currentUser);
+  const brandId = currentUser?.brand_id;
+  const districtId = currentUser?.district_id;
+  const districtName = currentUser?.district_name || 'Your District';
   
-  // State for the district manager we're viewing (if brand admin is viewing)
-  const [viewingUser, setViewingUser] = useState(null);
-  const [viewingDistrictId, setViewingDistrictId] = useState(null);
-  const [viewingDistrictName, setViewingDistrictName] = useState('');
-  const [loadingViewingUser, setLoadingViewingUser] = useState(false);
-  
-  // Determine if brand admin is viewing a district manager
-  const isBrandAdminViewing = currentUser?.role === 'brand_admin' && userId;
-  
-  // Get data from Redux
+  // Get data from Redux - using getUsersByDistrict
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
-  const districtUsers = useSelector(selectUsersByDistrict) || [];
+  const districtUsers = useSelector(selectUsersByDistrict) || []; // Get users for this district
   
   const videoLoading = useSelector(selectVideoLoading);
   const orderLoading = useSelector(selectOrderLoading);
   const userLoading = useSelector(selectUserLoading);
+  
+  // Add initial load state
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
   
   // Local state
   const [districtVideos, setDistrictVideos] = useState([]);
   const [topShopVideos, setTopShopVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataFetched, setDataFetched] = useState(false);
-  const [fetchError, setFetchError] = useState(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
-  // STEP 1: Fetch the district manager's data using userId
-  useEffect(() => {
-    if (isBrandAdminViewing && userId) {
-      fetchViewingUserData();
-    } else if (!isBrandAdminViewing && currentUser?.district_id) {
-      // Regular district manager - use their own district_id
-      setViewingDistrictId(currentUser.district_id);
-      setViewingDistrictName(currentUser.district_name || 'Your District');
-    }
-  }, [isBrandAdminViewing, userId, currentUser]);
-  
-  // STEP 2: Once we have viewingDistrictId, fetch all district data
-  useEffect(() => {
-    if (viewingDistrictId) {
-      fetchDistrictData(viewingDistrictId);
-    }
-  }, [viewingDistrictId]);
-  
-  // Fetch the district manager's user details
-  const fetchViewingUserData = async () => {
-    setLoadingViewingUser(true);
-    setFetchError(null);
-    
-    try {
-      console.log("Fetching user data for ID:", userId);
-      const result = await dispatch(getUserById(userId)).unwrap();
-      console.log("User data received:", result);
-      
-      setViewingUser(result);
-      
-      // Extract user data - handle different response structures
-      const userData = result?.data || result;
-      
-      if (userData?.district_id) {
-        setViewingDistrictId(userData.district_id);
-        setViewingDistrictName(userData.district_name || 'Selected District');
-      } else {
-        setFetchError('This user is not assigned to any district');
-      }
-    } catch (error) {
-      console.error('Error fetching viewing user:', error);
-      setFetchError('Failed to load district manager data');
-    } finally {
-      setLoadingViewingUser(false);
-    }
-  };
-  
-  // Fetch all district data (shops, orders, users)
-  const fetchDistrictData = async (targetDistrictId) => {
-    if (!targetDistrictId) return;
-    
-    setLoading(true);
-    setIsInitialLoad(true);
-    setDataFetched(false);
-    setFetchError(null);
-    
-    try {
-      console.log(`Fetching data for district ID: ${targetDistrictId}`);
-      
-      // Fetch all data in parallel
-      await Promise.all([
-        dispatch(getShopsByDistrict(targetDistrictId)).unwrap(),
-        dispatch(getOrdersByDistrict(targetDistrictId)).unwrap(),
-        dispatch(getUsersByDistrict(targetDistrictId)).unwrap()
-      ]);
-      
-      // After shops are loaded, fetch videos
-      setTimeout(() => {
-        fetchVideosForDistrict(targetDistrictId);
-      }, 500);
-      
-    } catch (error) {
-      console.error('Error fetching base data:', error);
-      setFetchError('Failed to load district data');
-      setLoading(false);
-      setIsInitialLoad(false);
-    }
-  };
-  
-  // Fetch videos for the district
-  const fetchVideosForDistrict = async (targetDistrictId) => {
-    try {
-      const result = await dispatch(getVideosByDistrict(targetDistrictId)).unwrap();
-      
-      let videosData = [];
-      if (result?.data && Array.isArray(result.data)) {
-        videosData = result.data;
-      } else if (Array.isArray(result)) {
-        videosData = result;
-      }
-      
-      setDistrictVideos(videosData);
-      setDataFetched(true);
-      
-    } catch (error) {
-      console.error('Error fetching videos for district:', error);
-      setDistrictVideos([]);
-    } finally {
-      setTimeout(() => {
-        setLoading(false);
-        setIsInitialLoad(false);
-      }, 300);
-    }
-  };
-  
-  // Filter users to get only shop managers
+  // Filter users to get only shop managers under this district
   const shopManagers = useMemo(() => {
     if (!districtUsers || districtUsers.length === 0) return [];
     
-    // Handle different response structures
-    const users = districtUsers.data || districtUsers;
-    return Array.isArray(users) 
-      ? users.filter(user => user.role === 'shop_manager')
-      : [];
+    return districtUsers.filter(user => 
+      user.role === 'shop_manager'
+    );
   }, [districtUsers]);
 
   // Filter shops
@@ -284,12 +165,15 @@ const Overview = ({ userId: propUserId }) => {
     if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
       return shopsByDistrict.data;
     }
+    
     if (Array.isArray(shopsByDistrict)) {
       return shopsByDistrict;
     }
+    
     if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
       return shopsByDistrict.shops;
     }
+    
     return [];
   }, [shopsByDistrict]);
 
@@ -298,14 +182,11 @@ const Overview = ({ userId: propUserId }) => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     
-    const orders = districtOrders.data || districtOrders;
-    return Array.isArray(orders) 
-      ? orders.filter(order => {
-          if (!order?.created_at) return false;
-          const orderDate = new Date(order.created_at);
-          return orderDate >= yesterday;
-        }).length
-      : 0;
+    return districtOrders.filter(order => {
+      if (!order?.created_at) return false;
+      const orderDate = new Date(order.created_at);
+      return orderDate >= yesterday;
+    }).length;
   }, [districtOrders]);
 
   // Calculate video stats
@@ -327,11 +208,84 @@ const Overview = ({ userId: propUserId }) => {
     }
   }, [topShop]);
 
+  // Fetch initial data
+  useEffect(() => {
+    if (districtId) {
+      fetchData();
+    }
+  }, [districtId]);
+
+  // Fetch videos when shops are loaded
+  useEffect(() => {
+    if (filteredShops && filteredShops.length > 0 && !dataFetched) {
+      fetchVideosForDistrict();
+    }
+  }, [filteredShops, dataFetched]);
+
+  // Handle loading completion
+  useEffect(() => {
+    if (!loading && !videoLoading && !orderLoading && !userLoading) {
+      setTimeout(() => {
+        setIsInitialLoad(false);
+        setIsDataReady(true);
+      }, 300);
+    }
+  }, [loading, videoLoading, orderLoading, userLoading]);
+
+  const fetchData = async () => {
+    if (!districtId) return;
+    
+    setLoading(true);
+    setIsInitialLoad(true);
+    setDataFetched(false);
+    
+    try {
+      // Fetch all data in parallel - using getUsersByDistrict
+      await Promise.all([
+        dispatch(getShopsByDistrict(districtId)).unwrap(),
+        dispatch(getOrdersByDistrict(districtId)).unwrap(),
+        dispatch(getUsersByDistrict(districtId)).unwrap() // This gets users for this district
+      ]);
+    } catch (error) {
+      console.error('Error fetching base data:', error);
+      setIsInitialLoad(false);
+      setLoading(false);
+    }
+  };
+
+  const fetchVideosForDistrict = async () => {
+    if (!districtId) return;
+    
+    try {
+      const result = await dispatch(getVideosByDistrict(districtId)).unwrap();
+      
+      let videosData = [];
+      
+      if (result?.data && Array.isArray(result.data)) {
+        videosData = result.data;
+      } else if (Array.isArray(result)) {
+        videosData = result;
+      }
+      
+      setDistrictVideos(videosData);
+      setDataFetched(true);
+      
+    } catch (error) {
+      console.error(`Error fetching videos for district ${districtId}:`, error);
+      setDistrictVideos([]);
+    } finally {
+      setTimeout(() => {
+        setLoading(false);
+      }, 300);
+    }
+  };
+
   const fetchTopShopVideos = async (shopId) => {
     try {
       const result = await dispatch(getVideosByShop(shopId)).unwrap();
       
       let videosData = [];
+      
       if (result?.data && Array.isArray(result.data)) {
         videosData = result.data;
       } else if (Array.isArray(result)) {
@@ -347,16 +301,12 @@ const Overview = ({ userId: propUserId }) => {
 
   // Handle open shop manager portal
   const handleOpenShopManager = (shopId) => {
-    if (isBrandAdminViewing && viewingUser) {
-      navigate(`/shop-manager?userId=${viewingUser.id}&shopId=${shopId}`);
-    } else {
-      navigate('/shop-manager', { 
-        state: { 
-          shopId,
-          fromDistrict: true
-        } 
-      });
-    }
+    navigate(`/shop-manager`, { 
+      state: { 
+        shopId,
+        fromDistrict: true
+      } 
+    });
   };
 
   // Get profile picture URL
@@ -378,50 +328,8 @@ const Overview = ({ userId: propUserId }) => {
     return 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
   };
 
-  // Show loading state while fetching viewing user
-  if (isBrandAdminViewing && loadingViewingUser) {
-    return (
-      <div className="p-6">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="ml-3 text-gray-600">Loading district manager data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (fetchError) {
-    return (
-      <div className="p-6">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          <p className="font-medium">Error Loading Data</p>
-          <p className="text-sm">{fetchError}</p>
-          <button 
-            onClick={() => window.history.back()}
-            className="mt-3 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show message if no district ID
-  if (!viewingDistrictId && !isBrandAdminViewing && !currentUser?.district_id) {
-    return (
-      <div className="p-6">
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg">
-          <p className="font-medium">No District Assigned</p>
-          <p className="text-sm">You are not assigned to any district. Please contact your administrator.</p>
-        </div>
-      </div>
-    );
-  }
-
   // Show skeleton during initial load
-  if (isInitialLoad || (loading && !dataFetched)) {
+  if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
         <StatsSkeleton />
@@ -444,30 +352,8 @@ const Overview = ({ userId: propUserId }) => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
-      {/* Viewing as banner for brand admin */}
-      {isBrandAdminViewing && viewingUser && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Viewing as District Manager</p>
-              <p className="text-sm">
-                {viewingUser.first_name} {viewingUser.last_name} • {viewingUser.email}
-              </p>
-              <p className="text-xs mt-1">District: {viewingDistrictName}</p>
-            </div>
-            <button 
-              onClick={() => window.history.back()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
-            >
-              Exit View
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Shops Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -485,7 +371,6 @@ const Overview = ({ userId: propUserId }) => {
           </div>
         </div>
 
-        {/* AI Video Requests Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -500,7 +385,6 @@ const Overview = ({ userId: propUserId }) => {
           </div>
         </div>
 
-        {/* Daily Orders Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -518,7 +402,6 @@ const Overview = ({ userId: propUserId }) => {
           </div>
         </div>
 
-        {/* Shop Managers Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -542,7 +425,7 @@ const Overview = ({ userId: propUserId }) => {
       {/* SHOP MANAGERS SECTION */}
       <div className="mt-8 mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Shop Managers in {viewingDistrictName || 'District'}</h2>
+          <h2 className="text-xl font-bold text-gray-800">Shop Managers in {districtName}</h2>
           <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm">
             {shopManagers.length} Managers
           </span>
@@ -637,7 +520,6 @@ const Overview = ({ userId: propUserId }) => {
 
       {/* Top Shop & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Top Performing Shop */}
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Top Performing Shop</h2>
           
@@ -721,13 +603,11 @@ const Overview = ({ userId: propUserId }) => {
           )}
         </div>
 
-        {/* Quick Actions */}
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
           <div className="space-y-4">
             <Link
               to="/district-manager/shops"
-              state={{ userId: isBrandAdminViewing ? userId : null }}
               className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-blue-700 transition-colors">
@@ -746,7 +626,6 @@ const Overview = ({ userId: propUserId }) => {
             
             <Link
               to="/district-manager/users"
-              state={{ userId: isBrandAdminViewing ? userId : null }}
               className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
@@ -765,7 +644,6 @@ const Overview = ({ userId: propUserId }) => {
 
             <Link
               to="/district-manager/analytics"
-              state={{ userId: isBrandAdminViewing ? userId : null }}
               className="flex items-center p-4 border rounded-lg hover:bg-purple-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-purple-700 transition-colors">
