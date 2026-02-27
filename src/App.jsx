@@ -43,9 +43,12 @@ const DistrictManagerWrapper = () => {
   const searchParams = new URLSearchParams(location.search);
   const userId = searchParams.get('userId');
   
+  console.log("DistrictManagerWrapper - userId from URL:", userId); // Debug log
+  
   return (
     <DistrictManagerLayout userId={userId}>
-      <DistrictManagerOverview />
+      {/* Pass userId as prop to Overview component */}
+      <DistrictManagerOverview userId={userId} />
     </DistrictManagerLayout>
   );
 };

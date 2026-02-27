@@ -53,7 +53,8 @@ import {
   selectUsersByDistrictId,
 } from "../../redux/slice/userSlice";
 
-const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const DEFAULT_PROFILE_PIC =
+  "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
 // Skeleton Loader Components (existing ones remain the same)
 const StatsSkeleton = () => (
@@ -351,22 +352,23 @@ const Overview = () => {
     try {
       const result = await dispatch(getBrandUsers(brandId)).unwrap();
       console.log("✅ Brand users fetched:", result);
-      
+
       // Filter users to get district managers
       const usersData = result?.data || result || [];
-      const managers = usersData.filter(user => user.role === 'district_manager');
+      const managers = usersData.filter(
+        (user) => user.role === "district_manager",
+      );
       setDistrictManagers(managers);
-      
+
       // Initialize expanded state for all district managers
       const expanded = {};
-      managers.forEach(manager => {
+      managers.forEach((manager) => {
         expanded[manager.id] = false;
       });
       setExpandedDistricts(expanded);
-      
+
       // Fetch shop managers for each district
       await fetchAllShopManagers(managers);
-      
     } catch (error) {
       console.error(`Error fetching brand users:`, error);
       setDistrictManagers([]);
@@ -378,24 +380,31 @@ const Overview = () => {
   // NEW - Fetch shop managers for each district
   const fetchAllShopManagers = async (managers) => {
     const managersByDistrict = {};
-    
+
     for (const manager of managers) {
       if (manager.district_id) {
         try {
-          const result = await dispatch(getUsersByDistrict(manager.district_id)).unwrap();
+          const result = await dispatch(
+            getUsersByDistrict(manager.district_id),
+          ).unwrap();
           const usersData = result?.data || result || [];
           // Filter to get only shop managers
-          const shopManagers = usersData.filter(user => user.role === 'shop_manager');
+          const shopManagers = usersData.filter(
+            (user) => user.role === "shop_manager",
+          );
           managersByDistrict[manager.id] = shopManagers;
         } catch (error) {
-          console.error(`Error fetching shop managers for district ${manager.district_id}:`, error);
+          console.error(
+            `Error fetching shop managers for district ${manager.district_id}:`,
+            error,
+          );
           managersByDistrict[manager.id] = [];
         }
       } else {
         managersByDistrict[manager.id] = [];
       }
     }
-    
+
     setShopManagersMap(managersByDistrict);
   };
 
@@ -678,27 +687,32 @@ const Overview = () => {
   // Helper functions for profile pictures
   const getProfilePicUrl = (profilePicData) => {
     if (!profilePicData) return DEFAULT_PROFILE_PIC;
-    
-    if (typeof profilePicData === 'string') {
-      if (profilePicData.startsWith('{')) {
+
+    if (typeof profilePicData === "string") {
+      if (profilePicData.startsWith("{")) {
         try {
           const parsed = JSON.parse(profilePicData);
-          return parsed.publicUrl || parsed.signedUrl || parsed.filePath || DEFAULT_PROFILE_PIC;
+          return (
+            parsed.publicUrl ||
+            parsed.signedUrl ||
+            parsed.filePath ||
+            DEFAULT_PROFILE_PIC
+          );
         } catch (e) {
           return profilePicData;
         }
       }
       return profilePicData;
     }
-    
+
     return DEFAULT_PROFILE_PIC;
   };
 
   // Toggle dropdown for district manager
   const toggleDistrictExpanded = (districtManagerId) => {
-    setExpandedDistricts(prev => ({
+    setExpandedDistricts((prev) => ({
       ...prev,
-      [districtManagerId]: !prev[districtManagerId]
+      [districtManagerId]: !prev[districtManagerId],
     }));
   };
 
@@ -905,7 +919,7 @@ const Overview = () => {
             {districtManagers.map((manager) => {
               const shopManagers = shopManagersMap[manager.id] || [];
               const isExpanded = expandedDistricts[manager.id] || false;
-              
+
               return (
                 <div
                   key={manager.id}
@@ -928,20 +942,29 @@ const Overview = () => {
                         <h3 className="font-medium text-gray-800">
                           {manager.first_name} {manager.last_name}
                         </h3>
-                        <p className="text-xs text-gray-500">
-                          {manager.email}
-                        </p>
+                        <p className="text-xs text-gray-500">{manager.email}</p>
                       </div>
                     </div>
-                    
                     {/* Option 1: Open Button - Direct link to district manager portal */}
+                    // In your BrandAdminOverview component, make sure the link
+                    includes the userId:
                     <Link
                       to={`/district-manager?userId=${manager.id}`}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
                       title="Open District Manager Portal"
                     >
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      <svg
+                        className="w-4 h-4 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
                       </svg>
                       Open
                     </Link>
@@ -955,12 +978,17 @@ const Overview = () => {
                     >
                       <span>Shop Managers ({shopManagers.length})</span>
                       <svg
-                        className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        className={`w-5 h-5 transform transition-transform ${isExpanded ? "rotate-180" : ""}`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
                       </svg>
                     </button>
 
@@ -975,7 +1003,9 @@ const Overview = () => {
                               <div className="flex items-center space-x-2">
                                 <div className="w-8 h-8 rounded-full overflow-hidden border bg-gray-100 flex-shrink-0">
                                   <img
-                                    src={getProfilePicUrl(shopManager.profile_pic_url)}
+                                    src={getProfilePicUrl(
+                                      shopManager.profile_pic_url,
+                                    )}
                                     alt={`${shopManager.first_name} ${shopManager.last_name}`}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
@@ -985,22 +1015,33 @@ const Overview = () => {
                                 </div>
                                 <div>
                                   <p className="text-sm font-medium text-gray-800">
-                                    {shopManager.first_name} {shopManager.last_name}
+                                    {shopManager.first_name}{" "}
+                                    {shopManager.last_name}
                                   </p>
                                   <p className="text-xs text-gray-500 truncate max-w-[120px]">
                                     {shopManager.email}
                                   </p>
                                 </div>
                               </div>
-                              
+
                               {/* Option 2: Open Button for Shop Manager */}
                               <Link
                                 to={`/shop-manager?userId=${shopManager.id}`}
                                 className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs flex items-center transition-colors"
                                 title="Open Shop Manager Portal"
                               >
-                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                <svg
+                                  className="w-3 h-3 mr-1"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                  />
                                 </svg>
                                 Open
                               </Link>
