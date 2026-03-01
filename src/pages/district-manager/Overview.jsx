@@ -2,24 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { 
-  selectAllShops, 
   getShopsByDistrict,
-  selectShopsByDistrict 
 } from '../../redux/slice/shopSlice';
 import { 
-  selectOrdersByDistrict,
   getOrdersByDistrict,
-  selectOrderLoading
 } from '../../redux/slice/orderSlice';
 import { 
   getVideosByDistrict,  
   getVideosByShop,     
-  selectVideoLoading,
 } from '../../redux/slice/videoSlice';
 import {
   getUsersByDistrict,
-  selectUsersByDistrict,
-  selectUserLoading,
   fetchUserById
 } from '../../redux/slice/userSlice';
 
@@ -141,24 +134,18 @@ const Overview = () => {
   const districtId = activeUser?.district_id;
   const districtName = activeUser?.district_name || 'Your District';
   
-  // Get data from Redux
-  const shopsByDistrict = useSelector(selectShopsByDistrict);
-  const districtOrders = useSelector(selectOrdersByDistrict) || []; 
-  const districtUsers = useSelector(selectUsersByDistrict) || [];
-  
-  const videoLoading = useSelector(selectVideoLoading);
-  const orderLoading = useSelector(selectOrderLoading);
-  const userLoading = useSelector(selectUserLoading);
-  
-  // Add initial load state
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isDataReady, setIsDataReady] = useState(false);
-  
-  // Local state
+  // Component state for fetched data (instead of using selectors)
+  const [shops, setShops] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
   const [districtVideos, setDistrictVideos] = useState([]);
   const [topShopVideos, setTopShopVideos] = useState([]);
+  
+  // Loading states
   const [loading, setLoading] = useState(true);
   const [dataFetched, setDataFetched] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
   
   // Fetch impersonated user data if needed
   useEffect(() => {
@@ -169,55 +156,36 @@ const Overview = () => {
 
   // Filter users to get only shop managers under this district
   const shopManagers = useMemo(() => {
-    if (!districtUsers || districtUsers.length === 0) return [];
+    if (!users || users.length === 0) return [];
     
-    return districtUsers.filter(user => 
+    return users.filter(user => 
       user.role === 'shop_manager'
     );
-  }, [districtUsers]);
-
-  // Filter shops
-  const filteredShops = useMemo(() => {
-    if (!shopsByDistrict) return [];
-    
-    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
-      return shopsByDistrict.data;
-    }
-    
-    if (Array.isArray(shopsByDistrict)) {
-      return shopsByDistrict;
-    }
-    
-    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
-      return shopsByDistrict.shops;
-    }
-    
-    return [];
-  }, [shopsByDistrict]);
+  }, [users]);
 
   // Calculate DAILY ORDERS
   const dailyOrders = useMemo(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     
-    return districtOrders.filter(order => {
+    return orders.filter(order => {
       if (!order?.created_at) return false;
       const orderDate = new Date(order.created_at);
       return orderDate >= yesterday;
     }).length;
-  }, [districtOrders]);
+  }, [orders]);
 
   // Calculate video stats
   const totalVideos = districtVideos.length;
   
   // Shop stats
-  const totalShops = filteredShops.length;
-  const activeShops = filteredShops.filter(shop => shop.is_active).length;
+  const totalShops = shops.length;
+  const activeShops = shops.filter(shop => shop.is_active).length;
 
   // Get top shop
   const topShop = useMemo(() => {
-    return filteredShops.length > 0 ? filteredShops[0] : null;
-  }, [filteredShops]);
+    return shops.length > 0 ? shops[0] : null;
+  }, [shops]);
 
   // Fetch videos for top shop
   useEffect(() => {
@@ -233,22 +201,15 @@ const Overview = () => {
     }
   }, [districtId]);
 
-  // Fetch videos when shops are loaded
-  useEffect(() => {
-    if (filteredShops && filteredShops.length > 0 && !dataFetched) {
-      fetchVideosForDistrict();
-    }
-  }, [filteredShops, dataFetched]);
-
   // Handle loading completion
   useEffect(() => {
-    if (!loading && !videoLoading && !orderLoading && !userLoading) {
+    if (!loading) {
       setTimeout(() => {
         setIsInitialLoad(false);
         setIsDataReady(true);
       }, 300);
     }
-  }, [loading, videoLoading, orderLoading, userLoading]);
+  }, [loading]);
 
   const fetchData = async () => {
     if (!districtId) return;
@@ -258,15 +219,50 @@ const Overview = () => {
     setDataFetched(false);
     
     try {
-      // Fetch all data in parallel
-      await Promise.all([
+      // Fetch all data in parallel and store in component state
+      const [shopsResult, ordersResult, usersResult] = await Promise.all([
         dispatch(getShopsByDistrict(districtId)).unwrap(),
         dispatch(getOrdersByDistrict(districtId)).unwrap(),
         dispatch(getUsersByDistrict(districtId)).unwrap()
       ]);
+      
+      // Process shops data
+      let shopsData = [];
+      if (shopsResult?.data && Array.isArray(shopsResult.data)) {
+        shopsData = shopsResult.data;
+      } else if (Array.isArray(shopsResult)) {
+        shopsData = shopsResult;
+      } else if (shopsResult?.shops && Array.isArray(shopsResult.shops)) {
+        shopsData = shopsResult.shops;
+      }
+      setShops(shopsData);
+      
+      // Process orders data
+      let ordersData = [];
+      if (ordersResult?.data && Array.isArray(ordersResult.data)) {
+        ordersData = ordersResult.data;
+      } else if (Array.isArray(ordersResult)) {
+        ordersData = ordersResult;
+      }
+      setOrders(ordersData);
+      
+      // Process users data
+      let usersData = [];
+      if (usersResult?.data && Array.isArray(usersResult.data)) {
+        usersData = usersResult.data;
+      } else if (Array.isArray(usersResult)) {
+        usersData = usersResult;
+      }
+      setUsers(usersData);
+      
+      // Fetch videos for the district
+      await fetchVideosForDistrict();
+      
+      setDataFetched(true);
+      
     } catch (error) {
       console.error('Error fetching base data:', error);
-      setIsInitialLoad(false);
+    } finally {
       setLoading(false);
     }
   };
@@ -286,15 +282,10 @@ const Overview = () => {
       }
       
       setDistrictVideos(videosData);
-      setDataFetched(true);
       
     } catch (error) {
       console.error(`Error fetching videos for district ${districtId}:`, error);
       setDistrictVideos([]);
-    } finally {
-      setTimeout(() => {
-        setLoading(false);
-      }, 300);
     }
   };
 
@@ -464,7 +455,7 @@ const Overview = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {shopManagers.map((manager) => {
               // Find which shop this manager is assigned to
-              const assignedShop = filteredShops.find(s => s.id === manager.shop_id);
+              const assignedShop = shops.find(s => s.id === manager.shop_id);
               
               return (
                 <div key={manager.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-200">
