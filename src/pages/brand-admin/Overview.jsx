@@ -47,7 +47,7 @@ import {
   selectDistrictLoading,
 } from "../../redux/slice/districtSlice";
 
-// Shop Manager selectors - NEW (you'll need to add this if not exists)
+// Shop Manager selectors - NEW
 import {
   getUsersByDistrict,
   selectUsersByDistrictId,
@@ -946,12 +946,12 @@ const Overview = () => {
                       </div>
                     </div>
                     {/* Option 1: Open Button - Direct link to district manager portal */}
-                    // In your BrandAdminOverview component, make sure the link
-                    includes the userId:
                     <Link
-                      to={`/district-manager?userId=${manager.id}`}
+                      to={`/district-manager?userId=${manager.id}&mode=impersonate`}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
                       title="Open District Manager Portal"
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
                       <svg
                         className="w-4 h-4 mr-1"
@@ -1026,9 +1026,11 @@ const Overview = () => {
 
                               {/* Option 2: Open Button for Shop Manager */}
                               <Link
-                                to={`/shop-manager?userId=${shopManager.id}`}
+                                to={`/shop-manager?userId=${shopManager.id}&mode=impersonate`}
                                 className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs flex items-center transition-colors"
                                 title="Open Shop Manager Portal"
+                                target="_blank"
+                                rel="noopener noreferrer"
                               >
                                 <svg
                                   className="w-3 h-3 mr-1"
