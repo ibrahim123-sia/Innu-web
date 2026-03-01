@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { 
   selectAllShops, 
   getShopsByDistrict,
@@ -17,11 +17,11 @@ import {
   selectVideoLoading,
 } from '../../redux/slice/videoSlice';
 import {
-  getUsersByDistrict,  // Use getUsersByDistrict
-  selectUsersByDistrict, // Use selectUsersByDistrict
-  selectUserLoading
+  getUsersByDistrict,
+  selectUsersByDistrict,
+  selectUserLoading,
+  fetchUserById
 } from '../../redux/slice/userSlice';
-import { Link } from 'react-router-dom';
 
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -123,17 +123,28 @@ const QuickActionsSkeleton = () => (
 );
 
 const Overview = () => {
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const currentUser = useSelector(state => state.user.currentUser);
-  const brandId = currentUser?.brand_id;
-  const districtId = currentUser?.district_id;
-  const districtName = currentUser?.district_name || 'Your District';
   
-  // Get data from Redux - using getUsersByDistrict
+  const currentUser = useSelector(state => state.user.currentUser);
+  const impersonatedUser = useSelector(state => state.user.impersonatedUser);
+  
+  const userId = searchParams.get('userId');
+  const mode = searchParams.get('mode');
+  const isImpersonating = mode === 'impersonate' && userId;
+  
+  // Determine which user to use for data fetching
+  const activeUser = isImpersonating ? impersonatedUser : currentUser;
+  
+  const brandId = activeUser?.brand_id;
+  const districtId = activeUser?.district_id;
+  const districtName = activeUser?.district_name || 'Your District';
+  
+  // Get data from Redux
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   const districtOrders = useSelector(selectOrdersByDistrict) || []; 
-  const districtUsers = useSelector(selectUsersByDistrict) || []; // Get users for this district
+  const districtUsers = useSelector(selectUsersByDistrict) || [];
   
   const videoLoading = useSelector(selectVideoLoading);
   const orderLoading = useSelector(selectOrderLoading);
@@ -149,6 +160,13 @@ const Overview = () => {
   const [loading, setLoading] = useState(true);
   const [dataFetched, setDataFetched] = useState(false);
   
+  // Fetch impersonated user data if needed
+  useEffect(() => {
+    if (isImpersonating && userId && !impersonatedUser) {
+      dispatch(fetchUserById(userId));
+    }
+  }, [isImpersonating, userId, impersonatedUser, dispatch]);
+
   // Filter users to get only shop managers under this district
   const shopManagers = useMemo(() => {
     if (!districtUsers || districtUsers.length === 0) return [];
@@ -208,7 +226,7 @@ const Overview = () => {
     }
   }, [topShop]);
 
-  // Fetch initial data
+  // Fetch initial data when districtId is available
   useEffect(() => {
     if (districtId) {
       fetchData();
@@ -240,11 +258,11 @@ const Overview = () => {
     setDataFetched(false);
     
     try {
-      // Fetch all data in parallel - using getUsersByDistrict
+      // Fetch all data in parallel
       await Promise.all([
         dispatch(getShopsByDistrict(districtId)).unwrap(),
         dispatch(getOrdersByDistrict(districtId)).unwrap(),
-        dispatch(getUsersByDistrict(districtId)).unwrap() // This gets users for this district
+        dispatch(getUsersByDistrict(districtId)).unwrap()
       ]);
     } catch (error) {
       console.error('Error fetching base data:', error);
@@ -299,14 +317,13 @@ const Overview = () => {
     }
   };
 
-  // Handle open shop manager portal
-  const handleOpenShopManager = (shopId) => {
-    navigate(`/shop-manager`, { 
-      state: { 
-        shopId,
-        fromDistrict: true
-      } 
-    });
+  // Handle open shop manager portal - preserve impersonation
+  const handleOpenShopManager = (shopId, shopManagerId) => {
+    if (isImpersonating) {
+      navigate(`/shop-manager?userId=${shopManagerId}&mode=impersonate&fromDistrict=${userId}`);
+    } else {
+      navigate(`/shop-manager?userId=${shopManagerId}`);
+    }
   };
 
   // Get profile picture URL
@@ -327,6 +344,18 @@ const Overview = () => {
     
     return 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
   };
+
+  // Show loading if we don't have the user data yet when impersonating
+  if (isImpersonating && !impersonatedUser) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Loading district manager data...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
@@ -477,7 +506,7 @@ const Overview = () => {
                     
                     <div className="mt-4 flex justify-end">
                       <button
-                        onClick={() => assignedShop && handleOpenShopManager(assignedShop.id)}
+                        onClick={() => assignedShop && handleOpenShopManager(assignedShop.id, manager.id)}
                         disabled={!assignedShop}
                         className={`px-4 py-2 text-sm rounded-lg flex items-center ${
                           assignedShop 
@@ -506,7 +535,7 @@ const Overview = () => {
               No shop managers are assigned to this district yet.
             </p>
             <Link
-              to="/district-manager/users"
+              to={isImpersonating ? `/district-manager/users?userId=${userId}&mode=impersonate` : "/district-manager/users"}
               className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -607,7 +636,7 @@ const Overview = () => {
           <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
           <div className="space-y-4">
             <Link
-              to="/district-manager/shops"
+              to={isImpersonating ? `/district-manager/shops?userId=${userId}&mode=impersonate` : "/district-manager/shops"}
               className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-blue-700 transition-colors">
@@ -625,7 +654,7 @@ const Overview = () => {
             </Link>
             
             <Link
-              to="/district-manager/users"
+              to={isImpersonating ? `/district-manager/users?userId=${userId}&mode=impersonate` : "/district-manager/users"}
               className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
@@ -643,7 +672,7 @@ const Overview = () => {
             </Link>
 
             <Link
-              to="/district-manager/analytics"
+              to={isImpersonating ? `/district-manager/analytics?userId=${userId}&mode=impersonate` : "/district-manager/analytics"}
               className="flex items-center p-4 border rounded-lg hover:bg-purple-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-purple-700 transition-colors">
