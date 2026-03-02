@@ -1,30 +1,42 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useSearchParams } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import LogoutButton from '../common/LogoutButton';
-import { fetchUserById } from '../../redux/slice/userSlice'; // You'll need this action
+import axios from 'axios';
 
 const DistrictManagerLayout = ({ children }) => {
   const [searchParams] = useSearchParams();
-  const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
-  const impersonatedUser = useSelector(state => state.user.impersonatedUser);
   
+  // Get userId from URL if present
   const userId = searchParams.get('userId');
-  const mode = searchParams.get('mode');
-  const isImpersonating = mode === 'impersonate' && userId;
+  const isImpersonating = !!userId;
   
-  // Fetch impersonated user data if in impersonation mode
+  // State for the district manager being viewed
+  const [viewingUser, setViewingUser] = useState(null);
+  
+  // Fetch the district manager's data when userId is present
   useEffect(() => {
-    if (isImpersonating && userId) {
-      dispatch(fetchUserById(userId));
+    if (userId) {
+      fetchDistrictManagerData();
     }
-  }, [isImpersonating, userId, dispatch]);
-  
-  // Determine which user to display
-  const displayUser = isImpersonating ? impersonatedUser : user;
-  const displayName = displayUser ? `${displayUser.first_name} ${displayUser.last_name}` : 'District Manager';
-  const displayEmail = displayUser?.email || user?.email;
+  }, [userId]);
+
+  const fetchDistrictManagerData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`http://localhost:5000/api/users/getUsers/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      const userData = response.data.data || response.data;
+      setViewingUser(userData);
+    } catch (error) {
+      console.error('Error fetching district manager:', error);
+    }
+  };
   
   const navItems = [
     { name: 'Overview', path: '/district-manager' },
@@ -33,44 +45,28 @@ const DistrictManagerLayout = ({ children }) => {
     { name: 'Analytics', path: '/district-manager/analytics' },
   ];
 
+  // Function to preserve userId in navigation links
+  const getNavLink = (path) => {
+    return userId ? `${path}?userId=${userId}` : path;
+  };
+
+  // Determine which email to show
+  const displayEmail = isImpersonating && viewingUser 
+    ? viewingUser.email 
+    : user?.email;
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Impersonation Banner */}
-      {isImpersonating && (
-        <div className="bg-yellow-100 border-b-2 border-yellow-500 text-yellow-800 px-4 py-2">
-          <div className="container mx-auto flex items-center justify-between">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <span className="font-medium">
-                You are viewing {displayName}'s dashboard (Impersonation Mode)
-              </span>
-            </div>
-            <a 
-              href="/brand-admin" 
-              className="bg-yellow-200 hover:bg-yellow-300 px-3 py-1 rounded text-sm font-medium"
-            >
-              Return to Brand Admin
-            </a>
-          </div>
-        </div>
-      )}
-      
       {/* Header */}
       <header className="bg-primary-blue text-white p-4 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <h1 className="text-2xl font-bold">
-              {isImpersonating ? `${displayName}'s Dashboard` : 'District Manager Dashboard'}
-            </h1>
-            <p className="text-sm text-primary-blue-100">
-              {isImpersonating ? `District: ${displayUser?.district_name || 'Unknown'}` : 'Manage shops in your district'}
-            </p>
+            <h1 className="text-2xl font-bold">District Manager Dashboard</h1>
+            <p className="text-sm text-primary-blue-100">Manage shops in your district</p>
           </div>
           <div className="flex items-center space-x-4">
-            <div className={`px-3 py-1 rounded-full text-sm ${isImpersonating ? 'bg-yellow-500' : 'bg-primary-red'}`}>
-              {isImpersonating ? 'Impersonating' : 'District Manager'}
+            <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
+              District Manager
             </div>
             <span className="hidden md:inline text-white">{displayEmail}</span>
             <LogoutButton />
@@ -85,7 +81,7 @@ const DistrictManagerLayout = ({ children }) => {
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
-                to={isImpersonating ? `${item.path}?userId=${userId}&mode=impersonate` : item.path}
+                to={getNavLink(item.path)}
                 end={item.path === '/district-manager'}
                 className={({ isActive }) =>
                   `px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${

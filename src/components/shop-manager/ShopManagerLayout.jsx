@@ -1,13 +1,42 @@
-import React from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, NavLink, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { selectCurrentShop } from '../../redux/slice/shopSlice'; // ✅ Import the correct selector
 import LogoutButton from '../../components/common/LogoutButton';
+import axios from 'axios';
 
 const ShopManagerLayout = ({ children }) => {
+  const [searchParams] = useSearchParams();
   const user = useSelector(state => state.user.currentUser);
-  const myShop = useSelector(selectCurrentShop); // ✅ Use the correct selector
-  const shopLoading = useSelector(state => state.shop.loading);
+  
+  // Get userId from URL if present
+  const userId = searchParams.get('userId');
+  const isImpersonating = !!userId;
+  
+  // State for the shop manager being viewed
+  const [viewingUser, setViewingUser] = useState(null);
+  
+  // Fetch the shop manager's data when userId is present
+  useEffect(() => {
+    if (userId) {
+      fetchShopManagerData();
+    }
+  }, [userId]);
+
+  const fetchShopManagerData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`http://localhost:5000/api/users/getUsers/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      const userData = response.data.data || response.data;
+      setViewingUser(userData);
+    } catch (error) {
+      console.error('Error fetching shop manager:', error);
+    }
+  };
   
   const navItems = [
     { name: 'Overview', path: '/shop-manager' },
@@ -15,6 +44,21 @@ const ShopManagerLayout = ({ children }) => {
     { name: 'Analytics', path: '/shop-manager/analytics' },
     { name: 'Users', path: '/shop-manager/users' },
   ];
+
+  // Function to preserve userId in navigation links
+  const getNavLink = (path) => {
+    return userId ? `${path}?userId=${userId}` : path;
+  };
+
+  // Determine which email to show
+  const displayEmail = isImpersonating && viewingUser 
+    ? viewingUser.email 
+    : user?.email;
+
+  // Determine the display name
+  const displayName = isImpersonating && viewingUser
+    ? `${viewingUser.first_name} ${viewingUser.last_name}`
+    : 'Shop Manager';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -24,23 +68,16 @@ const ShopManagerLayout = ({ children }) => {
           <div className="mb-4 md:mb-0">
             <h1 className="text-2xl font-bold">Shop Manager Dashboard</h1>
             <div className="text-sm text-primary-blue-100 mt-1">
-              {shopLoading ? (
-                <div className="flex items-center">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  <span>Loading shop...</span>
-                </div>
-              ) : myShop ? (
-                `${myShop.name}${myShop.city ? ` - ${myShop.city}` : ''}`
-              ) : (
-                'Shop not available'
-              )}
+              {isImpersonating && viewingUser 
+                ? `${displayName}'s Shop` 
+                : 'Manage your shop'}
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
-              Shop Manager
+              {isImpersonating ? 'Shop Manager' : 'Shop Manager'}
             </div>
-            <span className="hidden md:inline text-white">{user?.email}</span>
+            <span className="hidden md:inline text-white">{displayEmail}</span>
             <LogoutButton />
           </div>
         </div>
@@ -53,7 +90,7 @@ const ShopManagerLayout = ({ children }) => {
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
-                to={item.path}
+                to={getNavLink(item.path)}
                 end={item.path === '/shop-manager'}
                 className={({ isActive }) =>
                   `px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${

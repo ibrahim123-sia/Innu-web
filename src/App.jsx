@@ -201,7 +201,7 @@ function AppContent() {
         {/* Shop Manager Routes - MODIFIED to allow brand_admin */}
         <Route path="/shop-manager" element={
           <ProtectedRoute>
-            <RoleRoute role={['shop_manager', 'brand_admin']}>
+            <RoleRoute role={['shop_manager', 'district_manager', 'brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerOverview />
               </ShopManagerLayout>
@@ -211,7 +211,7 @@ function AppContent() {
         
         <Route path="/shop-manager/orders" element={
           <ProtectedRoute>
-            <RoleRoute role={['shop_manager', 'brand_admin']}>
+            <RoleRoute role={['shop_manager', 'district_manager', 'brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerOrders />
               </ShopManagerLayout>
@@ -221,7 +221,7 @@ function AppContent() {
         
         <Route path="/shop-manager/analytics" element={
           <ProtectedRoute>
-            <RoleRoute role={['shop_manager', 'brand_admin']}>
+            <RoleRoute role={['shop_manager', 'district_manager','brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerAnalytics />
               </ShopManagerLayout>
@@ -231,7 +231,7 @@ function AppContent() {
         
         <Route path="/shop-manager/users" element={
           <ProtectedRoute>
-            <RoleRoute role={['shop_manager', 'brand_admin']}>
+            <RoleRoute role={['shop_manager', 'district_manager','brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerUsers />
               </ShopManagerLayout>

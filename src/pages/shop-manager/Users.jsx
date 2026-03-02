@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import { 
   getUsersByShopId,
   createUser,
@@ -14,6 +15,7 @@ import {
   getShopById,
   selectCurrentShop
 } from '../../redux/slice/shopSlice';
+import axios from 'axios';
 
 // Import SweetAlert for popup notifications
 import Swal from 'sweetalert2';
@@ -114,9 +116,20 @@ const TableSkeleton = () => (
 );
 
 const Users = () => {
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
+  
+  // Get userId from URL if present (for district manager viewing)
+  const userId = searchParams.get('userId');
   const currentUser = useSelector(state => state.user.currentUser);
-  const shopId = currentUser?.shop_id;
+  
+  // Determine which user to use
+  const activeUserId = userId || currentUser?.id;
+  const isImpersonating = !!userId;
+  
+  // State for shop manager and shop data
+  const [shopManager, setShopManager] = useState(null);
+  const [shopId, setShopId] = useState(null);
   
   const myShop = useSelector(selectCurrentShop);
   
@@ -128,6 +141,7 @@ const Users = () => {
   
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -175,6 +189,42 @@ const Users = () => {
   const [formError, setFormError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [emailExistsError, setEmailExistsError] = useState('');
+
+  // Fetch shop manager data if userId is provided (district manager viewing)
+  useEffect(() => {
+    if (userId) {
+      fetchShopManagerData();
+    } else if (currentUser?.shop_id) {
+      // Normal shop manager login - use current user's shop_id directly
+      setShopId(currentUser.shop_id);
+      setLoadingUser(false);
+    }
+  }, [userId, currentUser]);
+
+  const fetchShopManagerData = async () => {
+    setLoadingUser(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`http://localhost:5000/api/users/getUsers/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const userData = response.data.data || response.data;
+      setShopManager(userData);
+      if (userData?.shop_id) {
+        setShopId(userData.shop_id);
+      }
+    } catch (error) {
+      console.error('Error fetching shop manager:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to load shop manager data.',
+        confirmButtonColor: '#d33'
+      });
+    } finally {
+      setLoadingUser(false);
+    }
+  };
 
   // ============================================
   // VALIDATION FUNCTIONS
@@ -290,7 +340,7 @@ const Users = () => {
   // EFFECTS
   // ============================================
 
-  // Fetch shop data when component mounts
+  // Fetch shop data when shopId is available
   useEffect(() => {
     if (shopId) {
       Promise.all([dispatch(getShopById(shopId))]).then(() => {
@@ -319,7 +369,7 @@ const Users = () => {
     }
   }, [dispatch, shopId, myShop]);
 
-  // Filter users to only show those belonging to this shop
+  // Filter users to only show those belonging to this shop and with role technician
   const filteredShopUsers = shopUsers.filter(user => 
     user.role === 'technician' // Additional role filter for safety
   );
@@ -801,6 +851,48 @@ const Users = () => {
   const hasValidationErrors = Object.values(validationErrors).some(error => error !== '');
   const hasEditValidationErrors = Object.values(editValidationErrors).some(error => error !== '');
 
+  // Show loading while fetching user data (for impersonation)
+  if (loadingUser) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Loading shop manager data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if no user ID found
+  if (!activeUserId) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+          <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">No User Selected</h3>
+          <p className="text-yellow-700">Unable to identify the shop manager.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if shop manager has no shop assigned
+  if (userId && shopManager && !shopManager.shop_id) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
+          <svg className="w-12 h-12 text-orange-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <h3 className="text-lg font-medium text-orange-800 mb-2">No Shop Assigned</h3>
+          <p className="text-orange-700">This shop manager has not been assigned to any shop yet.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
@@ -818,6 +910,7 @@ const Users = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
+     
       {/* Create Technician Button and Stats */}
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div className="flex items-center space-x-4">

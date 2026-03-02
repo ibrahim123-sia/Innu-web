@@ -945,13 +945,13 @@ const Overview = () => {
                         <p className="text-xs text-gray-500">{manager.email}</p>
                       </div>
                     </div>
-                    {/* Option 1: Open Button - Direct link to district manager portal */}
-                    <Link
-                      to={`/district-manager?userId=${manager.id}&mode=impersonate`}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
-                      title="Open District Manager Portal"
+                    {/* SIMPLE: Open button opens new tab with userId only */}
+                    <a
+                      href={`/district-manager?userId=${manager.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
+                      title="Open District Manager Portal"
                     >
                       <svg
                         className="w-4 h-4 mr-1"
@@ -967,7 +967,7 @@ const Overview = () => {
                         />
                       </svg>
                       Open
-                    </Link>
+                    </a>
                   </div>
 
                   {/* Dropdown for Shop Managers */}
@@ -1026,11 +1026,11 @@ const Overview = () => {
 
                               {/* Option 2: Open Button for Shop Manager */}
                               <Link
-                                to={`/shop-manager?userId=${shopManager.id}&mode=impersonate`}
-                                className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs flex items-center transition-colors"
-                                title="Open Shop Manager Portal"
+                                to={`/shop-manager?userId=${shopManager.id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs flex items-center transition-colors"
+                                title="Open Shop Manager Portal"
                               >
                                 <svg
                                   className="w-3 h-3 mr-1"

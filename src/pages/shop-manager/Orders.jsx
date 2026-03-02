@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import {
   getOrdersByShop,
   selectOrdersByShop,
@@ -9,8 +10,9 @@ import {
   getShopById,
   selectCurrentShop,
 } from "../../redux/slice/shopSlice";
-import { getVideosByOrderId, selectVideos } from "../../redux/slice/videoSlice";
+import { getVideosByOrderId, getVideosByShop, selectVideos } from "../../redux/slice/videoSlice";
 import OrderDetailModal from "../../components/shop-manager/OrderDetailModal";
+import axios from 'axios';
 
 // Skeleton Loader Components
 const TableSkeleton = () => (
@@ -19,7 +21,7 @@ const TableSkeleton = () => (
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
               <th key={i} className="px-6 py-3">
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
               </th>
@@ -29,7 +31,7 @@ const TableSkeleton = () => (
         <tbody className="bg-white divide-y divide-gray-200">
           {[1, 2, 3, 4, 5].map((row) => (
             <tr key={row}>
-              {[1, 2, 3, 4, 5, 6].map((col) => (
+              {[1, 2, 3, 4, 5, 6, 7].map((col) => (
                 <td key={col} className="px-6 py-4 whitespace-nowrap">
                   <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
                 </td>
@@ -69,7 +71,11 @@ const FilterSkeleton = () => (
         <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mb-2"></div>
         <div className="h-10 bg-gray-200 rounded animate-pulse w-full"></div>
       </div>
-      <div className="md:col-span-2">
+      <div>
+        <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mb-2"></div>
+        <div className="h-10 bg-gray-200 rounded animate-pulse w-full"></div>
+      </div>
+      <div className="md:col-span-1">
         <div className="flex items-end h-full">
           <div className="flex space-x-6">
             {[1, 2, 3].map((i) => (
@@ -86,35 +92,79 @@ const FilterSkeleton = () => (
 );
 
 const Orders = () => {
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
+  
+  // Get userId from URL if present (for district manager viewing)
+  const userId = searchParams.get('userId');
   const currentUser = useSelector((state) => state.user.currentUser);
-  const shopId = currentUser?.shop_id;
-
+  
+  // Determine which user to use
+  const activeUserId = userId || currentUser?.id;
+  const isImpersonating = !!userId;
+  
+  // State for shop manager and shop data
+  const [shopManager, setShopManager] = useState(null);
+  const [shopId, setShopId] = useState(null);
+  
+  // Redux state
   const orders = useSelector(selectOrdersByShop) || [];
   const myShop = useSelector(selectCurrentShop);
   const loading = useSelector(selectOrderLoading);
-  const videos = useSelector(selectVideos) || [];
+  const allVideos = useSelector(selectVideos) || [];
 
   const [showOrderDetail, setShowOrderDetail] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderVideos, setOrderVideos] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [videoFilter, setVideoFilter] = useState("all"); // 'all', 'with-videos', 'without-videos'
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(false);
+  const [videosByOrder, setVideosByOrder] = useState({});
   
   // Add refresh trigger state
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const refreshIntervalRef = useRef(null);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
-  // Fetch shop data when component mounts
+  // Fetch shop manager data if userId is provided (district manager viewing)
+  useEffect(() => {
+    if (userId) {
+      fetchShopManagerData();
+    } else if (currentUser?.shop_id) {
+      // Normal shop manager login - use current user's shop_id directly
+      setShopId(currentUser.shop_id);
+      setLoadingUser(false);
+    }
+  }, [userId, currentUser]);
+
+  const fetchShopManagerData = async () => {
+    setLoadingUser(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`http://localhost:5000/api/users/getUsers/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const userData = response.data.data || response.data;
+      setShopManager(userData);
+      if (userData?.shop_id) {
+        setShopId(userData.shop_id);
+      }
+    } catch (error) {
+      console.error('Error fetching shop manager:', error);
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
+  // Fetch shop data when shopId is available
   useEffect(() => {
     if (shopId) {
       Promise.all([
         dispatch(getShopById(shopId))
       ]).then(() => {
-        // Short timeout to ensure smooth transition
         setTimeout(() => setIsInitialLoad(false), 300);
       });
     }
@@ -128,19 +178,47 @@ const Orders = () => {
         setLastRefreshed(new Date());
       });
     }
-  }, [dispatch, myShop, refreshTrigger]); // Add refreshTrigger to dependencies
+  }, [dispatch, myShop, refreshTrigger]);
+
+  // Fetch videos for all orders
+  useEffect(() => {
+    if (orders.length > 0) {
+      fetchVideosForAllOrders();
+    }
+  }, [orders]);
+
+  const fetchVideosForAllOrders = async () => {
+    const videosMap = {};
+    
+    // Fetch videos for each order in parallel
+    await Promise.all(
+      orders.map(async (order) => {
+        try {
+          const result = await dispatch(getVideosByOrderId(order.id)).unwrap();
+          if (result.data) {
+            videosMap[order.id] = result.data;
+          } else {
+            videosMap[order.id] = [];
+          }
+        } catch (error) {
+          console.error(`Error fetching videos for order ${order.id}:`, error);
+          videosMap[order.id] = [];
+        }
+      })
+    );
+    
+    setVideosByOrder(videosMap);
+  };
 
   // Auto-refresh setup
   useEffect(() => {
-    // Start auto-refresh every 30 seconds
     refreshIntervalRef.current = setInterval(() => {
       if (myShop?.id) {
         console.log('Auto-refreshing orders...');
         setRefreshTrigger(prev => prev + 1);
       }
-    }, 30000); // 30 seconds
+    }, 30000);
 
-    // Cleanup interval on unmount
     return () => {
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
@@ -170,12 +248,23 @@ const Orders = () => {
         const result = await dispatch(getVideosByOrderId(orderId)).unwrap();
         if (result.data) {
           setOrderVideos(result.data);
+          
+          // Also update the videosByOrder map
+          setVideosByOrder(prev => ({
+            ...prev,
+            [orderId]: result.data
+          }));
         }
       } catch (error) {
         console.error("Error refreshing videos:", error);
       }
     }
   }, [dispatch]);
+
+  // Get video count for an order
+  const getVideoCountForOrder = (orderId) => {
+    return videosByOrder[orderId]?.length || 0;
+  };
 
   const filteredOrders = orders?.filter((order) => {
     let matches = true;
@@ -222,13 +311,25 @@ const Orders = () => {
       }
     }
 
+    // Video filter
+    if (videoFilter !== "all") {
+      const videoCount = getVideoCountForOrder(order.id);
+      if (videoFilter === "with-videos" && videoCount === 0) {
+        matches = false;
+      } else if (videoFilter === "without-videos" && videoCount > 0) {
+        matches = false;
+      }
+    }
+
     return matches;
   });
 
   // Get order counts for stats
   const getOrderCounts = () => {
-    if (!orders) return { total: 0, completed: 0, inProgress: 0, estimate: 0 };
+    if (!orders) return { total: 0, completed: 0, inProgress: 0, estimate: 0, withVideos: 0, withoutVideos: 0 };
 
+    const withVideos = orders.filter(o => getVideoCountForOrder(o.id) > 0).length;
+    
     return {
       total: orders.length,
       completed: orders.filter((o) =>
@@ -242,6 +343,8 @@ const Orders = () => {
       estimate: orders.filter((o) =>
         ["pending", "estimate"].includes(o.status?.toLowerCase()),
       ).length,
+      withVideos: withVideos,
+      withoutVideos: orders.length - withVideos,
     };
   };
 
@@ -255,6 +358,48 @@ const Orders = () => {
       second: '2-digit'
     });
   };
+
+  // Show loading while fetching user data (for impersonation)
+  if (loadingUser) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Loading shop manager data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if no user ID found
+  if (!activeUserId) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+          <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">No User Selected</h3>
+          <p className="text-yellow-700">Unable to identify the shop manager.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if shop manager has no shop assigned
+  if (userId && shopManager && !shopManager.shop_id) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
+          <svg className="w-12 h-12 text-orange-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <h3 className="text-lg font-medium text-orange-800 mb-2">No Shop Assigned</h3>
+          <p className="text-orange-700">This shop manager has not been assigned to any shop yet.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show skeleton during initial load
   if (isInitialLoad || (loading && !orders.length && !isDataReady)) {
@@ -273,6 +418,8 @@ const Orders = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
+    
+
       {/* Auto-refresh indicator */}
       <div className="mb-4 flex justify-end items-center">
         <div className="flex items-center text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg">
@@ -291,7 +438,7 @@ const Orders = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
           <div className="flex items-center justify-between">
             <div>
@@ -355,6 +502,26 @@ const Orders = () => {
             </div>
           </div>
         </div>
+
+        {/* Video Stats Card */}
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm text-gray-500">Orders with Videos</h3>
+              <p className="text-3xl font-bold text-indigo-600 mt-2">
+                {orderCounts.withVideos}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {orderCounts.withoutVideos} without videos
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
@@ -390,9 +557,33 @@ const Orders = () => {
             </select>
           </div>
 
-          <div className="md:col-span-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Videos
+            </label>
+            <select
+              value={videoFilter}
+              onChange={(e) => setVideoFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+            >
+              <option value="all">All Orders</option>
+              <option value="with-videos">With Videos</option>
+              <option value="without-videos">Without Videos</option>
+            </select>
+          </div>
+
+          <div className="md:col-span-1">
             <div className="flex items-end h-full">
-              
+              <div className="flex space-x-4 w-full justify-end">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-indigo-600">{orderCounts.withVideos}</div>
+                  <div className="text-xs text-gray-500">With Videos</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-600">{orderCounts.withoutVideos}</div>
+                  <div className="text-xs text-gray-500">Without Videos</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -418,6 +609,9 @@ const Orders = () => {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Videos
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -428,6 +622,8 @@ const Orders = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredOrders.map((order) => {
                   const vehicleInfo = order.vehicle_info || {};
+                  const videoCount = getVideoCountForOrder(order.id);
+                  
                   return (
                     <tr 
                       key={order.id} 
@@ -476,6 +672,16 @@ const Orders = () => {
                           {order.status?.replace(/_/g, " ") || "Unknown"}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-1">
+                          <svg className={`w-5 h-5 ${videoCount > 0 ? 'text-indigo-600' : 'text-gray-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          <span className={`text-sm font-medium ${videoCount > 0 ? 'text-indigo-600' : 'text-gray-400'}`}>
+                            {videoCount}
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {order.created_at
                           ? new Date(order.created_at).toLocaleDateString('en-US', {
@@ -518,7 +724,7 @@ const Orders = () => {
               No Orders Found
             </h3>
             <p className="text-gray-500 mb-4">
-              {searchTerm || statusFilter !== "all"
+              {searchTerm || statusFilter !== "all" || videoFilter !== "all"
                 ? "Try changing your search filters"
                 : "No orders have been created for this shop yet"}
             </p>

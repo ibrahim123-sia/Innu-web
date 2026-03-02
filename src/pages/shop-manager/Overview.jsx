@@ -1,30 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { getShopById, selectCurrentShop } from "../../redux/slice/shopSlice";
+import { useSearchParams, Link } from "react-router-dom";
+import { getShopById } from "../../redux/slice/shopSlice";
 import {
   getOrdersByShop,
-  selectOrdersByShop,
 } from "../../redux/slice/orderSlice";
-import { selectAllUsers, getUsersByShopId } from "../../redux/slice/userSlice";
-import { getVideosByShop } from "../../redux/slice/videoSlice"; // Changed from getAllVideos to getVideosByShop
-import { Link } from "react-router-dom";
+import { getUsersByShopId } from "../../redux/slice/userSlice";
+import { getVideosByShop } from "../../redux/slice/videoSlice";
+import axios from 'axios';
 
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/149/149071.png";
-
-// ========== FIXED SELECTOR FOR SHOP-SPECIFIC VIDEOS ==========
-const selectVideosByShop = (state) => {
-  const videos = state.video.videos;
-  // If videos is an array with a 'data' property (API response structure)
-  if (videos && videos.data && Array.isArray(videos.data)) {
-    return videos.data;
-  }
-  // If videos is already an array
-  if (Array.isArray(videos)) {
-    return videos;
-  }
-  return [];
-};
 
 // Skeleton Loader Components
 const StatsSkeleton = () => (
@@ -94,56 +80,129 @@ const QuickActionsSkeleton = () => (
 );
 
 const Overview = () => {
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
-  const currentUser = useSelector((state) => state.user.currentUser);
-  const shopId = currentUser?.shop_id;
-
-  const myShop = useSelector(selectCurrentShop);
-  const shopOrders = useSelector(selectOrdersByShop) || [];
-  const shopUsers = useSelector(selectAllUsers) || [];
   
-  // Use the fixed selector for shop-specific videos
-  const allVideos = useSelector(selectVideosByShop) || [];
-
+  // SIMPLE: Get userId from URL
+  const userId = searchParams.get('userId');
+  
+  // State for shop manager and shop data
+  const [shopManager, setShopManager] = useState(null);
+  const [myShop, setMyShop] = useState(null);
+  const [shopOrders, setShopOrders] = useState([]);
+  const [shopUsers, setShopUsers] = useState([]);
+  const [shopVideos, setShopVideos] = useState([]);
+  
+  // Loading states
   const [loading, setLoading] = useState(true);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   const [dailyOrders, setDailyOrders] = useState(0);
-  const [totalAIVideoRequests, setTotalAIVideoRequests] = useState(0);
   const [shopStats, setShopStats] = useState(null);
-  const [filteredShopUsers, setFilteredShopUsers] = useState([]);
-
+  
+  // Fetch shop manager data first
   useEffect(() => {
-    if (shopId) {
-      Promise.all([dispatch(getShopById(shopId))]).then(() => {
-        setTimeout(() => setIsInitialLoad(false), 300);
+    if (userId) {
+      fetchShopManagerData();
+    } else {
+      setLoadingUser(false);
+    }
+  }, [userId]);
+
+  const fetchShopManagerData = async () => {
+    setLoadingUser(true);
+    try {
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      
+      // Get the shop manager's details to get shop_id
+      const response = await axios.get(`http://localhost:5000/api/users/getUsers/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
+      
+      const userData = response.data.data || response.data;
+      setShopManager(userData);
+      setLoadingUser(false);
+    } catch (error) {
+      console.error('Error fetching shop manager:', error);
+      setLoadingUser(false);
     }
-  }, [dispatch, shopId]);
+  };
 
+  // Once we have shop manager, fetch their shop data
   useEffect(() => {
-    if (myShop?.id) {
-      Promise.all([
-        dispatch(getOrdersByShop(shopId)),
-        dispatch(getUsersByShopId(shopId)),
-        dispatch(getVideosByShop(shopId)), // Changed from getAllVideos to getVideosByShop
-      ]).then(() => {
-        setIsDataReady(true);
-        setLoading(false);
-      });
+    if (shopManager?.shop_id) {
+      fetchShopData(shopManager.shop_id);
+    } else if (!loadingUser && shopManager && !shopManager.shop_id) {
+      // Shop manager has no shop assigned
+      setLoading(false);
+      setIsInitialLoad(false);
     }
-  }, [dispatch, myShop, shopId]);
+  }, [shopManager, loadingUser]);
 
-  useEffect(() => {
-    if (shopUsers && shopId) {
-      const filtered = shopUsers.filter((user) => user.shop_id === shopId);
-      setFilteredShopUsers(filtered);
+  const fetchShopData = async (shopId) => {
+    if (!shopId) return;
+    
+    setLoading(true);
+    setIsInitialLoad(true);
+    
+    try {
+      // Fetch all data in parallel
+      const [shopResult, ordersResult, usersResult, videosResult] = await Promise.all([
+        dispatch(getShopById(shopId)).unwrap(),
+        dispatch(getOrdersByShop(shopId)).unwrap(),
+        dispatch(getUsersByShopId(shopId)).unwrap(),
+        dispatch(getVideosByShop(shopId)).unwrap()
+      ]);
+      
+      // Process shop data
+      const shopData = shopResult?.data || shopResult;
+      setMyShop(shopData);
+      
+      // Process orders data
+      let ordersData = [];
+      if (ordersResult?.data && Array.isArray(ordersResult.data)) {
+        ordersData = ordersResult.data;
+      } else if (Array.isArray(ordersResult)) {
+        ordersData = ordersResult;
+      }
+      setShopOrders(ordersData);
+      
+      // Process users data
+      let usersData = [];
+      if (usersResult?.data && Array.isArray(usersResult.data)) {
+        usersData = usersResult.data;
+      } else if (Array.isArray(usersResult)) {
+        usersData = usersResult;
+      }
+      setShopUsers(usersData);
+      
+      // Process videos data
+      let videosData = [];
+      if (videosResult?.data && Array.isArray(videosResult.data)) {
+        videosData = videosResult.data;
+      } else if (Array.isArray(videosResult)) {
+        videosData = videosResult;
+      }
+      setShopVideos(videosData);
+      
+      setIsDataReady(true);
+      
+    } catch (error) {
+      console.error('Error fetching shop data:', error);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setIsInitialLoad(false), 300);
     }
-  }, [shopUsers, shopId]);
+  };
 
+  // Calculate stats when data changes
   useEffect(() => {
     calculateStats();
-  }, [shopOrders, filteredShopUsers, allVideos, myShop]);
+  }, [shopOrders, shopUsers, shopVideos, myShop]);
 
   const calculateStats = () => {
     // Calculate daily orders (last 24 hours)
@@ -160,13 +219,9 @@ const Overview = () => {
 
     setDailyOrders(todayOrders);
 
-    // Calculate total AI video requests for this shop
-    // allVideos is already filtered by shop from our selector
-    setTotalAIVideoRequests(allVideos.length);
-
     // Calculate shop statistics
-    if (myShop && shopOrders && filteredShopUsers) {
-      const activeUsers = filteredShopUsers.filter(
+    if (myShop && shopOrders && shopUsers) {
+      const activeUsers = shopUsers.filter(
         (user) => user.is_active,
       ).length;
       const completedOrders = shopOrders.filter((order) =>
@@ -185,7 +240,7 @@ const Overview = () => {
   };
 
   const getTotalEmployees = () => {
-    return filteredShopUsers?.filter((user) => user.is_active).length || 0;
+    return shopUsers?.filter((user) => user.is_active).length || 0;
   };
 
   const getTotalOrders = () => {
@@ -202,11 +257,53 @@ const Overview = () => {
 
   const getActiveTechnicians = () => {
     return (
-      filteredShopUsers?.filter(
+      shopUsers?.filter(
         (user) => user.role === "technician" && user.is_active,
       ).length || 0
     );
   };
+
+  // Show loading while fetching user data
+  if (loadingUser) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Loading shop manager data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if no userId provided
+  if (!userId) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+          <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">No User Selected</h3>
+          <p className="text-yellow-700">Please select a shop manager from the district manager panel.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if shop manager has no shop assigned
+  if (shopManager && !shopManager.shop_id) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
+          <svg className="w-12 h-12 text-orange-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <h3 className="text-lg font-medium text-orange-800 mb-2">No Shop Assigned</h3>
+          <p className="text-orange-700">This shop manager has not been assigned to any shop yet.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
@@ -224,6 +321,9 @@ const Overview = () => {
       </div>
     );
   }
+
+  const shopName = myShop?.name || 'Your Shop';
+  const shopCity = myShop?.city || '';
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
@@ -288,7 +388,7 @@ const Overview = () => {
             <div>
               <h3 className="text-sm text-gray-500">AI Video Requests</h3>
               <p className="text-3xl font-bold text-green-600 mt-2">
-                {totalAIVideoRequests}
+                {shopVideos.length}
               </p>
               <p className="text-xs text-gray-400 mt-1">
                 Videos processed by AI
@@ -480,7 +580,7 @@ const Overview = () => {
           <h3 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h3>
           <div className="space-y-3">
             <Link
-              to="/shop-manager/orders"
+              to={`/shop-manager/orders?userId=${userId}`}
               className="flex items-center p-3 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
             >
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-blue-200 transition-colors">
@@ -520,7 +620,7 @@ const Overview = () => {
             </Link>
 
             <Link
-              to="/shop-manager/users"
+              to={`/shop-manager/users?userId=${userId}`}
               className="flex items-center p-3 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
             >
               <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-red-200 transition-colors">
@@ -556,7 +656,7 @@ const Overview = () => {
             </Link>
 
             <Link
-              to="/shop-manager/analytics"
+              to={`/shop-manager/analytics?userId=${userId}`}
               className="flex items-center p-3 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
             >
               <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-green-200 transition-colors">
