@@ -12,7 +12,7 @@ import {
 } from '../../redux/slice/districtSlice';
 import {
   getShopsByBrand,
-  selectShopsForBrand  // ✅ Import the correct selector
+  selectShopsForBrand
 } from '../../redux/slice/shopSlice';
 
 const Orders = () => {
@@ -20,13 +20,11 @@ const Orders = () => {
   const user = useSelector(state => state.user.currentUser);
   const brandId = user?.brand_id;
   
-  // Correct selectors
   const orders = useSelector(selectOrdersByBrand) || [];
   const loading = useSelector(selectOrderLoading);
   const error = useSelector(selectOrderError);
   const districts = useSelector(selectDistrictsByBrand) || [];
   
-  // ✅ Use the correct shop selector - pass the brand_id to get shops array
   const shops = useSelector(
     brandId ? selectShopsForBrand(brandId) : () => []
   ) || [];
@@ -47,26 +45,23 @@ const Orders = () => {
   useEffect(() => {
     let filtered = orders;
     
-    // Apply date filter
     if (dateFilter !== 'all') {
       filtered = applyDateFilter(filtered, dateFilter);
     }
     
-    // Apply search filter
-    if (searchTerm.trim() !== '') {
+    if (searchTerm.trim()) {
       filtered = filtered.filter(order => 
-        (order.ro_number && order.ro_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (order.customer_name && order.customer_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (order.ro_number_original && order.ro_number_original.toLowerCase().includes(searchTerm.toLowerCase()))
+        (order.ro_number?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (order.ro_number_original?.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
     
     setFilteredOrders(filtered);
   }, [orders, dateFilter, searchTerm]);
 
-  // Store all orders separately for stats calculations
   useEffect(() => {
-    if (orders.length > 0) {
+    if (orders.length) {
       setAllOrders(orders);
     }
   }, [orders]);
@@ -80,8 +75,7 @@ const Orders = () => {
         dispatch(getDistrictsByBrand(brandId)),
         dispatch(getShopsByBrand(brandId))
       ]);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch {
     }
   };
 
@@ -136,7 +130,6 @@ const Orders = () => {
     }
   };
 
-  // Daily orders calculation (last 24 hours)
   const getDailyOrders = () => {
     const today = new Date();
     const yesterday = new Date(today);
@@ -149,7 +142,6 @@ const Orders = () => {
     }).length || 0;
   };
 
-  // Today's orders calculation (today only)
   const getTodaysOrders = () => {
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -187,37 +179,28 @@ const Orders = () => {
     }).length;
   };
 
-  const getTotalOrders = () => {
-    return allOrders.length;
-  };
+  const getTotalOrders = () => allOrders.length;
 
   const getDistrictOrders = (districtId) => {
     if (districtId === 'all') return filteredOrders;
     
-    // ✅ Safely handle shops array
     const districtShops = Array.isArray(shops) 
       ? shops.filter(shop => shop.district_id === districtId) 
       : [];
     const shopIds = districtShops.map(shop => shop.id);
     
-    return filteredOrders.filter(order => 
-      shopIds.includes(order.shop_id)
-    );
+    return filteredOrders.filter(order => shopIds.includes(order.shop_id));
   };
 
-  const getShopOrders = (shopId) => {
-    return filteredOrders.filter(order => order.shop_id === shopId);
-  };
+  const getShopOrders = (shopId) => filteredOrders.filter(order => order.shop_id === shopId);
 
   const getShopName = (shopId) => {
-    // ✅ Safely handle shops array
     if (!Array.isArray(shops)) return 'Unknown Shop';
     const shop = shops.find(s => s.id === shopId);
     return shop?.name || 'Unknown Shop';
   };
 
   const getDistrictNameByShopId = (shopId) => {
-    // ✅ Safely handle shops and districts arrays
     if (!Array.isArray(shops) || !Array.isArray(districts)) return 'Unknown District';
     const shop = shops.find(s => s.id === shopId);
     if (!shop) return 'Unknown District';
@@ -235,7 +218,7 @@ const Orders = () => {
         day: 'numeric',
         year: 'numeric'
       });
-    } catch (error) {
+    } catch {
       return 'N/A';
     }
   };
@@ -248,7 +231,7 @@ const Orders = () => {
         hour: '2-digit',
         minute: '2-digit'
       });
-    } catch (error) {
+    } catch {
       return 'N/A';
     }
   };
@@ -278,24 +261,9 @@ const Orders = () => {
     }
   };
 
-  // ✅ Safely filter districts
   const filteredDistricts = selectedDistrict === 'all' 
     ? (Array.isArray(districts) ? districts : []) 
     : (Array.isArray(districts) ? districts : []).filter(d => d.id === selectedDistrict);
-
-  // Debug logging
-  useEffect(() => {
-    console.log('=== ORDERS DEBUG INFO ===');
-    console.log('All orders:', allOrders.length);
-    console.log('Filtered orders:', filteredOrders.length);
-    console.log('Daily orders (last 24h):', getDailyOrders());
-    console.log("Today's orders:", getTodaysOrders());
-    console.log('Completed count:', getCompletedOrders());
-    console.log('Pending count:', getPendingOrders());
-    console.log('In Progress count:', getInProgressOrders());
-    console.log('Shops data type:', typeof shops, Array.isArray(shops) ? 'array' : 'not array');
-    console.log('Shops count:', Array.isArray(shops) ? shops.length : 0);
-  }, [allOrders, filteredOrders, shops]);
 
   if (loading) {
     return (
@@ -323,7 +291,6 @@ const Orders = () => {
 
   return (
     <div className="p-6">
-      {/* Filter Controls */}
       <div className="mb-6 flex flex-wrap gap-4 items-center justify-between">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">Orders</h2>
@@ -333,7 +300,6 @@ const Orders = () => {
         </div>
         
         <div className="flex items-center space-x-3">
-          {/* District Filter */}
           <select
             value={selectedDistrict}
             onChange={(e) => setSelectedDistrict(e.target.value)}
@@ -347,7 +313,6 @@ const Orders = () => {
             ))}
           </select>
           
-          {/* Date Filter */}
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
@@ -360,7 +325,6 @@ const Orders = () => {
             <option value="month">This Month</option>
           </select>
           
-          {/* Search Input */}
           <div className="relative">
             <input
               type="text"
@@ -386,7 +350,6 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
           <div className="flex items-center justify-between">
@@ -459,7 +422,6 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* District-wise Orders */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
@@ -505,7 +467,6 @@ const Orders = () => {
               
               return (
                 <div key={district.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  {/* District Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center border bg-blue-50">
@@ -557,7 +518,6 @@ const Orders = () => {
                     </div>
                   </div>
 
-                  {/* Expanded Shops Section */}
                   {isExpanded && (
                     <div className="mt-6 border-t pt-6">
                       <h4 className="text-md font-medium text-gray-700 mb-4">
@@ -631,7 +591,6 @@ const Orders = () => {
                                   </div>
                                 </div>
                                 
-                                {/* Shop Orders List */}
                                 {shopOrders.length > 0 ? (
                                   <div className="overflow-x-auto mt-3">
                                     <table className="min-w-full divide-y divide-gray-200">
@@ -713,7 +672,6 @@ const Orders = () => {
         )}
       </div>
 
-      {/* Footer Stats */}
       <div className="mt-8 text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
         <div className="flex flex-wrap items-center justify-between">
           <div>
