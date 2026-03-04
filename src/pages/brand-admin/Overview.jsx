@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // Shop selectors
 import {
@@ -33,30 +33,17 @@ import {
   selectTotalEditCount,
 } from "../../redux/slice/videoEditSlice";
 
-// User selectors - NEW
-import {
-  getBrandUsers,
-  selectUsersByBrandId,
-  selectUserLoading,
-} from "../../redux/slice/userSlice";
-
-// District selectors - NEW
+// District selectors
 import {
   getDistrictsByBrand,
   selectDistrictsByBrand,
   selectDistrictLoading,
 } from "../../redux/slice/districtSlice";
 
-// Shop Manager selectors - NEW
-import {
-  getUsersByDistrict,
-  selectUsersByDistrictId,
-} from "../../redux/slice/userSlice";
-
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-// Skeleton Loader Components (existing ones remain the same)
+// Skeleton Loader Components (keep all your existing skeleton components)
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -170,8 +157,8 @@ const QuickActionsSkeleton = () => (
   </div>
 );
 
-// NEW Skeleton for District Managers Section
-const DistrictManagersSkeleton = () => (
+// Skeleton for Districts Section
+const DistrictsSkeleton = () => (
   <div className="bg-white rounded-lg shadow-md p-6 mb-8">
     <div className="flex justify-between items-center mb-4">
       <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
@@ -182,7 +169,7 @@ const DistrictManagersSkeleton = () => (
         <div key={i} className="border rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+              <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
               <div>
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
                 <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
@@ -207,6 +194,7 @@ const DistrictManagersSkeleton = () => (
 
 const Overview = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const user = useSelector((state) => state.user.currentUser);
   const brandId = user?.brand_id;
 
@@ -218,10 +206,9 @@ const Overview = () => {
   const [shopVideosMap, setShopVideosMap] = useState({});
   const [loadingBrandData, setLoadingBrandData] = useState(false);
 
-  // NEW - Users and Districts state
-  const [districtManagers, setDistrictManagers] = useState([]);
-  const [shopManagersMap, setShopManagersMap] = useState({});
-  const [loadingManagers, setLoadingManagers] = useState(false);
+  // Districts state
+  const districts = useSelector(selectDistrictsByBrand);
+  const [shopsByDistrict, setShopsByDistrict] = useState({});
   const [expandedDistricts, setExpandedDistricts] = useState({});
 
   // Video Edit stats
@@ -233,7 +220,6 @@ const Overview = () => {
   const shopsLoading = useSelector(selectShopLoading);
   const ordersLoading = useSelector(selectOrderLoading);
   const videosLoading = useSelector(selectVideoLoading);
-  const usersLoading = useSelector(selectUserLoading);
   const districtsLoading = useSelector(selectDistrictLoading);
 
   const [loading, setLoading] = useState(true);
@@ -249,9 +235,7 @@ const Overview = () => {
     ordersLoading ||
     videosLoading ||
     loadingBrandData ||
-    usersLoading ||
-    districtsLoading ||
-    loadingManagers;
+    districtsLoading;
 
   // Fetch all data
   useEffect(() => {
@@ -290,10 +274,6 @@ const Overview = () => {
       // 6. Fetch districts for this brand
       console.log("🏘️ Fetching districts for brand:", brandId);
       await dispatch(getDistrictsByBrand(brandId));
-
-      // 7. Fetch all users for this brand (including district managers)
-      console.log("👥 Fetching brand users for brand:", brandId);
-      await fetchBrandUsers();
 
       // Add a small delay to show skeletons
       setTimeout(() => setIsInitialLoad(false), 300);
@@ -346,67 +326,37 @@ const Overview = () => {
     setShopVideosMap(videosByShop);
   };
 
-  // NEW - Fetch brand users and filter district managers
-  const fetchBrandUsers = async () => {
-    setLoadingManagers(true);
-    try {
-      const result = await dispatch(getBrandUsers(brandId)).unwrap();
-      console.log("✅ Brand users fetched:", result);
-
-      // Filter users to get district managers
-      const usersData = result?.data || result || [];
-      const managers = usersData.filter(
-        (user) => user.role === "district_manager",
-      );
-      setDistrictManagers(managers);
-
-      // Initialize expanded state for all district managers
-      const expanded = {};
-      managers.forEach((manager) => {
-        expanded[manager.id] = false;
-      });
-      setExpandedDistricts(expanded);
-
-      // Fetch shop managers for each district
-      await fetchAllShopManagers(managers);
-    } catch (error) {
-      console.error(`Error fetching brand users:`, error);
-      setDistrictManagers([]);
-    } finally {
-      setLoadingManagers(false);
+  // Organize shops by district when both districts and shops are loaded
+  useEffect(() => {
+    if (districts?.length > 0 && shops?.length > 0) {
+      organizeShopsByDistrict();
     }
-  };
+  }, [districts, shops]);
 
-  // NEW - Fetch shop managers for each district
-  const fetchAllShopManagers = async (managers) => {
-    const managersByDistrict = {};
-
-    for (const manager of managers) {
-      if (manager.district_id) {
-        try {
-          const result = await dispatch(
-            getUsersByDistrict(manager.district_id),
-          ).unwrap();
-          const usersData = result?.data || result || [];
-          // Filter to get only shop managers
-          const shopManagers = usersData.filter(
-            (user) => user.role === "shop_manager",
-          );
-          managersByDistrict[manager.id] = shopManagers;
-        } catch (error) {
-          console.error(
-            `Error fetching shop managers for district ${manager.district_id}:`,
-            error,
-          );
-          managersByDistrict[manager.id] = [];
-        }
-      } else {
-        managersByDistrict[manager.id] = [];
+  const organizeShopsByDistrict = useCallback(() => {
+    const shopsByDistrictMap = {};
+    
+    // Initialize empty arrays for each district
+    districts.forEach(district => {
+      shopsByDistrictMap[district.id] = [];
+    });
+    
+    // Add shops to their respective districts
+    shops.forEach(shop => {
+      if (shop.district_id && shopsByDistrictMap[shop.district_id]) {
+        shopsByDistrictMap[shop.district_id].push(shop);
       }
-    }
-
-    setShopManagersMap(managersByDistrict);
-  };
+    });
+    
+    setShopsByDistrict(shopsByDistrictMap);
+    
+    // Initialize expanded state for all districts
+    const expanded = {};
+    districts.forEach((district) => {
+      expanded[district.id] = false;
+    });
+    setExpandedDistricts(expanded);
+  }, [districts, shops]);
 
   // Calculate shop videos map when shops and brandVideos are loaded
   useEffect(() => {
@@ -626,6 +576,7 @@ const Overview = () => {
   // Memoized derived values
   const brandVideoRequestsCount = brandVideos?.length || 0;
   const totalShops = shops?.length || 0;
+  const totalDistricts = districts?.length || 0;
   const activeShops = useMemo(
     () => shops?.filter((shop) => shop.is_active).length || 0,
     [shops],
@@ -708,19 +659,38 @@ const Overview = () => {
     return DEFAULT_PROFILE_PIC;
   };
 
-  // Toggle dropdown for district manager
-  const toggleDistrictExpanded = (districtManagerId) => {
+  // Toggle dropdown for district
+  const toggleDistrictExpanded = (districtId) => {
     setExpandedDistricts((prev) => ({
       ...prev,
-      [districtManagerId]: !prev[districtManagerId],
+      [districtId]: !prev[districtId],
     }));
   };
+
+// In your Overview.jsx, update these functions:
+
+// Navigate to district overview page - stores district in localStorage first
+const openDistrictPage = (district) => {
+  // Store the selected district in localStorage (like your app does)
+  localStorage.setItem('selectedDistrict', JSON.stringify(district));
+  // Navigate to the district detail page
+  navigate(`/brand-admin/districts/${district.id}`);
+};
+
+// Navigate to shop overview page - stores shop in localStorage first
+const openShopPage = (shop) => {
+  // Store the selected shop in localStorage (like your app does)
+  localStorage.setItem('selectedShop', JSON.stringify(shop));
+  // Navigate to the shop detail page
+  navigate(`/brand-admin/shops/${shop.id}`);
+};
 
   // Debug logging
   useEffect(() => {
     console.log("📊 Brand Overview State:", {
       brandId,
       totalShops,
+      totalDistricts,
       activeShops,
       totalOrders,
       brandVideos: brandVideos?.length,
@@ -730,11 +700,12 @@ const Overview = () => {
       dailyOrders,
       totalEditCount,
       brandEditStats,
-      districtManagers: districtManagers?.length,
+      districts: districts?.length,
     });
   }, [
     brandId,
     totalShops,
+    totalDistricts,
     activeShops,
     totalOrders,
     brandVideos,
@@ -744,7 +715,7 @@ const Overview = () => {
     dailyOrders,
     totalEditCount,
     brandEditStats,
-    districtManagers,
+    districts,
   ]);
 
   // Show skeleton during initial load
@@ -756,7 +727,7 @@ const Overview = () => {
           <div className="h-4 bg-gray-200 rounded animate-pulse w-96"></div>
         </div>
         <StatsSkeleton />
-        <DistrictManagersSkeleton />
+        <DistrictsSkeleton />
         <ShopsSummarySkeleton />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <TopShopSkeleton />
@@ -798,6 +769,36 @@ const Overview = () => {
           </div>
         </div>
 
+        {/* Total Districts Card */}
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600 hover:shadow-lg transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm text-gray-500">Total Districts</h3>
+              <p className="text-3xl font-bold text-purple-600 mt-2">
+                {totalDistricts}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Organized shop locations
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-purple-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
         {/* AI Video Requests Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
@@ -823,32 +824,6 @@ const Overview = () => {
                   strokeLinejoin="round"
                   strokeWidth={1.5}
                   d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Daily Orders Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600 hover:shadow-lg transition-shadow duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm text-gray-500">Daily Repair Orders</h3>
-              <p className="text-3xl font-bold text-indigo-600 mt-2">
-                {dailyOrders}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Last 24 hours</p>
-            </div>
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-indigo-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
-                  clipRule="evenodd"
                 />
               </svg>
             </div>
@@ -884,10 +859,10 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* NEW SECTION: District Managers */}
+      {/* Districts Section with Shop Dropdowns */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">District Managers</h2>
+          <h2 className="text-xl font-bold text-gray-800">Districts</h2>
           <Link
             to="/brand-admin/districts"
             className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
@@ -909,49 +884,47 @@ const Overview = () => {
           </Link>
         </div>
 
-        {loadingManagers || (usersLoading && districtManagers.length === 0) ? (
+        {districtsLoading ? (
           <div className="py-8 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading district managers...</p>
+            <p className="mt-2 text-gray-600">Loading districts...</p>
           </div>
-        ) : districtManagers && districtManagers.length > 0 ? (
+        ) : districts && districts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {districtManagers.map((manager) => {
-              const shopManagers = shopManagersMap[manager.id] || [];
-              const isExpanded = expandedDistricts[manager.id] || false;
+            {districts.map((district) => {
+              const districtShops = shopsByDistrict[district.id] || [];
+              const isExpanded = expandedDistricts[district.id] || false;
 
               return (
                 <div
-                  key={manager.id}
+                  key={district.id}
                   className="border rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
-                  {/* District Manager Info */}
+                  {/* District Header with Open Button */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 rounded-full overflow-hidden border bg-gray-100 flex-shrink-0">
-                        <img
-                          src={getProfilePicUrl(manager.profile_pic_url)}
-                          alt={`${manager.first_name} ${manager.last_name}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = DEFAULT_PROFILE_PIC;
-                          }}
-                        />
+                      <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 font-bold text-xl">
+                        {district.name?.charAt(0).toUpperCase() || 'D'}
                       </div>
                       <div>
                         <h3 className="font-medium text-gray-800">
-                          {manager.first_name} {manager.last_name}
+                          {district.name}
                         </h3>
-                        <p className="text-xs text-gray-500">{manager.email}</p>
+                        <p className="text-xs text-gray-500">
+                          {district.city}
+                          {district.state ? `, ${district.state}` : ''}
+                        </p>
+                        <p className="text-xs text-purple-600 mt-1">
+                          {districtShops.length} {districtShops.length === 1 ? 'shop' : 'shops'}
+                        </p>
                       </div>
                     </div>
-                    {/* SIMPLE: Open button opens new tab with userId only */}
-                    <a
-                      href={`/district-manager?userId=${manager.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
-                      title="Open District Manager Portal"
+                    
+                    {/* Option 1: Open District Button - Pass the whole district object */}
+                    <button
+                      onClick={() => openDistrictPage(district)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
+                      title="Open District Overview - Access all district pages"
                     >
                       <svg
                         className="w-4 h-4 mr-1"
@@ -966,17 +939,17 @@ const Overview = () => {
                           d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                         />
                       </svg>
-                      Open
-                    </a>
+                      Open District
+                    </button>
                   </div>
 
-                  {/* Dropdown for Shop Managers */}
+                  {/* Option 2: Dropdown for Shops */}
                   <div className="mt-3 border-t pt-3">
                     <button
-                      onClick={() => toggleDistrictExpanded(manager.id)}
+                      onClick={() => toggleDistrictExpanded(district.id)}
                       className="w-full flex justify-between items-center text-sm font-medium text-gray-700 hover:text-gray-900"
                     >
-                      <span>Shop Managers ({shopManagers.length})</span>
+                      <span>Shops in this district ({districtShops.length})</span>
                       <svg
                         className={`w-5 h-5 transform transition-transform ${isExpanded ? "rotate-180" : ""}`}
                         fill="none"
@@ -994,64 +967,81 @@ const Overview = () => {
 
                     {isExpanded && (
                       <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
-                        {shopManagers.length > 0 ? (
-                          shopManagers.map((shopManager) => (
-                            <div
-                              key={shopManager.id}
-                              className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <div className="w-8 h-8 rounded-full overflow-hidden border bg-gray-100 flex-shrink-0">
-                                  <img
-                                    src={getProfilePicUrl(
-                                      shopManager.profile_pic_url,
-                                    )}
-                                    alt={`${shopManager.first_name} ${shopManager.last_name}`}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.src = DEFAULT_PROFILE_PIC;
-                                    }}
-                                  />
+                        {districtShops.length > 0 ? (
+                          districtShops.map((shop) => {
+                            const shopVideos = shopVideosMap[shop.id] || [];
+                            const aiRequests = shopVideos.filter(v => 
+                              ["completed", "processing"].includes(v?.status)
+                            ).length;
+
+                            return (
+                              <div
+                                key={shop.id}
+                                className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100"
+                              >
+                                <div className="flex items-center space-x-2 flex-1">
+                                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold text-sm">
+                                    {shop.name?.charAt(0).toUpperCase() || 'S'}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-800">
+                                      {shop.name}
+                                    </p>
+                                    <div className="flex items-center text-xs text-gray-500">
+                                      <span className="truncate max-w-[100px]">
+                                        {shop.city || 'No city'}
+                                      </span>
+                                      {aiRequests > 0 && (
+                                        <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full text-xs">
+                                          {aiRequests} videos
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="text-sm font-medium text-gray-800">
-                                    {shopManager.first_name}{" "}
-                                    {shopManager.last_name}
-                                  </p>
-                                  <p className="text-xs text-gray-500 truncate max-w-[120px]">
-                                    {shopManager.email}
-                                  </p>
+
+                                <div className="flex items-center space-x-2">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      shop.is_active
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {shop.is_active ? "Active" : "Inactive"}
+                                  </span>
+                                  
+                                  {/* Open Shop Button - Pass the whole shop object */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openShopPage(shop);
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-lg text-xs flex items-center transition-colors"
+                                    title="Open Shop Overview"
+                                  >
+                                    <svg
+                                      className="w-3 h-3 mr-1"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                      />
+                                    </svg>
+                                    Open
+                                  </button>
                                 </div>
                               </div>
-
-                              {/* Option 2: Open Button for Shop Manager */}
-                              <Link
-                                to={`/shop-manager?userId=${shopManager.id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs flex items-center transition-colors"
-                                title="Open Shop Manager Portal"
-                              >
-                                <svg
-                                  className="w-3 h-3 mr-1"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                  />
-                                </svg>
-                                Open
-                              </Link>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <p className="text-sm text-gray-500 italic text-center py-2">
-                            No shop managers assigned
+                            No shops in this district
                           </p>
                         )}
                       </div>
@@ -1073,12 +1063,12 @@ const Overview = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={1}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
               />
             </svg>
-            <p className="text-gray-500">No district managers found</p>
+            <p className="text-gray-500">No districts found</p>
             <Link
-              to="/brand-admin/users"
+              to="/brand-admin/districts/add"
               className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
             >
               <svg
@@ -1094,24 +1084,24 @@ const Overview = () => {
                   d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                 />
               </svg>
-              Add district managers
+              Create your first district
             </Link>
           </div>
         )}
 
-        {districtManagers && districtManagers.length > 6 && (
+        {districts && districts.length > 6 && (
           <div className="mt-4 text-center">
             <Link
-              to="/brand-admin/users"
+              to="/brand-admin/districts"
               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
-              View all {districtManagers.length} district managers →
+              View all {districts.length} districts →
             </Link>
           </div>
         )}
       </div>
 
-      {/* Shops Summary Section (Existing) */}
+      {/* Shops Summary Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">Your Shops</h2>
@@ -1149,7 +1139,8 @@ const Overview = () => {
               return (
                 <div
                   key={shop.id}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => openShopPage(shop)}
                 >
                   <div className="flex items-center space-x-3 mb-2">
                     <div className="w-10 h-10 rounded-lg overflow-hidden border bg-gray-100 flex-shrink-0 flex items-center justify-center">
@@ -1188,26 +1179,6 @@ const Overview = () => {
                     <span className="text-gray-600">AI Video Requests:</span>
                     <span className="font-bold text-red-600">{aiRequests}</span>
                   </div>
-
-                  <Link
-                    to="/brand-admin/analytics"
-                    className="mt-3 text-xs text-blue-600 hover:text-blue-800 flex items-center justify-end"
-                  >
-                    View Details
-                    <svg
-                      className="w-4 h-4 ml-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Link>
                 </div>
               );
             })
@@ -1262,7 +1233,7 @@ const Overview = () => {
         )}
       </div>
 
-      {/* Top Shop & Quick Actions Section (Existing) */}
+      {/* Top Shop & Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Top Performing Shop */}
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
@@ -1476,7 +1447,7 @@ const Overview = () => {
               to="/brand-admin/districts"
               className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-colors group"
             >
-              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
+              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-purple-700 transition-colors">
                 <svg
                   className="w-6 h-6 text-white"
                   fill="none"

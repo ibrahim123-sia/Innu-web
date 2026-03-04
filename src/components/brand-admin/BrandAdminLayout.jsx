@@ -1,19 +1,106 @@
-import React from "react";
-import { Outlet, NavLink } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Outlet, NavLink, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import LogoutButton from "../../components/common/LogoutButton";
 
 const BrandAdminLayout = ({ children }) => {
+  const navigate = useNavigate();
   const user = useSelector((state) => state.user.currentUser);
+  const { districtId, shopId } = useParams();
+  
+  const [selectedDistrict, setSelectedDistrict] = useState(null);
+  const [selectedShop, setSelectedShop] = useState(null);
+  const [activeContext, setActiveContext] = useState('brand'); // 'brand', 'district', 'shop'
 
-  const navItems = [
-    { name: "Overview", path: "/brand-admin" },
-    { name: "Shops", path: "/brand-admin/shops" },
-    { name: "Districts", path: "/brand-admin/districts" },
-    { name: "Users", path: "/brand-admin/users" }, // Added Users
-    // { name: 'Orders', path: '/brand-admin/orders' },
-    { name: "Analytics", path: "/brand-admin/analytics" },
-  ];
+  useEffect(() => {
+    // Check if we're in district context
+    if (districtId) {
+      const district = localStorage.getItem('selectedDistrict');
+      if (district) {
+        setSelectedDistrict(JSON.parse(district));
+        setSelectedShop(null);
+        setActiveContext('district');
+      }
+    } 
+    // Check if we're in shop context
+    else if (shopId) {
+      const shop = localStorage.getItem('selectedShop');
+      if (shop) {
+        setSelectedShop(JSON.parse(shop));
+        setSelectedDistrict(null);
+        setActiveContext('shop');
+      }
+    } 
+    // Brand admin main context
+    else {
+      setSelectedDistrict(null);
+      setSelectedShop(null);
+      setActiveContext('brand');
+      
+      // Clear both contexts when on main brand pages
+      localStorage.removeItem('selectedDistrict');
+      localStorage.removeItem('selectedShop');
+    }
+  }, [districtId, shopId]);
+
+  const handleBack = () => {
+    if (activeContext === 'district') {
+      localStorage.removeItem('selectedDistrict');
+      navigate('/brand-admin/districts');
+    } else if (activeContext === 'shop') {
+      localStorage.removeItem('selectedShop');
+      navigate('/brand-admin/shops');
+    }
+  };
+
+  const getHeaderTitle = () => {
+    if (activeContext === 'district' && selectedDistrict) {
+      return `${selectedDistrict.name} District`;
+    }
+    if (activeContext === 'shop' && selectedShop) {
+      return `${selectedShop.name} Shop`;
+    }
+    return "Company Admin Dashboard";
+  };
+
+  const getHeaderSubtitle = () => {
+    if (activeContext === 'district' && selectedDistrict) {
+      return `Viewing District: ${selectedDistrict.city}${selectedDistrict.state ? `, ${selectedDistrict.state}` : ''}`;
+    }
+    if (activeContext === 'shop' && selectedShop) {
+      return `Viewing Shop: ${selectedShop.city}${selectedShop.state ? `, ${selectedShop.state}` : ''}`;
+    }
+    return user?.brand_name ? `Managing: ${user.brand_name}` : "Company Management";
+  };
+
+  // Dynamic navigation items based on context
+  const getNavItems = () => {
+    if (activeContext === 'district' && selectedDistrict) {
+      return [
+        { name: "Overview", path: `/brand-admin/districts/${selectedDistrict.id}` },
+        { name: "Shops", path: `/brand-admin/districts/${selectedDistrict.id}/shops` },
+        { name: "Users", path: `/brand-admin/districts/${selectedDistrict.id}/users` },
+        { name: "Analytics", path: `/brand-admin/districts/${selectedDistrict.id}/analytics` },
+      ];
+    }
+    if (activeContext === 'shop' && selectedShop) {
+      return [
+        { name: "Overview", path: `/brand-admin/shops/${selectedShop.id}` },
+        { name: "Orders", path: `/brand-admin/shops/${selectedShop.id}/orders` },
+        { name: "Analytics", path: `/brand-admin/shops/${selectedShop.id}/analytics` },
+        { name: "Users", path: `/brand-admin/shops/${selectedShop.id}/users` },
+      ];
+    }
+    return [
+      { name: "Overview", path: "/brand-admin" },
+      { name: "Shops", path: "/brand-admin/shops" },
+      { name: "Districts", path: "/brand-admin/districts" },
+      { name: "Users", path: "/brand-admin/users" },
+      { name: "Analytics", path: "/brand-admin/analytics" },
+    ];
+  };
+
+  const navItems = getNavItems();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -21,12 +108,34 @@ const BrandAdminLayout = ({ children }) => {
       <header className="bg-primary-blue text-white p-4 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <h1 className="text-2xl font-bold">Company Admin Dashboard</h1>
-            <p className="text-sm text-primary-blue-100">
-              {user?.brand_name
-                ? `Managing: ${user.brand_name}`
-                : "Company Management"}
-            </p>
+            <div className="flex items-center">
+              {/* Back button when viewing specific district or shop */}
+              {(activeContext === 'district' || activeContext === 'shop') && (
+                <button
+                  onClick={handleBack}
+                  className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
+                  title={`Back to ${activeContext === 'district' ? 'Districts' : 'Shops'}`}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    />
+                  </svg>
+                </button>
+              )}
+              <div>
+                <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
+               
+              </div>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
@@ -46,7 +155,7 @@ const BrandAdminLayout = ({ children }) => {
               <NavLink
                 key={item.path}
                 to={item.path}
-                end={item.path === "/brand-admin"}
+                end={item.name === "Overview"}
                 className={({ isActive }) =>
                   `px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive

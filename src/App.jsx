@@ -30,7 +30,7 @@ import DistrictManagerShops from './pages/district-manager/Shops';
 import DistrictManagerUsers from './pages/district-manager/Users';
 import DistrictManagerAnalytics from './pages/district-manager/Analytics';
 
-// Import Shop Manager components
+// Import Shop Manager pages and layout
 import ShopManagerLayout from './components/shop-manager/ShopManagerLayout';
 import ShopManagerOverview from './pages/shop-manager/Overview';
 import ShopManagerOrders from './pages/shop-manager/Orders';
@@ -43,13 +43,12 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
-// Role-Specific Route Wrapper - MODIFIED to accept multiple roles
+// Role-Specific Route Wrapper
 const RoleRoute = ({ role, children }) => {
   const user = useSelector(selectCurrentUser);
   
   if (!user) return <Navigate to="/login" />;
   
-  // Convert role to array if it's a string, then check if user's role is included
   const allowedRoles = Array.isArray(role) ? role : [role];
   if (!allowedRoles.includes(user.role)) {
     return <Navigate to="/login" />;
@@ -96,7 +95,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* Brand Admin Routes */}
+        {/* Brand Admin Main Routes */}
         <Route path="/brand-admin" element={
           <ProtectedRoute>
             <RoleRoute role="brand_admin">
@@ -157,7 +156,89 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* District Manager Routes - MODIFIED to allow brand_admin */}
+        {/* Brand Admin District Detail Routes - Using reused components with BrandAdminLayout */}
+        <Route path="/brand-admin/districts/:districtId" element={
+          <ProtectedRoute>
+            <RoleRoute role="brand_admin">
+              <BrandAdminLayout>
+                <DistrictManagerOverview />
+              </BrandAdminLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/brand-admin/districts/:districtId/shops" element={
+          <ProtectedRoute>
+            <RoleRoute role="brand_admin">
+              <BrandAdminLayout>
+                <DistrictManagerShops />
+              </BrandAdminLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/brand-admin/districts/:districtId/users" element={
+          <ProtectedRoute>
+            <RoleRoute role="brand_admin">
+              <BrandAdminLayout>
+                <DistrictManagerUsers />
+              </BrandAdminLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/brand-admin/districts/:districtId/analytics" element={
+          <ProtectedRoute>
+            <RoleRoute role="brand_admin">
+              <BrandAdminLayout>
+                <DistrictManagerAnalytics />
+              </BrandAdminLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        {/* Brand Admin Shop Detail Routes - Using reused components with BrandAdminLayout */}
+        <Route path="/brand-admin/shops/:shopId" element={
+          <ProtectedRoute>
+            <RoleRoute role="brand_admin">
+              <BrandAdminLayout>
+                <ShopManagerOverview />
+              </BrandAdminLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/brand-admin/shops/:shopId/orders" element={
+          <ProtectedRoute>
+            <RoleRoute role="brand_admin">
+              <BrandAdminLayout>
+                <ShopManagerOrders />
+              </BrandAdminLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/brand-admin/shops/:shopId/analytics" element={
+          <ProtectedRoute>
+            <RoleRoute role="brand_admin">
+              <BrandAdminLayout>
+                <ShopManagerAnalytics />
+              </BrandAdminLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/brand-admin/shops/:shopId/users" element={
+          <ProtectedRoute>
+            <RoleRoute role="brand_admin">
+              <BrandAdminLayout>
+                <ShopManagerUsers />
+              </BrandAdminLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        {/* District Manager Routes - Using DistrictManagerLayout */}
         <Route path="/district-manager" element={
           <ProtectedRoute>
             <RoleRoute role={['district_manager', 'brand_admin']}>
@@ -198,7 +279,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* Shop Manager Routes - MODIFIED to allow brand_admin */}
+        {/* Shop Manager Routes - Using ShopManagerLayout */}
         <Route path="/shop-manager" element={
           <ProtectedRoute>
             <RoleRoute role={['shop_manager', 'district_manager', 'brand_admin']}>
@@ -242,7 +323,6 @@ function AppContent() {
         {/* Default Routes */}
         <Route path="/" element={<Navigate to="/login" />} />
         
-        {/* Redirect based on role after login */}
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <RoleRedirect />

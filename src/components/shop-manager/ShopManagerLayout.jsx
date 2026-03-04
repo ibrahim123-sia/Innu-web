@@ -1,64 +1,99 @@
-import React, { useState, useEffect } from 'react';
-import { Outlet, NavLink, useSearchParams } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import LogoutButton from '../../components/common/LogoutButton';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import { Outlet, NavLink, useNavigate, useParams } from "react-router-dom";
+import { useSelector } from "react-redux";
+import LogoutButton from "../../components/common/LogoutButton";
 
 const ShopManagerLayout = ({ children }) => {
-  const [searchParams] = useSearchParams();
-  const user = useSelector(state => state.user.currentUser);
+  const navigate = useNavigate();
+  const user = useSelector((state) => state.user.currentUser);
+  const { shopId } = useParams();
   
-  // Get userId from URL if present
-  const userId = searchParams.get('userId');
-  const isImpersonating = !!userId;
-  
-  // State for the shop manager being viewed
-  const [viewingUser, setViewingUser] = useState(null);
-  
-  // Fetch the shop manager's data when userId is present
+  const [selectedShop, setSelectedShop] = useState(null);
+
   useEffect(() => {
-    if (userId) {
-      fetchShopManagerData();
-    }
-  }, [userId]);
-
-  const fetchShopManagerData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5000/api/users/getUsers/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+    // Load from localStorage when component mounts or params change
+    if (shopId) {
+      const shop = localStorage.getItem('selectedShop');
+      if (shop) {
+        const parsedShop = JSON.parse(shop);
+        // Only set if the shop in localStorage matches the URL
+        if (parsedShop.id === shopId) {
+          setSelectedShop(parsedShop);
+        } else {
+          // Try to find shop from shops list if available
+          const shops = JSON.parse(localStorage.getItem('shops') || '[]');
+          const foundShop = shops.find(s => s.id === shopId);
+          if (foundShop) {
+            setSelectedShop(foundShop);
+            localStorage.setItem('selectedShop', JSON.stringify(foundShop));
+          }
         }
-      });
+      }
+    } else {
+      // Clear selections when on main shop manager pages
+      setSelectedShop(null);
+    }
+  }, [shopId]);
+
+  const getHeaderTitle = () => {
+    if (selectedShop) {
+      return `${selectedShop.name || 'Shop'} Management`;
+    }
+    return "Shop Manager Dashboard";
+  };
+
+  const getHeaderSubtitle = () => {
+    if (selectedShop) {
+      // Only show city/state if they exist, never show the UUID
+      const city = selectedShop.city || '';
+      const state = selectedShop.state || '';
       
-      const userData = response.data.data || response.data;
-      setViewingUser(userData);
-    } catch (error) {
-      console.error('Error fetching shop manager:', error);
+      if (city && state) {
+        return `Managing: ${city}, ${state}`;
+      } else if (city) {
+        return `Managing: ${city}`;
+      } else {
+        return "Managing Shop";
+      }
+    }
+    
+    // When no specific shop is selected
+    if (user?.shops?.length > 1) {
+      return `You have access to ${user.shops.length} shops`;
+    } else if (user?.shops?.length === 1) {
+      return "Managing your shop";
+    }
+    return "Manage your shop operations";
+  };
+
+  // Dynamic navigation items based on context
+  const getNavItems = () => {
+    if (selectedShop && selectedShop.id) {
+      return [
+        { name: "Overview", path: `/shop-manager/shops/${selectedShop.id}` },
+        { name: "Orders", path: `/shop-manager/shops/${selectedShop.id}/orders` },
+        { name: "Analytics", path: `/shop-manager/shops/${selectedShop.id}/analytics` },
+        { name: "Users", path: `/shop-manager/shops/${selectedShop.id}/users` },
+        { name: "Products", path: `/shop-manager/shops/${selectedShop.id}/products` },
+      ];
+    }
+    return [
+      { name: "Overview", path: "/shop-manager" },
+      { name: "Orders", path: "/shop-manager/orders" },
+      { name: "Analytics", path: "/shop-manager/analytics" },
+      { name: "Users", path: "/shop-manager/users" },
+      { name: "Products", path: "/shop-manager/products" },
+    ];
+  };
+
+  const handleBack = () => {
+    if (selectedShop) {
+      localStorage.removeItem('selectedShop');
+      navigate('/shop-manager');
     }
   };
-  
-  const navItems = [
-    { name: 'Overview', path: '/shop-manager' },
-    { name: 'Orders', path: '/shop-manager/orders' },
-    { name: 'Analytics', path: '/shop-manager/analytics' },
-    { name: 'Users', path: '/shop-manager/users' },
-  ];
 
-  // Function to preserve userId in navigation links
-  const getNavLink = (path) => {
-    return userId ? `${path}?userId=${userId}` : path;
-  };
-
-  // Determine which email to show
-  const displayEmail = isImpersonating && viewingUser 
-    ? viewingUser.email 
-    : user?.email;
-
-  // Determine the display name
-  const displayName = isImpersonating && viewingUser
-    ? `${viewingUser.first_name} ${viewingUser.last_name}`
-    : 'Shop Manager';
+  const navItems = getNavItems();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -66,23 +101,47 @@ const ShopManagerLayout = ({ children }) => {
       <header className="bg-primary-blue text-white p-4 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <h1 className="text-2xl font-bold">Shop Manager Dashboard</h1>
-            <div className="text-sm text-primary-blue-100 mt-1">
-              {isImpersonating && viewingUser 
-                ? `${displayName}'s Shop` 
-                : 'Manage your shop'}
+            <div className="flex items-center">
+              {/* Back button when viewing specific shop */}
+              {selectedShop && (
+                <button
+                  onClick={handleBack}
+                  className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
+                  title="Back to Dashboard"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    />
+                  </svg>
+                </button>
+              )}
+              <div>
+                <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
+               
+              </div>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
-              {isImpersonating ? 'Shop Manager' : 'Shop Manager'}
+              Shop Manager
             </div>
-            <span className="hidden md:inline text-white">{displayEmail}</span>
+            <span className="hidden md:inline text-white">
+              {user?.email}
+            </span>
             <LogoutButton />
           </div>
         </div>
       </header>
-      
+
       {/* Navigation */}
       <nav className="bg-white shadow-sm border-b">
         <div className="container mx-auto">
@@ -90,13 +149,13 @@ const ShopManagerLayout = ({ children }) => {
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
-                to={getNavLink(item.path)}
-                end={item.path === '/shop-manager'}
+                to={item.path}
+                end={item.name === "Overview"}
                 className={({ isActive }) =>
                   `px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
-                      ? 'text-primary-blue border-b-2 border-primary-blue'
-                      : 'text-gray-500 hover:text-primary-red'
+                      ? "text-primary-blue border-b-2 border-primary-blue"
+                      : "text-gray-500 hover:text-primary-red"
                   }`
                 }
               >
@@ -106,7 +165,7 @@ const ShopManagerLayout = ({ children }) => {
           </div>
         </div>
       </nav>
-      
+
       {/* Main Content */}
       <main className="container mx-auto p-4 md:p-6">
         {children || <Outlet />}

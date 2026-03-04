@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useSearchParams } from 'react-router-dom';
 import { 
   getShopsByDistrict,
   selectShopsByDistrict,
@@ -142,20 +141,9 @@ const TableSkeleton = () => (
 );
 
 const Shops = () => {
-  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
-  
-  // Get userId from URL if present (for brand admin viewing)
-  const userId = searchParams.get('userId');
-  const currentUser = useSelector(state => state.user.currentUser);
-  
-  // Determine which user to use
-  const activeUserId = userId || currentUser?.id;
-  const isImpersonating = !!userId;
-  
-  // State for district manager and district data
-  const [districtManager, setDistrictManager] = useState(null);
-  const [districtId, setDistrictId] = useState(null);
+  const user = useSelector(state => state.user.currentUser);
+  const districtId = user?.district_id;
   
   // Shop data
   const shopsByDistrict = useSelector(selectShopsByDistrict);
@@ -170,7 +158,6 @@ const Shops = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loadingUser, setLoadingUser] = useState(false);
   
   // Add initial load state
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -207,42 +194,6 @@ const Shops = () => {
     city: '',
     state: ''
   });
-
-  // Fetch district manager data if userId is provided (brand admin viewing)
-  useEffect(() => {
-    if (userId) {
-      fetchDistrictManagerData();
-    } else if (currentUser?.district_id) {
-      // Normal district manager login - use current user's district_id directly
-      setDistrictId(currentUser.district_id);
-      setLoadingUser(false);
-    }
-  }, [userId, currentUser]);
-
-  const fetchDistrictManagerData = async () => {
-    setLoadingUser(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`https://innu-api-112488489004.us-central1.run.app/api/users/getUsers/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const userData = response.data.data || response.data;
-      setDistrictManager(userData);
-      if (userData?.district_id) {
-        setDistrictId(userData.district_id);
-      }
-    } catch (error) {
-      console.error('Error fetching district manager:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to load district manager data.',
-        confirmButtonColor: '#d33'
-      });
-    } finally {
-      setLoadingUser(false);
-    }
-  };
 
   // Extract shops from the data object structure
   const filteredShops = React.useMemo(() => {
@@ -340,7 +291,7 @@ const Shops = () => {
   // EFFECTS
   // ============================================
 
-  // Fetch shops and current district when districtId is available
+  // Fetch shops and current district
   useEffect(() => {
     if (districtId) {
       fetchData();
@@ -412,11 +363,11 @@ const Shops = () => {
 
     // Check if we have district ID
     if (!districtId) {
-      setFormError('No district assigned to this account');
+      setFormError('No district assigned to your account');
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'No district assigned to this account',
+        text: 'No district assigned to your account',
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
@@ -442,7 +393,7 @@ const Shops = () => {
       // Create shop with current district_id
       const shopData = {
         name: formData.name.trim(),
-        brand_id: isImpersonating ? districtManager?.brand_id : currentUser?.brand_id,
+        brand_id: user.brand_id,
         district_id: districtId,
         tekmetric_shop_id: formData.tekmetric_shop_id.trim(),
         street_address: formData.street_address.trim(),
@@ -763,48 +714,6 @@ const Shops = () => {
     });
   };
 
-  // Show loading while fetching user data (for impersonation)
-  if (loadingUser) {
-    return (
-      <div className="p-6 flex justify-center items-center h-64">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-2 text-gray-600">Loading district manager data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show message if no user ID found
-  if (!activeUserId) {
-    return (
-      <div className="p-6 flex justify-center items-center h-64">
-        <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
-          <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <h3 className="text-lg font-medium text-yellow-800 mb-2">No User Selected</h3>
-          <p className="text-yellow-700">Unable to identify the district manager.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show message if district manager has no district assigned
-  if (userId && districtManager && !districtManager.district_id) {
-    return (
-      <div className="p-6 flex justify-center items-center h-64">
-        <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
-          <svg className="w-12 h-12 text-orange-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <h3 className="text-lg font-medium text-orange-800 mb-2">No District Assigned</h3>
-          <p className="text-orange-700">This district manager has not been assigned to any district yet.</p>
-        </div>
-      </div>
-    );
-  }
-
   // ============================================
   // RENDER
   // ============================================
@@ -833,8 +742,6 @@ const Shops = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-     
-
       {/* Create Shop Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">

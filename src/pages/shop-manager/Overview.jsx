@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, useParams, Link } from "react-router-dom";
 import { getShopById } from "../../redux/slice/shopSlice";
 import {
   getOrdersByShop,
@@ -12,7 +12,7 @@ import axios from 'axios';
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-// Skeleton Loader Components
+// Skeleton Loader Components (keep all your existing skeleton components)
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -81,13 +81,20 @@ const QuickActionsSkeleton = () => (
 
 const Overview = () => {
   const [searchParams] = useSearchParams();
+  const { shopId } = useParams(); // Get shopId from URL for brand admin mode
   const dispatch = useDispatch();
   
-  // SIMPLE: Get userId from URL
+  // Get userId from URL if present (for shop manager mode)
   const userId = searchParams.get('userId');
   
-  // State for shop manager and shop data
+  // State for brand admin mode
+  const [selectedShop, setSelectedShop] = useState(null);
+  const [isBrandAdminMode, setIsBrandAdminMode] = useState(false);
+  
+  // State for shop manager mode
   const [shopManager, setShopManager] = useState(null);
+  
+  // State for shop data
   const [myShop, setMyShop] = useState(null);
   const [shopOrders, setShopOrders] = useState([]);
   const [shopUsers, setShopUsers] = useState([]);
@@ -101,14 +108,30 @@ const Overview = () => {
   const [dailyOrders, setDailyOrders] = useState(0);
   const [shopStats, setShopStats] = useState(null);
   
-  // Fetch shop manager data first
+  // Check if we're in brand admin mode (shopId in URL and no userId)
   useEffect(() => {
-    if (userId) {
+    if (shopId && !userId) {
+      setIsBrandAdminMode(true);
+      // Get selected shop from localStorage
+      const shop = localStorage.getItem('selectedShop');
+      if (shop) {
+        setSelectedShop(JSON.parse(shop));
+        setLoadingUser(false);
+        // Fetch shop data directly
+        fetchShopData(shopId);
+      } else {
+        // If no shop in localStorage, still try to fetch by ID
+        setLoadingUser(false);
+        fetchShopData(shopId);
+      }
+    } else if (userId) {
+      // Shop manager mode
+      setIsBrandAdminMode(false);
       fetchShopManagerData();
     } else {
       setLoadingUser(false);
     }
-  }, [userId]);
+  }, [shopId, userId]);
 
   const fetchShopManagerData = async () => {
     setLoadingUser(true);
@@ -134,14 +157,14 @@ const Overview = () => {
 
   // Once we have shop manager, fetch their shop data
   useEffect(() => {
-    if (shopManager?.shop_id) {
+    if (!isBrandAdminMode && shopManager?.shop_id) {
       fetchShopData(shopManager.shop_id);
-    } else if (!loadingUser && shopManager && !shopManager.shop_id) {
+    } else if (!isBrandAdminMode && !loadingUser && shopManager && !shopManager.shop_id) {
       // Shop manager has no shop assigned
       setLoading(false);
       setIsInitialLoad(false);
     }
-  }, [shopManager, loadingUser]);
+  }, [shopManager, loadingUser, isBrandAdminMode]);
 
   const fetchShopData = async (shopId) => {
     if (!shopId) return;
@@ -269,29 +292,31 @@ const Overview = () => {
       <div className="p-6 flex justify-center items-center h-64">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-2 text-gray-600">Loading shop manager data...</p>
+          <p className="mt-2 text-gray-600">
+            {isBrandAdminMode ? "Loading shop data..." : "Loading shop manager data..."}
+          </p>
         </div>
       </div>
     );
   }
 
-  // Show message if no userId provided
-  if (!userId) {
+  // Show message if no userId provided and no shopId (only for invalid access)
+  if (!userId && !shopId) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
         <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
           <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
-          <h3 className="text-lg font-medium text-yellow-800 mb-2">No User Selected</h3>
-          <p className="text-yellow-700">Please select a shop manager from the district manager panel.</p>
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">No Shop Selected</h3>
+          <p className="text-yellow-700">Please select a shop to view.</p>
         </div>
       </div>
     );
   }
 
-  // Show message if shop manager has no shop assigned
-  if (shopManager && !shopManager.shop_id) {
+  // Show message if shop manager has no shop assigned (only for shop manager mode)
+  if (!isBrandAdminMode && shopManager && !shopManager.shop_id) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
         <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
@@ -322,8 +347,18 @@ const Overview = () => {
     );
   }
 
-  const shopName = myShop?.name || 'Your Shop';
-  const shopCity = myShop?.city || '';
+  const shopName = myShop?.name || (selectedShop?.name || 'Your Shop');
+  const shopCity = myShop?.city || (selectedShop?.city || '');
+
+  // Determine the correct base path for links
+  const getBasePath = () => {
+    if (isBrandAdminMode) {
+      return `/brand-admin/shops/${shopId}`;
+    }
+    return `/shop-manager?userId=${userId}`;
+  };
+
+  const basePath = getBasePath();
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
@@ -447,11 +482,11 @@ const Overview = () => {
               Shop Information
             </h2>
             <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-              Tekmetric ID: {myShop?.tekmetric_shop_id || "N/A"}
+              Tekmetric ID: {myShop?.tekmetric_shop_id || (selectedShop?.tekmetric_shop_id || "N/A")}
             </span>
           </div>
 
-          {myShop ? (
+          {myShop || selectedShop ? (
             <div className="border rounded-lg p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -460,7 +495,7 @@ const Overview = () => {
                       Shop Name
                     </label>
                     <p className="text-lg font-semibold text-gray-900">
-                      {myShop.name}
+                      {myShop?.name || selectedShop?.name}
                     </p>
                   </div>
                   <div className="mb-3">
@@ -468,7 +503,7 @@ const Overview = () => {
                       Street Address
                     </label>
                     <p className="text-gray-600">
-                      {myShop.street_address || "Not provided"}
+                      {myShop?.street_address || selectedShop?.street_address || "Not provided"}
                     </p>
                   </div>
                   <div className="mb-3">
@@ -476,7 +511,7 @@ const Overview = () => {
                       City
                     </label>
                     <p className="text-gray-600">
-                      {myShop.city || "Not provided"}
+                      {myShop?.city || selectedShop?.city || "Not provided"}
                     </p>
                   </div>
                   <div className="mb-3">
@@ -484,7 +519,7 @@ const Overview = () => {
                       State
                     </label>
                     <p className="text-gray-600">
-                      {myShop.state || "Not provided"}
+                      {myShop?.state || selectedShop?.state || "Not provided"}
                     </p>
                   </div>
                 </div>
@@ -495,12 +530,12 @@ const Overview = () => {
                     </label>
                     <span
                       className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-                        myShop.is_active
+                        (myShop?.is_active || selectedShop?.is_active)
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {myShop.is_active ? "Active" : "Inactive"}
+                      {(myShop?.is_active || selectedShop?.is_active) ? "Active" : "Inactive"}
                     </span>
                   </div>
                   <div className="mb-3">
@@ -508,8 +543,8 @@ const Overview = () => {
                       Created Date
                     </label>
                     <p className="text-gray-600">
-                      {myShop.created_at
-                        ? new Date(myShop.created_at).toLocaleDateString(
+                      {myShop?.created_at || selectedShop?.created_at
+                        ? new Date(myShop?.created_at || selectedShop?.created_at).toLocaleDateString(
                             "en-US",
                             {
                               month: "short",
@@ -580,7 +615,7 @@ const Overview = () => {
           <h3 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h3>
           <div className="space-y-3">
             <Link
-              to={`/shop-manager/orders?userId=${userId}`}
+              to={isBrandAdminMode ? `/brand-admin/shops/${shopId}/orders` : `/shop-manager/orders?userId=${userId}`}
               className="flex items-center p-3 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
             >
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-blue-200 transition-colors">
@@ -620,7 +655,7 @@ const Overview = () => {
             </Link>
 
             <Link
-              to={`/shop-manager/users?userId=${userId}`}
+              to={isBrandAdminMode ? `/brand-admin/shops/${shopId}/users` : `/shop-manager/users?userId=${userId}`}
               className="flex items-center p-3 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
             >
               <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-red-200 transition-colors">
@@ -656,7 +691,7 @@ const Overview = () => {
             </Link>
 
             <Link
-              to={`/shop-manager/analytics?userId=${userId}`}
+              to={isBrandAdminMode ? `/brand-admin/shops/${shopId}/analytics` : `/shop-manager/analytics?userId=${userId}`}
               className="flex items-center p-3 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
             >
               <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-green-200 transition-colors">

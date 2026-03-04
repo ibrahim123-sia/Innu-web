@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useSearchParams } from 'react-router-dom';
 import { 
   getBrandUsers,
   createUser,
@@ -14,7 +13,6 @@ import {
   selectDistrictsByBrand,
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
-import axios from 'axios';
 
 // Import SweetAlert for popup notifications
 import Swal from 'sweetalert2';
@@ -79,22 +77,10 @@ const TableSkeleton = () => (
 );
 
 const Users = () => {
-  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
-  
-  // Get userId from URL if present (for brand admin viewing)
-  const userId = searchParams.get('userId');
   const currentUser = useSelector(state => state.user.currentUser);
-  
-  // Determine which user to use
-  const activeUserId = userId || currentUser?.id;
-  const isImpersonating = !!userId;
-  
-  // State for district manager and district data
-  const [districtManager, setDistrictManager] = useState(null);
-  const [brandId, setBrandId] = useState(null);
-  const [userDistrictId, setUserDistrictId] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(false);
+  const brandId = currentUser?.brand_id;
+  const userDistrictId = currentUser?.district_id;
   
   // Data from Redux
   const users = useSelector(state => state.user.users) || [];
@@ -175,46 +161,6 @@ const Users = () => {
 
   // Check if current user is district manager
   const isDistrictManager = currentUser?.role === 'district_manager';
-
-  // Fetch district manager data if userId is provided (brand admin viewing)
-  useEffect(() => {
-    if (userId) {
-      fetchDistrictManagerData();
-    } else if (currentUser) {
-      // Normal login - use current user's data
-      setBrandId(currentUser.brand_id);
-      setUserDistrictId(currentUser.district_id);
-      setLoadingUser(false);
-    }
-  }, [userId, currentUser]);
-
-  const fetchDistrictManagerData = async () => {
-    setLoadingUser(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`https://innu-api-112488489004.us-central1.run.app/api/users/getUsers/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const userData = response.data.data || response.data;
-      setDistrictManager(userData);
-      if (userData?.brand_id) {
-        setBrandId(userData.brand_id);
-      }
-      if (userData?.district_id) {
-        setUserDistrictId(userData.district_id);
-      }
-    } catch (error) {
-      console.error('Error fetching district manager:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to load district manager data.',
-        confirmButtonColor: '#d33'
-      });
-    } finally {
-      setLoadingUser(false);
-    }
-  };
 
   // Get current district name for display
   const currentDistrict = districts.find(d => d.id === userDistrictId);
@@ -325,10 +271,10 @@ const Users = () => {
   // ============================================
 
   useEffect(() => {
-    if (brandId) {
+    if (currentUser?.brand_id) {
       fetchData();
     }
-  }, [dispatch, brandId]);
+  }, [dispatch, currentUser?.brand_id]);
 
   // Handle loading completion
   useEffect(() => {
@@ -346,12 +292,12 @@ const Users = () => {
     setIsDataReady(false);
     
     try {
-      console.log('Fetching brand users for brand ID:', brandId);
-      const result = await dispatch(getBrandUsers(brandId)).unwrap();
+      console.log('Fetching brand users for brand ID:', currentUser.brand_id);
+      const result = await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
       console.log('Fetch result:', result);
       
-      await dispatch(getShopsByBrand(brandId));
-      await dispatch(getDistrictsByBrand(brandId));
+      await dispatch(getShopsByBrand(currentUser.brand_id));
+      await dispatch(getDistrictsByBrand(currentUser.brand_id));
     } catch (error) {
       console.error('Error fetching data:', error);
       setIsInitialLoad(false);
@@ -636,7 +582,7 @@ const Users = () => {
       userFormData.append('last_name', formData.last_name.trim());
       userFormData.append('contact_no', '');
       userFormData.append('role', formData.role);
-      userFormData.append('brand_id', brandId);
+      userFormData.append('brand_id', currentUser.brand_id);
       
       if (formData.shop_id && formData.shop_id !== '') {
         userFormData.append('shop_id', formData.shop_id);
@@ -684,7 +630,7 @@ const Users = () => {
         });
 
         resetForm();
-        await dispatch(getBrandUsers(brandId)).unwrap();
+        await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
         setTimeout(() => {
           setShowCreateForm(false);
         }, 100);
@@ -772,7 +718,7 @@ const Users = () => {
         });
         
         resetEditForm();
-        await dispatch(getBrandUsers(brandId)).unwrap();
+        await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
         setTimeout(() => {
           setShowEditModal(null);
         }, 100);
@@ -804,7 +750,7 @@ const Users = () => {
         data: userFormData
       })).unwrap();
 
-      await dispatch(getBrandUsers(brandId)).unwrap();
+      await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
       
       Swal.fire({
         icon: 'success',
@@ -984,48 +930,6 @@ const Users = () => {
     );
   };
 
-  // Show loading while fetching user data (for impersonation)
-  if (loadingUser) {
-    return (
-      <div className="p-6 flex justify-center items-center h-64">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-2 text-gray-600">Loading district manager data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show message if no user ID found
-  if (!activeUserId) {
-    return (
-      <div className="p-6 flex justify-center items-center h-64">
-        <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
-          <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <h3 className="text-lg font-medium text-yellow-800 mb-2">No User Selected</h3>
-          <p className="text-yellow-700">Unable to identify the district manager.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show message if district manager has no brand assigned
-  if (userId && districtManager && !districtManager.brand_id) {
-    return (
-      <div className="p-6 flex justify-center items-center h-64">
-        <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
-          <svg className="w-12 h-12 text-orange-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <h3 className="text-lg font-medium text-orange-800 mb-2">No Brand Assigned</h3>
-          <p className="text-orange-700">This district manager has not been assigned to any brand yet.</p>
-        </div>
-      </div>
-    );
-  }
-
   // ============================================
   // RENDER
   // ============================================
@@ -1051,8 +955,6 @@ const Users = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-     
-
       {/* Create User Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
