@@ -15,15 +15,11 @@ import {
   selectAllUsers
 } from '../../redux/slice/userSlice';
 import BrandDetailModal from '../../components/super-admin/BrandDetailModal';
-
-// Import SweetAlert for popup notifications
 import Swal from 'sweetalert2';
 
-// Default images
 const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-// Skeleton Loader Components
 const TableRowSkeleton = () => (
   <tr className="hover:bg-gray-50">
     <td className="px-6 py-4">
@@ -140,7 +136,6 @@ const Brands = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    // Organize brand admins by brand_id
     const adminsMap = {};
     users.forEach(user => {
       if (user.role === 'brand_admin' && user.brand_id) {
@@ -160,26 +155,16 @@ const Brands = () => {
     setBrandAdmins(adminsMap);
   }, [users]);
 
-  // Helper function to get brand logo with fallback
   const getBrandLogo = (brand) => {
-    if (brand.logo_url && brand.logo_url.trim() !== '') {
-      return brand.logo_url;
-    }
-    return DEFAULT_BRAND_LOGO;
+    return (brand.logo_url?.trim()) ? brand.logo_url : DEFAULT_BRAND_LOGO;
   };
 
-  // Helper function to get admin profile pic with fallback
   const getAdminProfilePic = (brandId) => {
     const admin = brandAdmins[brandId];
     if (!admin) return DEFAULT_PROFILE_PIC;
-    
-    if (admin.profile_pic_url && admin.profile_pic_url.trim() !== '') {
-      return admin.profile_pic_url;
-    }
-    return DEFAULT_PROFILE_PIC;
+    return (admin.profile_pic_url?.trim()) ? admin.profile_pic_url : DEFAULT_PROFILE_PIC;
   };
 
-  // Phone formatting function for USA numbers
   const formatPhoneNumber = (value) => {
     if (!value) return value;
     
@@ -193,107 +178,51 @@ const Brands = () => {
     return `+1 (${phoneNumber.substring(1, 4)}) ${phoneNumber.substring(4, 7)}-${phoneNumber.substring(7, 11)}`;
   };
 
- // Validation functions
-const validateName = (name) => {
-  if (!name || !name.trim()) {
-    return 'Company name is required';
-  }
-  if (name.trim().length < 2) {
-    return 'Company name must be at least 2 characters long';
-  }
-  if (name.trim().length > 100) {
-    return 'Company name must not exceed 100 characters';
-  }
-  
-  // Check if name contains only numbers
-  const onlyNumbersRegex = /^\d+$/;
-  if (onlyNumbersRegex.test(name.trim())) {
-    return 'Company name cannot consist of only numbers';
-  }
-  
-  // Allow letters, numbers, spaces, and common special characters like &, -, .
-  const nameRegex = /^[a-zA-Z0-9\s\&\-\.\,]+$/;
-  if (!nameRegex.test(name)) {
-    return 'Company name can only contain letters, numbers, spaces, and & - . ,';
-  }
-  return '';
-};
+  const validateName = (name) => {
+    if (!name?.trim()) return 'Company name is required';
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2) return 'Company name must be at least 2 characters long';
+    if (trimmedName.length > 100) return 'Company name must not exceed 100 characters';
+    if (/^\d+$/.test(trimmedName)) return 'Company name cannot consist of only numbers';
+    if (!/^[a-zA-Z0-9\s\&\-\.\,]+$/.test(name)) return 'Company name can only contain letters, numbers, spaces, and & - . ,';
+    return '';
+  };
+
   const validateEmail = (email) => {
-    if (!email || !email.trim()) {
-      return 'Email is required';
-    }
-    
-    // RFC 5322 compliant email regex
+    if (!email?.trim()) return 'Email is required';
     const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-    if (!emailRegex.test(email)) {
-      return 'Please enter a valid email address (e.g., name@example.com)';
-    }
-    
-    // Check email length
-    if (email.length > 254) {
-      return 'Email address is too long';
-    }
-    
-    // Check for common typos
-    if (email.includes('..')) {
-      return 'Email cannot contain consecutive dots';
-    }
-    
-    if (email.startsWith('.') || email.endsWith('.')) {
-      return 'Email cannot start or end with a dot';
-    }
-    
+    if (!emailRegex.test(email)) return 'Please enter a valid email address (e.g., name@example.com)';
+    if (email.length > 254) return 'Email address is too long';
+    if (email.includes('..')) return 'Email cannot contain consecutive dots';
+    if (email.startsWith('.') || email.endsWith('.')) return 'Email cannot start or end with a dot';
     return '';
   };
 
   const validateFirstName = (firstName) => {
-    if (!firstName || !firstName.trim()) {
-      return 'First name is required';
-    }
-    if (firstName.trim().length < 2) {
-      return 'First name must be at least 2 characters long';
-    }
-    if (firstName.trim().length > 50) {
-      return 'First name must not exceed 50 characters';
-    }
-    // Only allow letters and hyphens for names
-    const nameRegex = /^[a-zA-Z\s\-']+$/;
-    if (!nameRegex.test(firstName)) {
-      return 'First name can only contain letters, spaces, hyphens, and apostrophes';
-    }
+    if (!firstName?.trim()) return 'First name is required';
+    const trimmedName = firstName.trim();
+    if (trimmedName.length < 2) return 'First name must be at least 2 characters long';
+    if (trimmedName.length > 50) return 'First name must not exceed 50 characters';
+    if (!/^[a-zA-Z\s\-']+$/.test(firstName)) return 'First name can only contain letters, spaces, hyphens, and apostrophes';
     return '';
   };
 
   const validateLastName = (lastName) => {
-    if (!lastName || !lastName.trim()) {
-      return 'Last name is required';
-    }
-    if (lastName.trim().length < 2) {
-      return 'Last name must be at least 2 characters long';
-    }
-    if (lastName.trim().length > 50) {
-      return 'Last name must not exceed 50 characters';
-    }
-    // Only allow letters and hyphens for names
-    const nameRegex = /^[a-zA-Z\s\-']+$/;
-    if (!nameRegex.test(lastName)) {
-      return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
-    }
+    if (!lastName?.trim()) return 'Last name is required';
+    const trimmedName = lastName.trim();
+    if (trimmedName.length < 2) return 'Last name must be at least 2 characters long';
+    if (trimmedName.length > 50) return 'Last name must not exceed 50 characters';
+    if (!/^[a-zA-Z\s\-']+$/.test(lastName)) return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
     return '';
   };
 
   const validateFileType = (file, allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']) => {
     if (!file) return '';
-    if (!allowedTypes.includes(file.type)) {
-      return 'Please upload a valid image file (JPEG, PNG, GIF, or WEBP)';
-    }
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      return 'File size must not exceed 5MB';
-    }
+    if (!allowedTypes.includes(file.type)) return 'Please upload a valid image file (JPEG, PNG, GIF, or WEBP)';
+    if (file.size > 5 * 1024 * 1024) return 'File size must not exceed 5MB';
     return '';
   };
 
-  // Check if email already exists
   const checkEmailExists = (email) => {
     if (!email) return false;
     const exists = users.some(user => user.email.toLowerCase() === email.toLowerCase());
@@ -313,7 +242,7 @@ const validateName = (name) => {
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
-      e.target.value = ''; // Clear the input
+      e.target.value = '';
       return;
     }
 
@@ -330,31 +259,26 @@ const validateName = (name) => {
     }
   };
 
-  // Generate random password (10 characters, strong)
   const generateRandomPassword = () => {
     const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lowercase = 'abcdefghijklmnopqrstuvwxyz';
     const numbers = '0123456789';
     const special = '!@#$%^&*';
     
-    // Ensure at least one of each type
     let password = '';
     password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
     password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
     password += numbers.charAt(Math.floor(Math.random() * numbers.length));
     password += special.charAt(Math.floor(Math.random() * special.length));
     
-    // Add 6 more random characters
     const allChars = uppercase + lowercase + numbers + special;
     for (let i = 0; i < 6; i++) {
       password += allChars.charAt(Math.floor(Math.random() * allChars.length));
     }
     
-    // Shuffle the password
     return password.split('').sort(() => Math.random() - 0.5).join('');
   };
 
-  // Validate form fields
   const validateForm = () => {
     const nameError = validateName(formData.name);
     const emailError = validateEmail(formData.admin_email);
@@ -375,16 +299,11 @@ const validateName = (name) => {
       admin_last_name: !!lastNameError
     });
 
-    // Check if any validation errors exist
     const hasErrors = nameError || emailError || firstNameError || lastNameError;
 
     if (hasErrors) {
-      const errorMessages = [];
-      if (nameError) errorMessages.push(nameError);
-      if (emailError) errorMessages.push(emailError);
-      if (firstNameError) errorMessages.push(firstNameError);
-      if (lastNameError) errorMessages.push(lastNameError);
-
+      const errorMessages = [nameError, emailError, firstNameError, lastNameError].filter(Boolean);
+      
       Swal.fire({
         icon: 'error',
         title: 'Validation Errors',
@@ -403,13 +322,11 @@ const validateName = (name) => {
     setFormError('');
     setFormSuccess('');
     
-    // Validate all required fields
     if (!validateForm()) {
       setIsSubmitting(false);
       return;
     }
 
-    // Check if email already exists before proceeding
     if (checkEmailExists(formData.admin_email)) {
       setFormError('Email already exists. Please use a different email for the brand admin.');
       Swal.fire({
@@ -426,44 +343,33 @@ const validateName = (name) => {
     setIsSubmitting(true);
 
     try {
-      // Step 1: Create brand
       const brandFormData = new FormData();
       brandFormData.append('name', formData.name.trim());
       brandFormData.append('is_active', formData.is_active);
       
-      if (logoFile) {
-        brandFormData.append('logo', logoFile);
-      }
+      if (logoFile) brandFormData.append('logo', logoFile);
 
       const brandResult = await dispatch(createBrand(brandFormData)).unwrap();
       
       if (brandResult.success) {
-        // Generate random password for first-time login
         const randomPassword = generateRandomPassword();
         
-        // Step 2: Create brand admin user with ft_password
         const userFormData = new FormData();
         userFormData.append('email', formData.admin_email.trim().toLowerCase());
         userFormData.append('first_name', formData.admin_first_name.trim());
         userFormData.append('last_name', formData.admin_last_name.trim());
-        
         userFormData.append('role', 'brand_admin');
         userFormData.append('brand_id', brandResult.data.id);
         userFormData.append('is_active', true);
-        
-        // Add ft_password and password_type
         userFormData.append('ft_password', randomPassword);
         userFormData.append('password_type', 'ft_password');
         userFormData.append('is_first_login', 'true');
         
-        if (adminProfilePicFile) {
-          userFormData.append('profile_pic', adminProfilePicFile);
-        }
+        if (adminProfilePicFile) userFormData.append('profile_pic', adminProfilePicFile);
 
         const userResult = await dispatch(createUser(userFormData)).unwrap();
         
         if (userResult.success) {
-          // Success popup WITHOUT displaying password
           Swal.fire({
             icon: 'success',
             title: 'Brand Created Successfully!',
@@ -488,13 +394,10 @@ const validateName = (name) => {
           resetForm();
           dispatch(getAllBrands());
           dispatch(getAllUsers());
-          setTimeout(() => {
-            setShowCreateForm(false);
-          }, 100);
+          setTimeout(() => setShowCreateForm(false), 100);
         }
       }
     } catch (err) {
-      console.error('Brand creation failed:', err);
       setFormError(err?.error || 'Failed to create brand. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -508,7 +411,6 @@ const validateName = (name) => {
     }
   };
 
-  // Validate edit form fields
   const validateEditForm = () => {
     const nameError = validateName(editFormData.name);
     
@@ -524,7 +426,6 @@ const validateName = (name) => {
       return false;
     }
 
-    // Validate admin name fields if they exist and are being updated
     if (editFormData.admin_id) {
       if (editFormData.admin_first_name !== editFormData.original_admin_first_name) {
         const firstNameError = validateFirstName(editFormData.admin_first_name);
@@ -565,13 +466,9 @@ const validateName = (name) => {
     setFormError('');
     setFormSuccess('');
     
-    // Validate required fields
-    if (!validateEditForm()) {
-      return;
-    }
+    if (!validateEditForm()) return;
 
     try {
-      // Update brand
       const brandFormData = new FormData();
       brandFormData.append('name', editFormData.name.trim());
       brandFormData.append('is_active', editFormData.is_active);
@@ -587,7 +484,6 @@ const validateName = (name) => {
         data: brandFormData
       })).unwrap();
 
-      // Update brand admin if there are changes
       if (editFormData.admin_id) {
         const adminFormData = new FormData();
         let hasChanges = false;
@@ -626,9 +522,7 @@ const validateName = (name) => {
       
       resetEditForm();
       dispatch(getAllBrands());
-      setTimeout(() => {
-        setShowEditModal(null);
-      }, 100);
+      setTimeout(() => setShowEditModal(null), 100);
       
     } catch (err) {
       setFormError(err?.error || 'Failed to update brand. Please try again.');
@@ -650,18 +544,8 @@ const validateName = (name) => {
       admin_last_name: '',
       is_active: true
     });
-    setFormErrors({
-      name: false,
-      admin_email: false,
-      admin_first_name: false,
-      admin_last_name: false
-    });
-    setValidationErrors({
-      name: '',
-      admin_email: '',
-      admin_first_name: '',
-      admin_last_name: ''
-    });
+    setFormErrors({ name: false, admin_email: false, admin_first_name: false, admin_last_name: false });
+    setValidationErrors({ name: '', admin_email: '', admin_first_name: '', admin_last_name: '' });
     setLogoFile(null);
     setLogoPreview(null);
     setAdminProfilePicFile(null);
@@ -690,63 +574,31 @@ const validateName = (name) => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'admin_email') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      // Validate on change
-      const emailError = validateEmail(value);
-      setValidationErrors(prev => ({ ...prev, [name]: emailError }));
-      setFormErrors(prev => ({ ...prev, [name]: !!emailError }));
-      // Check email as user types
-      if (!emailError) {
-        checkEmailExists(value);
-      }
-    } else if (name === 'name') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      const nameError = validateName(value);
-      setValidationErrors(prev => ({ ...prev, [name]: nameError }));
-      setFormErrors(prev => ({ ...prev, [name]: !!nameError }));
-    } else if (name === 'admin_first_name') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      const firstNameError = validateFirstName(value);
-      setValidationErrors(prev => ({ ...prev, [name]: firstNameError }));
-      setFormErrors(prev => ({ ...prev, [name]: !!firstNameError }));
-    } else if (name === 'admin_last_name') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      const lastNameError = validateLastName(value);
-      setValidationErrors(prev => ({ ...prev, [name]: lastNameError }));
-      setFormErrors(prev => ({ ...prev, [name]: !!lastNameError }));
+    const validators = {
+      admin_email: validateEmail,
+      name: validateName,
+      admin_first_name: validateFirstName,
+      admin_last_name: validateLastName
+    };
+
+    if (name in validators) {
+      setFormData(prev => ({ ...prev, [name]: value }));
+      const error = validators[name](value);
+      setValidationErrors(prev => ({ ...prev, [name]: error }));
+      setFormErrors(prev => ({ ...prev, [name]: !!error }));
+      
+      if (name === 'admin_email' && !error) checkEmailExists(value);
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
+      setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setEditFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleViewDetails = (brandId) => {
-    setShowBrandDetail(brandId);
-  };
+  const handleViewDetails = (brandId) => setShowBrandDetail(brandId);
 
   const handleEdit = (brand) => {
     const brandAdmin = brandAdmins[brand.id] || {};
@@ -773,7 +625,6 @@ const validateName = (name) => {
   };
 
   const handleToggleStatus = async (brand) => {
-    // Check if brand has an admin
     const admin = brandAdmins[brand.id];
     if (!admin) {
       Swal.fire({
@@ -791,9 +642,7 @@ const validateName = (name) => {
       brandFormData.append('name', brand.name);
       brandFormData.append('is_active', !brand.is_active);
       
-      if (brand.logo_url) {
-        brandFormData.append('logo_url', brand.logo_url);
-      }
+      if (brand.logo_url) brandFormData.append('logo_url', brand.logo_url);
 
       await dispatch(updateBrand({
         id: brand.id,
@@ -811,7 +660,6 @@ const validateName = (name) => {
 
       dispatch(getAllBrands());
     } catch (err) {
-      console.error('Failed to toggle brand status:', err);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -822,34 +670,24 @@ const validateName = (name) => {
     }
   };
 
-  const handleResendWelcomeEmail = async (brandId, adminEmail) => {
-    try {
-      // This would need a new API endpoint to resend welcome email
-      Swal.fire({
-        icon: 'info',
-        title: 'Coming Soon',
-        text: 'Resend welcome email feature will be available soon.',
-        confirmButtonText: 'OK'
-      });
-    } catch (err) {
-      console.error('Failed to resend email:', err);
-    }
+  const handleResendWelcomeEmail = async () => {
+    Swal.fire({
+      icon: 'info',
+      title: 'Coming Soon',
+      text: 'Resend welcome email feature will be available soon.',
+      confirmButtonText: 'OK'
+    });
   };
 
-  const getAdminForBrand = (brandId) => {
-    return brandAdmins[brandId] || null;
-  };
+  const getAdminForBrand = (brandId) => brandAdmins[brandId] || null;
 
-  // Validate that brand has admin before allowing activation
   const canActivateBrand = (brand) => {
-    if (brand.is_active) return true; // Already active
-    const admin = brandAdmins[brand.id];
-    return !!admin; // Can only activate if admin exists
+    if (brand.is_active) return true;
+    return !!brandAdmins[brand.id];
   };
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      {/* Create Brand Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">All Companies</h2>
@@ -862,18 +700,8 @@ const validateName = (name) => {
             setShowCreateForm(!showCreateForm);
             setFormError('');
             setEmailExistsError('');
-            setFormErrors({
-              name: false,
-              admin_email: false,
-              admin_first_name: false,
-              admin_last_name: false
-            });
-            setValidationErrors({
-              name: '',
-              admin_email: '',
-              admin_first_name: '',
-              admin_last_name: ''
-            });
+            setFormErrors({ name: false, admin_email: false, admin_first_name: false, admin_last_name: false });
+            setValidationErrors({ name: '', admin_email: '', admin_first_name: '', admin_last_name: '' });
           }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
@@ -884,28 +712,19 @@ const validateName = (name) => {
         </button>
       </div>
 
-      {/* Create Brand Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Create New Company</h2>
           
-          {formError && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-              {formError}
-            </div>
-          )}
-          
-          {formSuccess && (
-            <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-              {formSuccess}
+          {(formError || formSuccess) && (
+            <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+              {formError || formSuccess}
             </div>
           )}
           
           <form onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left Column: Brand Logo & Admin Profile Picture */}
               <div className="space-y-8">
-                {/* Brand Logo Upload */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Company Logo</h3>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
@@ -952,7 +771,6 @@ const validateName = (name) => {
                   </div>
                 </div>
 
-                {/* Admin Profile Picture Upload */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Admin Profile Picture</h3>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
@@ -1000,9 +818,7 @@ const validateName = (name) => {
                 </div>
               </div>
 
-              {/* Right Column: Brand & Admin Info - ALL FIELDS REQUIRED */}
               <div className="space-y-6">
-                {/* Brand Info */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Companies Information</h3>
                   
@@ -1031,7 +847,6 @@ const validateName = (name) => {
                   </div>
                 </div>
 
-                {/* Admin Info - ALL FIELDS REQUIRED */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Company Admin Account <span className="text-red-500">*</span></h3>
                   
@@ -1051,11 +866,10 @@ const validateName = (name) => {
                       maxLength={254}
                       required
                     />
-                    {formErrors.admin_email && (
-                      <p className="mt-1 text-xs text-red-600">{validationErrors.admin_email || 'Admin email is required'}</p>
-                    )}
-                    {emailExistsError && (
-                      <p className="mt-1 text-xs text-red-600">{emailExistsError}</p>
+                    {(formErrors.admin_email || emailExistsError) && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {emailExistsError || validationErrors.admin_email || 'Admin email is required'}
+                      </p>
                     )}
                   </div>
 
@@ -1109,9 +923,9 @@ const validateName = (name) => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={!!emailExistsError || isSubmitting || Object.values(formErrors).some(error => error)}
+                disabled={!!emailExistsError || isSubmitting || Object.values(formErrors).some(Boolean)}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  emailExistsError || isSubmitting || Object.values(formErrors).some(error => error)
+                  emailExistsError || isSubmitting || Object.values(formErrors).some(Boolean)
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
@@ -1123,14 +937,13 @@ const validateName = (name) => {
         </div>
       )}
 
-      {/* Brands Table with Skeleton Loader */}
       {loading ? (
         <BrandsTableSkeleton />
       ) : error ? (
         <div className="bg-white rounded-lg shadow-md py-12 text-center">
           <p className="text-red-600">{error}</p>
         </div>
-      ) : brands && brands.length > 0 ? (
+      ) : brands?.length > 0 ? (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -1169,19 +982,13 @@ const validateName = (name) => {
                               src={brandLogo}
                               alt={brand.name}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = DEFAULT_BRAND_LOGO;
-                              }}
+                              onError={(e) => { e.target.src = DEFAULT_BRAND_LOGO; }}
                             />
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{brand.name}</div>
-                            {!admin && (
-                              <span className="text-xs text-red-600">⚠️ No admin assigned</span>
-                            )}
-                            {admin?.is_first_login && (
-                              <span className="text-xs text-orange-800">First login pending</span>
-                            )}
+                            {!admin && <span className="text-xs text-red-600">⚠️ No admin assigned</span>}
+                            {admin?.is_first_login && <span className="text-xs text-orange-800">First login pending</span>}
                           </div>
                         </div>
                       </td>
@@ -1193,9 +1000,7 @@ const validateName = (name) => {
                                 src={adminProfilePic}
                                 alt={`${admin.first_name} ${admin.last_name}`}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = DEFAULT_PROFILE_PIC;
-                                }}
+                                onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
                               />
                             </div>
                             <div>
@@ -1220,9 +1025,7 @@ const validateName = (name) => {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          brand.is_active 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
+                          brand.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}>
                           {brand.is_active ? 'Active' : 'Inactive'}
                         </span>
@@ -1285,7 +1088,6 @@ const validateName = (name) => {
         </div>
       )}
 
-      {/* Brand Detail Modal */}
       {showBrandDetail && (
         <BrandDetailModal
           brandId={showBrandDetail}
@@ -1293,30 +1095,21 @@ const validateName = (name) => {
         />
       )}
 
-      {/* Edit Brand Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Company</h2>
               
-              {formError && (
-                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-                  {formError}
-                </div>
-              )}
-              
-              {formSuccess && (
-                <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-                  {formSuccess}
+              {(formError || formSuccess) && (
+                <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                  {formError || formSuccess}
                 </div>
               )}
               
               <form onSubmit={handleEditSubmit}>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Left Column: Brand Logo & Admin Profile Picture */}
                   <div className="space-y-8">
-                    {/* Brand Logo */}
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-700">Company Logo</h3>
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
@@ -1363,7 +1156,6 @@ const validateName = (name) => {
                       </div>
                     </div>
 
-                    {/* Admin Profile Picture */}
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-700">Admin Profile Picture</h3>
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
@@ -1411,9 +1203,7 @@ const validateName = (name) => {
                     </div>
                   </div>
 
-                  {/* Right Column: Brand & Admin Info */}
                   <div className="space-y-6">
-                    {/* Brand Information */}
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-700">Company Information</h3>
                       <div>
@@ -1447,7 +1237,6 @@ const validateName = (name) => {
                       </label>
                     </div>
 
-                    {/* Brand Admin Information */}
                     {editFormData.admin_id && (
                       <div className="space-y-4 border-t pt-6">
                         <h3 className="font-semibold text-gray-700">Company Admin</h3>
