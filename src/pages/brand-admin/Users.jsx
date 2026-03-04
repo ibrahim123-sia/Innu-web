@@ -14,13 +14,11 @@ import {
   getDistrictsByBrand,
 } from "../../redux/slice/districtSlice";
 
-// Import SweetAlert for popup notifications
 import Swal from "sweetalert2";
 
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-// Validation functions
 const validateEmail = (email) => {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   return emailRegex.test(email);
@@ -37,7 +35,6 @@ const validateNameLength = (name, fieldName) => {
   return "";
 };
 
-// Skeleton Loader Components
 const TableRowSkeleton = () => (
   <tr className="hover:bg-gray-50">
     <td className="px-6 py-4 whitespace-nowrap">
@@ -76,14 +73,7 @@ const TableSkeleton = () => (
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            {[
-              "User",
-              "Role",
-              "Assigned Shop",
-              "Assigned District",
-              "Status",
-              "Actions",
-            ].map((header) => (
+            {["User", "Role", "Assigned Shop", "Assigned District", "Status", "Actions"].map((header) => (
               <th key={header} className="px-6 py-3 text-left">
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
               </th>
@@ -173,7 +163,6 @@ const Users = () => {
   const currentUser = useSelector((state) => state.user.currentUser);
   const brandId = currentUser?.brand_id;
 
-  // Data from Redux - FIXED: Direct access to state.user.users
   const users = useSelector((state) => state.user.users) || [];
   const loading = useSelector((state) => state.user.loading);
   const error = useSelector((state) => state.user.error);
@@ -181,29 +170,18 @@ const Users = () => {
   const shops = useSelector(selectShopsForBrand(brandId)) || [];
   const districts = useSelector(selectDistrictsByBrand) || [];
 
-  // Debug logging
-  useEffect(() => {
-    console.log("Current brand users from state:", users);
-    console.log("Brand ID:", brandId);
-    console.log("Loading state:", loading);
-    console.log("Error state:", error);
-  }, [users, brandId, loading, error]);
-
-  // UI States
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
-  const [showViewModal, setShowViewModal] = useState(null); // New state for view modal
+  const [showViewModal, setShowViewModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // File states
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [profilePicPreview, setProfilePicPreview] = useState(null);
   const [editProfilePicFile, setEditProfilePicFile] = useState(null);
   const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
 
-  // Form states with validation errors
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -215,12 +193,11 @@ const Users = () => {
   });
 
   const [editFormData, setEditFormData] = useState({});
-  const [viewUserData, setViewUserData] = useState(null); // New state for view data
+  const [viewUserData, setViewUserData] = useState(null);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [emailExistsError, setEmailExistsError] = useState("");
 
-  // Validation error states
   const [validationErrors, setValidationErrors] = useState({
     first_name: "",
     last_name: "",
@@ -232,17 +209,12 @@ const Users = () => {
     last_name: "",
   });
 
-  // Role options
   const roles = [
     { value: "district_manager", label: "District Manager" },
     { value: "shop_manager", label: "Shop Manager" },
     { value: "technician", label: "Technician" },
     { value: "user", label: "User" },
   ];
-
-  // ============================================
-  // EFFECTS
-  // ============================================
 
   useEffect(() => {
     if (currentUser?.brand_id) {
@@ -254,18 +226,12 @@ const Users = () => {
     setLocalLoading(true);
     setIsInitialLoad(true);
     try {
-      console.log("Fetching brand users for brand ID:", currentUser.brand_id);
-      const result = await dispatch(
-        getBrandUsers(currentUser.brand_id),
-      ).unwrap();
-      console.log("Fetch result:", result);
-
+      await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
       await Promise.all([
         dispatch(getShopsByBrand(currentUser.brand_id)),
         dispatch(getDistrictsByBrand(currentUser.brand_id)),
       ]);
-    } catch (error) {
-      console.error("Error fetching data:", error);
+    } catch {
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -279,26 +245,22 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // VALIDATION FUNCTIONS
-  // ============================================
-
   const validateFirstName = (name) => {
-    if (!name.trim()) return "First name is required";
+    if (!name?.trim()) return "First name is required";
     if (!validateName(name))
       return "First name can only contain letters, spaces, hyphens, and apostrophes";
     return validateNameLength(name, "First name");
   };
 
   const validateLastName = (name) => {
-    if (!name.trim()) return "Last name is required";
+    if (!name?.trim()) return "Last name is required";
     if (!validateName(name))
       return "Last name can only contain letters, spaces, hyphens, and apostrophes";
     return validateNameLength(name, "Last name");
   };
 
   const validateEmailField = (email) => {
-    if (!email.trim()) return "Email is required";
+    if (!email?.trim()) return "Email is required";
     if (!validateEmail(email))
       return "Please enter a valid email address (e.g., name@example.com)";
     if (email.length > 100) return "Email must be less than 100 characters";
@@ -313,9 +275,7 @@ const Users = () => {
     };
 
     setValidationErrors(errors);
-
-    // Check if there are any errors
-    return !Object.values(errors).some((error) => error !== "");
+    return !Object.values(errors).some((error) => error);
   };
 
   const validateEditForm = () => {
@@ -329,16 +289,9 @@ const Users = () => {
     };
 
     setEditValidationErrors(errors);
-
-    // Check if there are any errors
-    return !Object.values(errors).some((error) => error !== "");
+    return !Object.values(errors).some((error) => error);
   };
 
-  // ============================================
-  // HELPER FUNCTIONS
-  // ============================================
-
-  // Generate random password
   const generateRandomPassword = () => {
     const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const lowercase = "abcdefghijklmnopqrstuvwxyz";
@@ -356,13 +309,9 @@ const Users = () => {
       password += allChars.charAt(Math.floor(Math.random() * allChars.length));
     }
 
-    return password
-      .split("")
-      .sort(() => Math.random() - 0.5)
-      .join("");
+    return password.split("").sort(() => Math.random() - 0.5).join("");
   };
 
-  // Check if email already exists
   const checkEmailExists = (email, excludeUserId = null) => {
     if (!email) return false;
     const exists = users.some(
@@ -378,7 +327,6 @@ const Users = () => {
     return exists;
   };
 
-  // Extract public URL from profile_pic_url
   const getProfilePicUrl = (profilePicData) => {
     if (!profilePicData) return DEFAULT_PROFILE_PIC;
 
@@ -386,13 +334,8 @@ const Users = () => {
       if (profilePicData.startsWith("{")) {
         try {
           const parsed = JSON.parse(profilePicData);
-          return (
-            parsed.publicUrl ||
-            parsed.signedUrl ||
-            parsed.filePath ||
-            DEFAULT_PROFILE_PIC
-          );
-        } catch (e) {
+          return parsed.publicUrl || parsed.signedUrl || parsed.filePath || DEFAULT_PROFILE_PIC;
+        } catch {
           return profilePicData;
         }
       }
@@ -419,14 +362,9 @@ const Users = () => {
     return role ? role.label : roleValue;
   };
 
-  // ============================================
-  // HANDLERS
-  // ============================================
-
   const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type
       const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
       if (!validTypes.includes(file.type)) {
         Swal.fire({
@@ -439,8 +377,7 @@ const Users = () => {
         return;
       }
 
-      // Validate file size (max 5MB)
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      const maxSize = 5 * 1024 * 1024;
       if (file.size > maxSize) {
         Swal.fire({
           icon: "error",
@@ -464,15 +401,11 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // CREATE USER
-  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
 
-    // Validate all fields
     if (!validateForm()) {
       setFormError("Please fix the validation errors before submitting");
       Swal.fire({
@@ -485,7 +418,6 @@ const Users = () => {
       return;
     }
 
-    // Check if email already exists
     if (checkEmailExists(formData.email)) {
       setFormError("Email already exists. Please use a different email.");
       Swal.fire({
@@ -524,9 +456,7 @@ const Users = () => {
       userFormData.append("password_type", "ft_password");
       userFormData.append("is_first_login", "true");
 
-      if (profilePicFile) {
-        userFormData.append("profile_pic", profilePicFile);
-      }
+      if (profilePicFile) userFormData.append("profile_pic", profilePicFile);
 
       const result = await dispatch(createUser(userFormData)).unwrap();
 
@@ -557,12 +487,9 @@ const Users = () => {
 
         resetForm();
         await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
-        setTimeout(() => {
-          setShowCreateForm(false);
-        }, 100);
+        setTimeout(() => setShowCreateForm(false), 100);
       }
     } catch (err) {
-      console.error("User creation failed:", err);
       setFormError(err?.error || "Failed to create user. Please try again.");
       Swal.fire({
         icon: "error",
@@ -576,15 +503,11 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // EDIT USER
-  // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
 
-    // Validate edit form
     if (!validateEditForm()) {
       setFormError("Please fix the validation errors before submitting");
       Swal.fire({
@@ -609,47 +532,29 @@ const Users = () => {
         userFormData.append("last_name", editFormData.last_name.trim());
         hasChanges = true;
       }
-
       if (editFormData.role !== editFormData.original_role) {
         userFormData.append("role", editFormData.role);
         hasChanges = true;
       }
-
       if (editFormData.shop_id !== editFormData.original_shop_id) {
-        if (editFormData.shop_id && editFormData.shop_id !== "") {
-          userFormData.append("shop_id", editFormData.shop_id);
-        } else {
-          userFormData.append("shop_id", "");
-        }
+        userFormData.append("shop_id", editFormData.shop_id && editFormData.shop_id !== "" ? editFormData.shop_id : "");
         hasChanges = true;
       }
-
       if (editFormData.district_id !== editFormData.original_district_id) {
-        if (editFormData.district_id && editFormData.district_id !== "") {
-          userFormData.append("district_id", editFormData.district_id);
-        } else {
-          userFormData.append("district_id", "");
-        }
+        userFormData.append("district_id", editFormData.district_id && editFormData.district_id !== "" ? editFormData.district_id : "");
         hasChanges = true;
       }
-
       if (editFormData.is_active !== editFormData.original_is_active) {
         userFormData.append("is_active", editFormData.is_active);
         hasChanges = true;
       }
-
       if (editProfilePicFile) {
         userFormData.append("profile_pic", editProfilePicFile);
         hasChanges = true;
       }
 
       if (hasChanges) {
-        await dispatch(
-          updateUser({
-            id: showEditModal,
-            data: userFormData,
-          }),
-        ).unwrap();
+        await dispatch(updateUser({ id: showEditModal, data: userFormData })).unwrap();
 
         Swal.fire({
           icon: "success",
@@ -662,14 +567,11 @@ const Users = () => {
 
         resetEditForm();
         await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
-        setTimeout(() => {
-          setShowEditModal(null);
-        }, 100);
+        setTimeout(() => setShowEditModal(null), 100);
       } else {
         setShowEditModal(null);
       }
     } catch (err) {
-      console.error("User update failed:", err);
       setFormError(err?.error || "Failed to update user. Please try again.");
       Swal.fire({
         icon: "error",
@@ -681,9 +583,6 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // VIEW USER (NEW FUNCTION)
-  // ============================================
   const handleView = (user) => {
     setViewUserData({
       ...user,
@@ -695,19 +594,12 @@ const Users = () => {
     setShowViewModal(user.id);
   };
 
-  // Toggle user status
   const handleToggleStatus = async (user) => {
     try {
       const userFormData = new FormData();
       userFormData.append("is_active", !user.is_active);
 
-      await dispatch(
-        updateUser({
-          id: user.id,
-          data: userFormData,
-        }),
-      ).unwrap();
-
+      await dispatch(updateUser({ id: user.id, data: userFormData })).unwrap();
       await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
 
       Swal.fire({
@@ -719,7 +611,6 @@ const Users = () => {
         timer: 2000,
       });
     } catch (err) {
-      console.error("Failed to toggle user status:", err);
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -729,10 +620,6 @@ const Users = () => {
       });
     }
   };
-
-  // ============================================
-  // FORM HANDLERS
-  // ============================================
 
   const resetForm = () => {
     setFormData({
@@ -744,11 +631,7 @@ const Users = () => {
       district_id: "",
       is_active: true,
     });
-    setValidationErrors({
-      first_name: "",
-      last_name: "",
-      email: "",
-    });
+    setValidationErrors({ first_name: "", last_name: "", email: "" });
     setProfilePicFile(null);
     setProfilePicPreview(null);
     setEmailExistsError("");
@@ -756,10 +639,7 @@ const Users = () => {
 
   const resetEditForm = () => {
     setEditFormData({});
-    setEditValidationErrors({
-      first_name: "",
-      last_name: "",
-    });
+    setEditValidationErrors({ first_name: "", last_name: "" });
     setEditProfilePicFile(null);
     setEditProfilePicPreview(null);
   };
@@ -767,84 +647,34 @@ const Users = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    if (name === "email") {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+    const validators = {
+      email: validateEmailField,
+      first_name: validateFirstName,
+      last_name: validateLastName
+    };
 
-      // Validate email
-      const emailError = validateEmailField(value);
-      setValidationErrors((prev) => ({
-        ...prev,
-        email: emailError,
-      }));
+    setFormData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
 
-      checkEmailExists(value);
-    } else if (name === "first_name") {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-
-      // Validate first name
-      const nameError = validateFirstName(value);
-      setValidationErrors((prev) => ({
-        ...prev,
-        first_name: nameError,
-      }));
-    } else if (name === "last_name") {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-
-      // Validate last name
-      const nameError = validateLastName(value);
-      setValidationErrors((prev) => ({
-        ...prev,
-        last_name: nameError,
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: type === "checkbox" ? checked : value,
-      }));
+    if (name in validators) {
+      const error = validators[name](value);
+      setValidationErrors(prev => ({ ...prev, [name]: error }));
+      if (name === "email" && !error) checkEmailExists(value);
     }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    if (name === "first_name") {
-      setEditFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+    setEditFormData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
 
-      // Validate first name if not empty
-      const nameError = value ? validateFirstName(value) : "";
-      setEditValidationErrors((prev) => ({
-        ...prev,
-        first_name: nameError,
-      }));
-    } else if (name === "last_name") {
-      setEditFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+    const validators = {
+      first_name: validateFirstName,
+      last_name: validateLastName
+    };
 
-      // Validate last name if not empty
-      const nameError = value ? validateLastName(value) : "";
-      setEditValidationErrors((prev) => ({
-        ...prev,
-        last_name: nameError,
-      }));
-    } else {
-      setEditFormData((prev) => ({
-        ...prev,
-        [name]: type === "checkbox" ? checked : value,
-      }));
+    if (name in validators) {
+      const error = value ? validators[name](value) : "";
+      setEditValidationErrors(prev => ({ ...prev, [name]: error }));
     }
   };
 
@@ -868,25 +698,14 @@ const Users = () => {
     });
     setEditProfilePicPreview(getProfilePicUrl(user.profile_pic_url));
     setEditProfilePicFile(null);
-    setEditValidationErrors({
-      first_name: "",
-      last_name: "",
-    });
+    setEditValidationErrors({ first_name: "", last_name: "" });
   };
 
-  // Filter active shops and districts
-  const getAvailableShops = () => {
-    return shops.filter((shop) => shop.is_active);
-  };
+  const getAvailableShops = () => shops.filter((shop) => shop.is_active);
+  const getAvailableDistricts = () => districts.filter((district) => district.is_active);
 
-  const getAvailableDistricts = () => {
-    return districts.filter((district) => district.is_active);
-  };
-
-  // Check if current user is brand_admin
   const isBrandAdmin = currentUser?.role === "brand_admin";
 
-  // Show skeleton during initial load
   if (isInitialLoad && (localLoading || loading)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
@@ -897,19 +716,8 @@ const Users = () => {
     );
   }
 
-  // ============================================
-  // RENDER
-  // ============================================
-
-  // Debug: Log the current state
-  console.log("Rendering with users:", users);
-  console.log("Users length:", users?.length);
-  console.log("Current user role:", currentUser?.role);
-  console.log("Is brand admin:", isBrandAdmin);
-
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      {/* Create User Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">Brand Users</h2>
@@ -922,60 +730,35 @@ const Users = () => {
             setShowCreateForm(!showCreateForm);
             setFormError("");
             setEmailExistsError("");
-            setValidationErrors({
-              first_name: "",
-              last_name: "",
-              email: "",
-            });
+            setValidationErrors({ first_name: "", last_name: "", email: "" });
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
-          <svg
-            className="w-5 h-5 mr-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
           {showCreateForm ? "Cancel" : "New User"}
         </button>
       </div>
 
-      {/* Create User Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-blue-600 mb-4">
-            Create New User
-          </h2>
+          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New User</h2>
 
-          {formError && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-              {formError}
-            </div>
-          )}
-
-          {formSuccess && (
-            <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-              {formSuccess}
+          {(formError || formSuccess) && (
+            <div className={`mb-4 p-3 rounded-lg ${formError ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
+              {formError || formSuccess}
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Left Column: Profile Picture */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-700">Profile Picture</h3>
 
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> A random password will be
-                    auto-generated and sent to the user's email.
+                    <strong>Note:</strong> A random password will be auto-generated and sent to the user's email.
                   </p>
                 </div>
 
@@ -1028,13 +811,9 @@ const Users = () => {
                 </div>
               </div>
 
-              {/* Middle and Right Columns: User Info */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Basic Information */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">
-                    Basic Information
-                  </h3>
+                  <h3 className="font-semibold text-gray-700">Basic Information</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -1047,17 +826,13 @@ const Users = () => {
                         value={formData.first_name}
                         onChange={handleInputChange}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          validationErrors.first_name
-                            ? "border-red-500 bg-red-50"
-                            : "border-gray-300"
+                          validationErrors.first_name ? "border-red-500 bg-red-50" : "border-gray-300"
                         }`}
                         placeholder="First name"
                         required
                       />
                       {validationErrors.first_name && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {validationErrors.first_name}
-                        </p>
+                        <p className="mt-1 text-sm text-red-600">{validationErrors.first_name}</p>
                       )}
                     </div>
 
@@ -1071,17 +846,13 @@ const Users = () => {
                         value={formData.last_name}
                         onChange={handleInputChange}
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          validationErrors.last_name
-                            ? "border-red-500 bg-red-50"
-                            : "border-gray-300"
+                          validationErrors.last_name ? "border-red-500 bg-red-50" : "border-gray-300"
                         }`}
                         placeholder="Last name"
                         required
                       />
                       {validationErrors.last_name && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {validationErrors.last_name}
-                        </p>
+                        <p className="mt-1 text-sm text-red-600">{validationErrors.last_name}</p>
                       )}
                     </div>
                   </div>
@@ -1096,31 +867,21 @@ const Users = () => {
                       value={formData.email}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        validationErrors.email || emailExistsError
-                          ? "border-red-500 bg-red-50"
-                          : "border-gray-300"
+                        validationErrors.email || emailExistsError ? "border-red-500 bg-red-50" : "border-gray-300"
                       }`}
                       placeholder="user@example.com"
                       required
                     />
-                    {validationErrors.email && (
+                    {(validationErrors.email || emailExistsError) && (
                       <p className="mt-1 text-sm text-red-600">
-                        {validationErrors.email}
-                      </p>
-                    )}
-                    {!validationErrors.email && emailExistsError && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {emailExistsError}
+                        {validationErrors.email || emailExistsError}
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* Role and Assignments */}
                 <div className="space-y-4 border-t pt-6">
-                  <h3 className="font-semibold text-gray-700">
-                    Role & Assignments
-                  </h3>
+                  <h3 className="font-semibold text-gray-700">Role & Assignments</h3>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1134,17 +895,13 @@ const Users = () => {
                       required
                     >
                       {roles.map((role) => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
+                        <option key={role.value} value={role.value}>{role.label}</option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assign Shop
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assign Shop</label>
                     <select
                       name="shop_id"
                       value={formData.shop_id}
@@ -1161,9 +918,7 @@ const Users = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assign District
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assign District</label>
                     <select
                       name="district_id"
                       value={formData.district_id}
@@ -1173,8 +928,7 @@ const Users = () => {
                       <option value="">None (No district assigned)</option>
                       {getAvailableDistricts().map((district) => (
                         <option key={district.id} value={district.id}>
-                          {district.name}{" "}
-                          {district.is_active ? "" : "(Inactive)"}
+                          {district.name} {district.is_active ? "" : "(Inactive)"}
                         </option>
                       ))}
                     </select>
@@ -1188,9 +942,7 @@ const Users = () => {
                       onChange={handleInputChange}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-sm font-medium text-gray-700">
-                      Active
-                    </span>
+                    <span className="text-sm font-medium text-gray-700">Active</span>
                   </label>
                 </div>
               </div>
@@ -1199,19 +951,9 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={
-                  !!emailExistsError ||
-                  !!validationErrors.first_name ||
-                  !!validationErrors.last_name ||
-                  !!validationErrors.email ||
-                  isSubmitting
-                }
+                disabled={!!emailExistsError || !!validationErrors.first_name || !!validationErrors.last_name || !!validationErrors.email || isSubmitting}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  emailExistsError ||
-                  validationErrors.first_name ||
-                  validationErrors.last_name ||
-                  validationErrors.email ||
-                  isSubmitting
+                  emailExistsError || validationErrors.first_name || validationErrors.last_name || validationErrors.email || isSubmitting
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700 text-white"
                 }`}
@@ -1223,7 +965,6 @@ const Users = () => {
         </div>
       )}
 
-      {/* Users Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {(localLoading || loading) && !isInitialLoad ? (
           <div className="py-12 text-center">
@@ -1232,39 +973,22 @@ const Users = () => {
           </div>
         ) : error ? (
           <div className="py-12 text-center">
-            <p className="text-red-600 mb-4">
-              {typeof error === "string" ? error : "Failed to load users"}
-            </p>
-            <button
-              onClick={fetchData}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
+            <p className="text-red-600 mb-4">{typeof error === "string" ? error : "Failed to load users"}</p>
+            <button onClick={fetchData} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
               Retry
             </button>
           </div>
-        ) : users && users.length > 0 ? (
+        ) : users?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Assigned Shop
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Assigned District
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Shop</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned District</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -1277,18 +1001,12 @@ const Users = () => {
                             src={getProfilePicUrl(userItem.profile_pic_url)}
                             alt={`${userItem.first_name} ${userItem.last_name}`}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = DEFAULT_PROFILE_PIC;
-                            }}
+                            onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
                           />
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {userItem.first_name} {userItem.last_name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {userItem.email}
-                          </div>
+                          <div className="text-sm font-medium text-gray-900">{userItem.first_name} {userItem.last_name}</div>
+                          <div className="text-xs text-gray-500">{userItem.email}</div>
                         </div>
                       </div>
                     </td>
@@ -1298,58 +1016,29 @@ const Users = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {userItem.shop_id ? (
-                        getShopName(userItem.shop_id)
-                      ) : (
-                        <span className="text-gray-400 italic">None</span>
-                      )}
+                      {userItem.shop_id ? getShopName(userItem.shop_id) : <span className="text-gray-400 italic">None</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {userItem.district_id ? (
-                        getDistrictName(userItem.district_id)
-                      ) : (
-                        <span className="text-gray-400 italic">None</span>
-                      )}
+                      {userItem.district_id ? getDistrictName(userItem.district_id) : <span className="text-gray-400 italic">None</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          userItem.is_active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
+                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        userItem.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                      }`}>
                         {userItem.is_active ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    {/* In the Actions column, replace the existing buttons with this: */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
-                        {/* If user is brand_admin, show View button, otherwise show Edit button */}
                         {userItem.role === "brand_admin" ? (
                           <button
                             onClick={() => handleView(userItem)}
                             className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm flex items-center"
                             title="View User Details"
                           >
-                            <svg
-                              className="w-4 h-4 mr-1"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                              />
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                             View
                           </button>
@@ -1361,7 +1050,6 @@ const Users = () => {
                             Edit
                           </button>
                         )}
-
                         <button
                           onClick={() => handleToggleStatus(userItem)}
                           className={`px-3 py-1 rounded text-sm ${
@@ -1381,56 +1069,32 @@ const Users = () => {
           </div>
         ) : (
           <div className="py-12 text-center">
-            <img
-              src={DEFAULT_PROFILE_PIC}
-              alt="No users"
-              className="w-16 h-16 mx-auto mb-4 opacity-50 rounded-full"
-            />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No Users Found
-            </h3>
-            <p className="text-gray-500 mb-4">
-              Create your first user to get started
-            </p>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-            >
+            <img src={DEFAULT_PROFILE_PIC} alt="No users" className="w-16 h-16 mx-auto mb-4 opacity-50 rounded-full" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Users Found</h3>
+            <p className="text-gray-500 mb-4">Create your first user to get started</p>
+            <button onClick={() => setShowCreateForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
               Create First User
             </button>
           </div>
         )}
       </div>
 
-      {/* Edit User Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-blue-600 mb-4">
-                Edit User
-              </h2>
+              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit User</h2>
 
-              {formError && (
-                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-                  {formError}
-                </div>
-              )}
-
-              {formSuccess && (
-                <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-                  {formSuccess}
+              {(formError || formSuccess) && (
+                <div className={`mb-4 p-3 rounded-lg ${formError ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
+                  {formError || formSuccess}
                 </div>
               )}
 
               <form onSubmit={handleEditSubmit}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* Left Column: Profile Picture */}
                   <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-700">
-                      Profile Picture
-                    </h3>
-
+                    <h3 className="font-semibold text-gray-700">Profile Picture</h3>
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                       {editProfilePicPreview ? (
                         <div className="space-y-2">
@@ -1443,9 +1107,7 @@ const Users = () => {
                             type="button"
                             onClick={() => {
                               setEditProfilePicFile(null);
-                              setEditProfilePicPreview(
-                                editFormData.profile_pic,
-                              );
+                              setEditProfilePicPreview(editFormData.profile_pic);
                             }}
                             className="text-sm text-red-600 hover:text-red-700"
                           >
@@ -1454,16 +1116,8 @@ const Users = () => {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <img
-                            src={
-                              editFormData.profile_pic || DEFAULT_PROFILE_PIC
-                            }
-                            alt="Profile"
-                            className="w-32 h-32 rounded-full mx-auto object-cover"
-                          />
-                          <p className="text-sm text-gray-500">
-                            Current profile picture
-                          </p>
+                          <img src={editFormData.profile_pic || DEFAULT_PROFILE_PIC} alt="Profile" className="w-32 h-32 rounded-full mx-auto object-cover" />
+                          <p className="text-sm text-gray-500">Current profile picture</p>
                         </div>
                       )}
                       <label className="block mt-4">
@@ -1478,72 +1132,52 @@ const Users = () => {
                           name="profile_pic"
                         />
                       </label>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP
-                      </p>
+                      <p className="text-xs text-gray-500 mt-2">Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP</p>
                     </div>
                   </div>
 
-                  {/* Middle and Right Columns: User Info */}
                   <div className="lg:col-span-2 space-y-6">
-                    {/* Basic Information */}
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-700">
-                        Basic Information
-                      </h3>
+                      <h3 className="font-semibold text-gray-700">Basic Information</h3>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            First Name
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                           <input
                             type="text"
                             name="first_name"
                             value={editFormData.first_name || ""}
                             onChange={handleEditInputChange}
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                              editValidationErrors.first_name
-                                ? "border-red-500 bg-red-50"
-                                : "border-gray-300"
+                              editValidationErrors.first_name ? "border-red-500 bg-red-50" : "border-gray-300"
                             }`}
                             placeholder="First name"
                           />
                           {editValidationErrors.first_name && (
-                            <p className="mt-1 text-sm text-red-600">
-                              {editValidationErrors.first_name}
-                            </p>
+                            <p className="mt-1 text-sm text-red-600">{editValidationErrors.first_name}</p>
                           )}
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Last Name
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                           <input
                             type="text"
                             name="last_name"
                             value={editFormData.last_name || ""}
                             onChange={handleEditInputChange}
                             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                              editValidationErrors.last_name
-                                ? "border-red-500 bg-red-50"
-                                : "border-gray-300"
+                              editValidationErrors.last_name ? "border-red-500 bg-red-50" : "border-gray-300"
                             }`}
                             placeholder="Last name"
                           />
                           {editValidationErrors.last_name && (
-                            <p className="mt-1 text-sm text-red-600">
-                              {editValidationErrors.last_name}
-                            </p>
+                            <p className="mt-1 text-sm text-red-600">{editValidationErrors.last_name}</p>
                           )}
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                         <input
                           type="email"
                           name="email"
@@ -1551,22 +1185,15 @@ const Users = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
                           readOnly
                         />
-                        <p className="mt-1 text-xs text-gray-500">
-                          Email cannot be changed
-                        </p>
+                        <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
                       </div>
                     </div>
 
-                    {/* Role and Assignments */}
                     <div className="space-y-4 border-t pt-6">
-                      <h3 className="font-semibold text-gray-700">
-                        Role & Assignments
-                      </h3>
+                      <h3 className="font-semibold text-gray-700">Role & Assignments</h3>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Role
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                         <select
                           name="role"
                           value={editFormData.role || "user"}
@@ -1574,17 +1201,13 @@ const Users = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           {roles.map((role) => (
-                            <option key={role.value} value={role.value}>
-                              {role.label}
-                            </option>
+                            <option key={role.value} value={role.value}>{role.label}</option>
                           ))}
                         </select>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Assign Shop
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Assign Shop</label>
                         <select
                           name="shop_id"
                           value={editFormData.shop_id || ""}
@@ -1601,9 +1224,7 @@ const Users = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Assign District
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Assign District</label>
                         <select
                           name="district_id"
                           value={editFormData.district_id || ""}
@@ -1613,8 +1234,7 @@ const Users = () => {
                           <option value="">None (No district assigned)</option>
                           {getAvailableDistricts().map((district) => (
                             <option key={district.id} value={district.id}>
-                              {district.name}{" "}
-                              {district.is_active ? "" : "(Inactive)"}
+                              {district.name} {district.is_active ? "" : "(Inactive)"}
                             </option>
                           ))}
                         </select>
@@ -1628,9 +1248,7 @@ const Users = () => {
                           onChange={handleEditInputChange}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="text-sm font-medium text-gray-700">
-                          Active
-                        </span>
+                        <span className="text-sm font-medium text-gray-700">Active</span>
                       </label>
                     </div>
                   </div>
@@ -1646,13 +1264,9 @@ const Users = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={
-                      !!editValidationErrors.first_name ||
-                      !!editValidationErrors.last_name
-                    }
+                    disabled={!!editValidationErrors.first_name || !!editValidationErrors.last_name}
                     className={`px-4 py-2 rounded-lg font-medium ${
-                      editValidationErrors.first_name ||
-                      editValidationErrors.last_name
+                      editValidationErrors.first_name || editValidationErrors.last_name
                         ? "bg-gray-400 cursor-not-allowed"
                         : "bg-blue-600 hover:bg-blue-700 text-white"
                     }`}
@@ -1666,15 +1280,12 @@ const Users = () => {
         </div>
       )}
 
-      {/* View User Modal (for brand_admin) */}
       {showViewModal && viewUserData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-blue-600">
-                  User Details
-                </h2>
+                <h2 className="text-xl font-bold text-blue-600">User Details</h2>
                 <button
                   onClick={() => {
                     setShowViewModal(null);
@@ -1682,60 +1293,36 @@ const Users = () => {
                   }}
                   className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
               <div className="space-y-6">
-                {/* Profile Picture */}
                 <div className="flex justify-center">
                   <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-blue-100">
                     <img
                       src={viewUserData.profile_pic}
                       alt={`${viewUserData.first_name} ${viewUserData.last_name}`}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = DEFAULT_PROFILE_PIC;
-                      }}
+                      onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
                     />
                   </div>
                 </div>
 
-                {/* User Information Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">
-                        First Name
-                      </label>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {viewUserData.first_name}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">First Name</label>
+                      <p className="text-lg font-semibold text-gray-900">{viewUserData.first_name}</p>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">
-                        Email
-                      </label>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
                       <p className="text-gray-900">{viewUserData.email}</p>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">
-                        Role
-                      </label>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Role</label>
                       <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded">
                         {viewUserData.role_label}
                       </span>
@@ -1744,62 +1331,37 @@ const Users = () => {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">
-                        Last Name
-                      </label>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {viewUserData.last_name}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Last Name</label>
+                      <p className="text-lg font-semibold text-gray-900">{viewUserData.last_name}</p>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">
-                        Assigned Shop
-                      </label>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Assigned Shop</label>
                       <p className="text-gray-900">{viewUserData.shop_name}</p>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">
-                        Assigned District
-                      </label>
-                      <p className="text-gray-900">
-                        {viewUserData.district_name}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Assigned District</label>
+                      <p className="text-gray-900">{viewUserData.district_name}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Status */}
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-gray-500">
-                      Account Status
-                    </label>
-                    <span
-                      className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-                        viewUserData.is_active
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
+                    <label className="text-sm font-medium text-gray-500">Account Status</label>
+                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
+                      viewUserData.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                    }`}>
                       {viewUserData.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
                 </div>
 
-                {/* Account Info */}
                 <div className="border-t pt-4">
                   <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
-                    <div>
-                      <span className="font-medium">User ID:</span>{" "}
-                      {viewUserData.id}
-                    </div>
+                    <div><span className="font-medium">User ID:</span> {viewUserData.id}</div>
                     <div>
                       <span className="font-medium">Created:</span>{" "}
-                      {viewUserData.created_at
-                        ? new Date(viewUserData.created_at).toLocaleDateString()
-                        : "N/A"}
+                      {viewUserData.created_at ? new Date(viewUserData.created_at).toLocaleDateString() : "N/A"}
                     </div>
                   </div>
                 </div>
