@@ -4,13 +4,11 @@ import {
   selectAllBrands,
   getAllBrands
 } from '../../redux/slice/brandSlice';
-
 import {
   selectVideos,
   getAllVideos,
   getVideosByBrand,
 } from '../../redux/slice/videoSlice';
-
 import {
   selectEditDetailsList,
   selectVideoEditLoading,
@@ -117,10 +115,8 @@ const Analytics = () => {
     fetchData();
   }, []);
 
-  // Load brand-specific data for ALL brands once main data is ready
   useEffect(() => {
-    if (brands && brands.length > 0 && isDataReady) {
-      console.log('Loading brand-specific data for all brands:', brands.length);
+    if (brands?.length && isDataReady) {
       loadAllBrandData();
     }
   }, [brands, isDataReady]);
@@ -129,83 +125,61 @@ const Analytics = () => {
     setLocalLoading(true);
     setIsInitialLoad(true);
     try {
-      console.log('Fetching initial data...');
       await dispatch(getAllBrands()).unwrap();
       await dispatch(getAllVideos()).unwrap();
       await dispatch(getAllEditDetails()).unwrap();
-      
-      console.log('Initial data fetched successfully');
-      console.log('Total edit details:', editDetailsList?.length);
       
       setTimeout(() => {
         setIsInitialLoad(false);
         setIsDataReady(true);
       }, 300);
-      
-    } catch (error) {
-      console.error('Error fetching analytics data:', error);
+    } catch {
       setIsInitialLoad(false);
     } finally {
       setLocalLoading(false);
     }
   };
 
-  // Load all brand-specific data in parallel
   const loadAllBrandData = async () => {
     const promises = [];
     
     brands.forEach(brand => {
-      // Load videos for each brand
       promises.push(
         dispatch(getVideosByBrand(brand.id))
           .unwrap()
           .then(result => {
             const videosData = Array.isArray(result) ? result : [];
             setBrandVideos(prev => ({ ...prev, [brand.id]: videosData }));
-            console.log(`Loaded ${videosData.length} videos for brand ${brand.id} (${brand.name})`);
           })
-          .catch(error => {
-            console.error(`Error fetching videos for brand ${brand.id}:`, error);
+          .catch(() => {
             setBrandVideos(prev => ({ ...prev, [brand.id]: [] }));
           })
       );
       
-      // Load edits for each brand - THIS IS THE KEY PART FOR MANUAL CORRECTIONS
       promises.push(
         dispatch(getEditDetailsByBrand(brand.id))
           .unwrap()
           .then(result => {
             const editsData = Array.isArray(result) ? result : [];
             setBrandEdits(prev => ({ ...prev, [brand.id]: editsData }));
-            console.log(`Loaded ${editsData.length} edits for brand ${brand.id} (${brand.name}):`, editsData);
           })
-          .catch(error => {
-            console.error(`Error fetching edits for brand ${brand.id}:`, error);
+          .catch(() => {
             setBrandEdits(prev => ({ ...prev, [brand.id]: [] }));
           })
       );
     });
     
-    // Wait for all promises to complete
     await Promise.allSettled(promises);
-    console.log('All brand-specific data loaded');
-    console.log('Final brandEdits state:', brandEdits);
   };
 
-  // Fetch brand-specific videos
   const fetchBrandVideos = async (brandId) => {
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
-      console.log(`Fetching videos for brand ${brandId}...`);
       const result = await dispatch(getVideosByBrand(brandId)).unwrap();
-      
       const videosData = Array.isArray(result) ? result : [];
-      console.log(`Received ${videosData.length} videos for brand ${brandId}`);
-      
       setBrandVideos(prev => ({ ...prev, [brandId]: videosData }));
       return videosData;
-    } catch (error) {
-      console.error(`Error fetching videos for brand ${brandId}:`, error);
+    } catch {
       setBrandVideos(prev => ({ ...prev, [brandId]: [] }));
       return [];
     } finally {
@@ -213,21 +187,14 @@ const Analytics = () => {
     }
   };
 
-  // Fetch brand-specific edit details
   const fetchBrandEdits = async (brandId) => {
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
-      console.log(`Fetching edits for brand ${brandId}...`);
       const result = await dispatch(getEditDetailsByBrand(brandId)).unwrap();
-      
       const editsData = Array.isArray(result) ? result : [];
-      
-      console.log(`Received ${editsData.length} edits for brand ${brandId}:`, editsData);
-      
       setBrandEdits(prev => ({ ...prev, [brandId]: editsData }));
       return editsData;
-    } catch (error) {
-      console.error(`Error fetching edits for brand ${brandId}:`, error);
+    } catch {
       setBrandEdits(prev => ({ ...prev, [brandId]: [] }));
       return [];
     } finally {
@@ -238,42 +205,32 @@ const Analytics = () => {
   const handleViewBrandAnalytics = async (brandId) => {
     setShowBrandAnalyticsModal(brandId);
     
-    // Refresh data if needed
-    if (!brandVideos[brandId] || brandVideos[brandId].length === 0) {
-      await fetchBrandVideos(brandId);
-    }
-    if (!brandEdits[brandId] || brandEdits[brandId].length === 0) {
-      await fetchBrandEdits(brandId);
-    }
+    if (!brandVideos[brandId]?.length) await fetchBrandVideos(brandId);
+    if (!brandEdits[brandId]?.length) await fetchBrandEdits(brandId);
   };
 
-  // Handle view all feedback for brand
   const handleViewAllFeedback = (brandId) => {
     setSelectedBrandForFeedback(brandId);
     setShowAllFeedbackModal(true);
   };
 
-  // Handle view individual feedback details
   const handleViewFeedback = (edit) => {
     setSelectedFeedback(edit);
     setShowFeedbackModal(true);
   };
 
-  // Helper function to get brand logo with fallback
   const getBrandLogo = (brandId) => {
-    if (!brands || !Array.isArray(brands)) return DEFAULT_BRAND_LOGO;
+    if (!brands?.length) return DEFAULT_BRAND_LOGO;
     const brand = brands.find(b => String(b.id) === String(brandId));
     return brand?.logo_url?.trim() ? brand.logo_url : DEFAULT_BRAND_LOGO;
   };
 
-  // Get brand name by ID
   const getBrandName = (brandId) => {
-    if (!brands || !Array.isArray(brands)) return 'Unknown Brand';
+    if (!brands?.length) return 'Unknown Brand';
     const brand = brands.find(b => String(b.id) === String(brandId));
     return brand?.name || 'Unknown Brand';
   };
 
-  // Calculate overall stats for super admin
   const totalAIVideoRequests = videos?.length || 0;
   const totalManualCorrections = editDetailsList?.length || 0;
   
@@ -289,15 +246,12 @@ const Analytics = () => {
     ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(2) 
     : 0;
 
-  // Get brand-specific stats for main table - FIXED VERSION
   const getBrandStats = (brandId) => {
-    // Get brand-specific data
     const brandSpecificVideos = brandVideos[brandId] || [];
     const brandSpecificEdits = brandEdits[brandId] || [];
     
-    // Also try to get edits from the global list that belong to this brand's videos
     let additionalEdits = [];
-    if (brandSpecificVideos.length > 0) {
+    if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
       additionalEdits = editDetailsList?.filter(edit => 
         edit.video_id && videoIds.includes(edit.video_id) && 
@@ -305,10 +259,8 @@ const Analytics = () => {
       ) || [];
     }
     
-    // Combine both sources of edits
     const allBrandEdits = [...brandSpecificEdits, ...additionalEdits];
     
-    // Remove duplicates based on edit_id or id
     const uniqueEdits = allBrandEdits.filter((edit, index, self) => 
       index === self.findIndex(e => 
         (e.edit_id && e.edit_id === edit.edit_id) || 
@@ -318,34 +270,16 @@ const Analytics = () => {
     
     const brandVideoCount = brandSpecificVideos.length;
     const brandManualCorrections = uniqueEdits.length;
-    
-    // Log for debugging
-    if (brandManualCorrections > 0) {
-      console.log(`Brand ${brandId} has ${brandManualCorrections} total edits:`, {
-        fromBrandApi: brandSpecificEdits.length,
-        fromGlobal: additionalEdits.length,
-        unique: uniqueEdits.length
-      });
-    }
-    
     const brandSuccess = brandVideoCount > brandManualCorrections 
       ? brandVideoCount - brandManualCorrections 
       : 0;
     
-    const brandSuccessRate = brandVideoCount > 0 
-      ? ((brandSuccess / brandVideoCount) * 100).toFixed(2) 
-      : 0;
-    
-    const brandErrorRate = brandVideoCount > 0 
-      ? ((brandManualCorrections / brandVideoCount) * 100).toFixed(2) 
-      : 0;
-
     return {
       totalVideos: brandVideoCount,
       manualCorrections: brandManualCorrections,
       successCount: brandSuccess,
-      successRate: brandSuccessRate,
-      errorRate: brandErrorRate,
+      successRate: brandVideoCount > 0 ? ((brandSuccess / brandVideoCount) * 100).toFixed(2) : 0,
+      errorRate: brandVideoCount > 0 ? ((brandManualCorrections / brandVideoCount) * 100).toFixed(2) : 0,
       completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
       processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
       pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
@@ -353,14 +287,12 @@ const Analytics = () => {
     };
   };
 
-  // Get detailed brand stats for modal
   const getBrandDetailedStats = (brandId) => {
     const brandSpecificVideos = brandVideos[brandId] || [];
     const brandSpecificEdits = brandEdits[brandId] || [];
     
-    // Also get edits from global list that belong to this brand's videos
     let additionalEdits = [];
-    if (brandSpecificVideos.length > 0) {
+    if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
       additionalEdits = editDetailsList?.filter(edit => 
         edit.video_id && videoIds.includes(edit.video_id) && 
@@ -368,29 +300,18 @@ const Analytics = () => {
       ) || [];
     }
     
-    // Combine both sources
     const allEdits = [...brandSpecificEdits, ...additionalEdits];
-    
-    console.log(`Detailed stats for brand ${brandId}:`, {
-      videos: brandSpecificVideos.length,
-      editsFromBrandApi: brandSpecificEdits.length,
-      editsFromGlobal: additionalEdits.length,
-      totalEdits: allEdits.length
-    });
     
     const totalVideos = brandSpecificVideos.length;
     const manualCorrections = allEdits.length;
     const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
     
-    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0;
-    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0;
-    
     return {
       totalVideos,
       manualCorrections,
       successCount,
-      successRate,
-      errorRate,
+      successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0,
+      errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0,
       completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
       processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
       pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
@@ -400,7 +321,6 @@ const Analytics = () => {
     };
   };
 
-  // Show skeleton during initial load
   if (isInitialLoad || (localLoading && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
@@ -412,9 +332,7 @@ const Analytics = () => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
-      {/* Stats Cards - SUPER ADMIN LEVEL */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {/* Total AI Video Requests Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -434,7 +352,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* AI Success Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -454,7 +371,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* AI Error Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -474,7 +390,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* Manual Corrections Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -495,14 +410,13 @@ const Analytics = () => {
         </div>
       </div>
 
-      {/* Companies Performance Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="p-6 border-b">
           <h2 className="text-xl font-bold text-gray-800">Companies Performance</h2>
           <p className="text-gray-600">AI video requests and manual corrections by company</p>
         </div>
         
-        {brands && brands.length > 0 ? (
+        {brands?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -537,9 +451,7 @@ const Analytics = () => {
                               src={getBrandLogo(brand.id)}
                               alt={brand.name}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = DEFAULT_BRAND_LOGO;
-                              }}
+                              onError={(e) => { e.target.src = DEFAULT_BRAND_LOGO; }}
                             />
                           </div>
                           <div>
@@ -618,11 +530,9 @@ const Analytics = () => {
         )}
       </div>
 
-      {/* Brand Analytics Modal */}
       {showBrandAnalyticsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100">
@@ -630,9 +540,7 @@ const Analytics = () => {
                     src={getBrandLogo(showBrandAnalyticsModal)}
                     alt={getBrandName(showBrandAnalyticsModal)}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = DEFAULT_BRAND_LOGO;
-                    }}
+                    onError={(e) => { e.target.src = DEFAULT_BRAND_LOGO; }}
                   />
                 </div>
                 <div>
@@ -641,9 +549,7 @@ const Analytics = () => {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  setShowBrandAnalyticsModal(null);
-                }}
+                onClick={() => setShowBrandAnalyticsModal(null)}
                 className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -652,7 +558,6 @@ const Analytics = () => {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-6">
               {loadingBrandData[showBrandAnalyticsModal] ? (
                 <div className="flex justify-center items-center h-64">
@@ -664,7 +569,6 @@ const Analytics = () => {
                   
                   return (
                     <>
-                      {/* Video Processing Stats */}
                       <div className="mb-8">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -695,7 +599,6 @@ const Analytics = () => {
                         </div>
                       </div>
 
-                      {/* AI Performance Stats */}
                       <div className="mb-8">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -765,8 +668,7 @@ const Analytics = () => {
                         </div>
                       </div>
 
-                      {/* Manual Corrections List with Feedback */}
-                      {stats.brandEdits && stats.brandEdits.length > 0 ? (
+                      {stats.brandEdits?.length > 0 ? (
                         <div className="bg-white border rounded-lg p-6">
                           <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-gray-800">Manual Correction Feedback</h3>
@@ -836,7 +738,6 @@ const Analytics = () => {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
               <button
                 onClick={() => setShowBrandAnalyticsModal(null)}
@@ -849,7 +750,6 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* All Feedback Modal - SHOW ALL FEEDBACK ITEMS */}
       {showAllFeedbackModal && selectedBrandForFeedback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
@@ -917,7 +817,6 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* Individual Feedback Detail Modal - SHOW ONLY FEEDBACK REASON */}
       {showFeedbackModal && selectedFeedback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
