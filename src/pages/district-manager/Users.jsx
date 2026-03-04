@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { 
   getDistrictUsers,
   createUser,
@@ -19,7 +20,7 @@ import Swal from 'sweetalert2';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-// Skeleton Components
+// Skeleton Components (keep all your existing skeleton components)
 const TableRowSkeleton = () => (
   <tr className="hover:bg-gray-50">
     <td className="px-6 py-4 whitespace-nowrap">
@@ -78,6 +79,10 @@ const TableSkeleton = () => (
 
 const Users = () => {
   const dispatch = useDispatch();
+  const { districtId } = useParams(); // Get districtId from URL for brand admin mode
+  const [searchParams] = useSearchParams();
+  const userId = searchParams.get("userId"); // For district manager mode
+  
   const currentUser = useSelector(state => state.user.currentUser);
   const brandId = currentUser?.brand_id;
   const userDistrictId = currentUser?.district_id;
@@ -110,7 +115,7 @@ const Users = () => {
   // View data state
   const [viewData, setViewData] = useState({});
   
-  // Form states - NO DISTRICT FIELD
+  // Form states
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -162,21 +167,46 @@ const Users = () => {
   // Check if current user is district manager
   const isDistrictManager = currentUser?.role === 'district_manager';
 
-  // Get current district name for display
-  const currentDistrict = districts.find(d => d.id === userDistrictId);
+  // Get current district info
+  const getCurrentDistrictInfo = () => {
+    if (districtId) {
+      // Brand admin mode - get from localStorage or districts list
+      const selectedDistrict = localStorage.getItem('selectedDistrict');
+      if (selectedDistrict) {
+        return JSON.parse(selectedDistrict);
+      }
+      return districts.find(d => d.id === parseInt(districtId));
+    } else if (userId) {
+      // District manager mode - use user's district
+      return districts.find(d => d.id === userDistrictId);
+    }
+    return null;
+  };
+
+  const currentDistrict = getCurrentDistrictInfo();
 
   // ============================================
-  // FILTER USERS - REMOVE BRAND ADMIN
+  // FILTER USERS - REMOVE BRAND ADMIN AND FILTER BY DISTRICT
   // ============================================
   const filteredUsers = React.useMemo(() => {
     if (!users || users.length === 0) return [];
     
-    // Filter out users with role 'brand_admin'
-    return users.filter(user => user.role !== 'brand_admin');
-  }, [users]);
+    // First filter out users with role 'brand_admin'
+    let filtered = users.filter(user => user.role !== 'brand_admin');
+    
+    // Then filter by district if we have a district context
+    if (currentDistrict?.id) {
+      filtered = filtered.filter(user => user.district_id === currentDistrict.id);
+    } else if (userDistrictId) {
+      // District manager mode
+      filtered = filtered.filter(user => user.district_id === userDistrictId);
+    }
+    
+    return filtered;
+  }, [users, currentDistrict, userDistrictId]);
 
   // ============================================
-  // VALIDATION FUNCTIONS
+  // VALIDATION FUNCTIONS (keep your existing validation functions)
   // ============================================
 
   const validateFirstName = (firstName) => {
@@ -189,7 +219,6 @@ const Users = () => {
     if (firstName.trim().length > 50) {
       return 'First name must not exceed 50 characters';
     }
-    // Only allow letters and hyphens for names
     const nameRegex = /^[a-zA-Z\s\-']+$/;
     if (!nameRegex.test(firstName)) {
       return 'First name can only contain letters, spaces, hyphens, and apostrophes';
@@ -207,7 +236,6 @@ const Users = () => {
     if (lastName.trim().length > 50) {
       return 'Last name must not exceed 50 characters';
     }
-    // Only allow letters and hyphens for names
     const nameRegex = /^[a-zA-Z\s\-']+$/;
     if (!nameRegex.test(lastName)) {
       return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
@@ -220,18 +248,15 @@ const Users = () => {
       return 'Email is required';
     }
     
-    // RFC 5322 compliant email regex
     const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
     if (!emailRegex.test(email)) {
       return 'Please enter a valid email address (e.g., name@example.com)';
     }
     
-    // Check email length
     if (email.length > 254) {
       return 'Email address is too long';
     }
     
-    // Check for common typos
     if (email.includes('..')) {
       return 'Email cannot contain consecutive dots';
     }
@@ -260,7 +285,7 @@ const Users = () => {
     if (!allowedTypes.includes(file.type)) {
       return 'Please upload a valid image file (JPEG, PNG, GIF, or WEBP)';
     }
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+    if (file.size > 5 * 1024 * 1024) {
       return 'File size must not exceed 5MB';
     }
     return '';
@@ -274,7 +299,7 @@ const Users = () => {
     if (currentUser?.brand_id) {
       fetchData();
     }
-  }, [dispatch, currentUser?.brand_id]);
+  }, [dispatch, currentUser?.brand_id, districtId, userId]);
 
   // Handle loading completion
   useEffect(() => {
@@ -292,9 +317,27 @@ const Users = () => {
     setIsDataReady(false);
     
     try {
-      console.log('Fetching district users for district ID:', currentUser.district_id);
-      const result = await dispatch(getDistrictUsers(currentUser.district_id)).unwrap();
-      console.log('Fetch result:', result);
+      // Determine which district ID to use
+      let targetDistrictId = null;
+      
+      if (districtId) {
+        // Brand admin mode - use districtId from URL
+        targetDistrictId = districtId;
+      } else if (userId) {
+        // District manager mode - use current user's district
+        targetDistrictId = currentUser?.district_id;
+      } else {
+        // Fallback to current user's district
+        targetDistrictId = currentUser?.district_id;
+      }
+      
+      if (targetDistrictId) {
+        console.log('Fetching district users for district ID:', targetDistrictId);
+        const result = await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
+        console.log('Fetch result:', result);
+      } else {
+        console.log('No district ID available');
+      }
       
       await dispatch(getShopsByBrand(currentUser.brand_id));
       await dispatch(getDistrictsByBrand(currentUser.brand_id));
@@ -317,7 +360,6 @@ const Users = () => {
   // HELPER FUNCTIONS
   // ============================================
 
-  // Generate random password
   const generateRandomPassword = () => {
     const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -338,18 +380,16 @@ const Users = () => {
     return password.split('').sort(() => Math.random() - 0.5).join('');
   };
 
-  // Check if email already exists
   const checkEmailExists = (email, excludeUserId = null) => {
     if (!email) return false;
     const exists = filteredUsers.some(u => 
       u.email?.toLowerCase() === email.toLowerCase() && 
       u.id !== excludeUserId
     );
-    setEmailExistsError(exists ? 'A user with this email already exists in your brand. Please use a different email.' : '');
+    setEmailExistsError(exists ? 'A user with this email already exists in this district. Please use a different email.' : '');
     return exists;
   };
 
-  // Extract public URL from profile_pic_url
   const getProfilePicUrl = (profilePicData) => {
     if (!profilePicData) return DEFAULT_PROFILE_PIC;
     
@@ -415,7 +455,6 @@ const Users = () => {
       role: !!roleError
     });
 
-    // Check if any validation errors exist
     const hasErrors = firstNameError || lastNameError || emailError || roleError;
 
     if (hasErrors) {
@@ -435,13 +474,12 @@ const Users = () => {
       return false;
     }
 
-    // Check if email already exists
     if (checkEmailExists(formData.email)) {
       setFormError('Email already exists. Please use a different email.');
       Swal.fire({
         icon: 'error',
         title: 'Email Already Exists',
-        text: 'This email is already registered in your brand. Please use a different email address.',
+        text: 'This email is already registered in this district. Please use a different email address.',
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
@@ -460,7 +498,6 @@ const Users = () => {
     let lastNameError = '';
     let roleError = '';
 
-    // Only validate fields that have been changed
     if (editFormData.first_name !== editFormData.original_first_name) {
       firstNameError = validateFirstName(editFormData.first_name);
     }
@@ -485,7 +522,6 @@ const Users = () => {
       role: !!roleError
     });
 
-    // Check if any validation errors exist
     const hasErrors = firstNameError || lastNameError || roleError;
 
     if (hasErrors) {
@@ -523,7 +559,7 @@ const Users = () => {
         confirmButtonText: 'OK',
         confirmButtonColor: '#d33'
       });
-      e.target.value = ''; // Clear the input
+      e.target.value = '';
       return;
     }
 
@@ -541,7 +577,7 @@ const Users = () => {
   };
 
   // ============================================
-  // VIEW USER (for district manager role)
+  // VIEW USER
   // ============================================
   const handleViewUser = (user) => {
     setShowViewModal(user.id);
@@ -565,7 +601,6 @@ const Users = () => {
     setFormError('');
     setFormSuccess('');
     
-    // Validate all fields
     if (!validateCreateForm()) {
       setIsSubmitting(false);
       return;
@@ -588,9 +623,10 @@ const Users = () => {
         userFormData.append('shop_id', formData.shop_id);
       }
       
-      // Auto-assign district from current user (NO DISTRICT FIELD IN FORM)
-      if (userDistrictId) {
-        userFormData.append('district_id', userDistrictId);
+      // Auto-assign district from current context
+      const targetDistrictId = districtId || userDistrictId;
+      if (targetDistrictId) {
+        userFormData.append('district_id', targetDistrictId);
       }
       
       userFormData.append('is_active', formData.is_active);
@@ -630,7 +666,13 @@ const Users = () => {
         });
 
         resetForm();
-        await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
+        
+        // Refetch data with correct district
+        const targetDistrictId = districtId || userDistrictId;
+        if (targetDistrictId) {
+          await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
+        }
+        
         setTimeout(() => {
           setShowCreateForm(false);
         }, 100);
@@ -658,7 +700,6 @@ const Users = () => {
     setFormError('');
     setFormSuccess('');
 
-    // Validate changed fields
     if (!validateEditForm()) {
       return;
     }
@@ -690,7 +731,7 @@ const Users = () => {
         hasChanges = true;
       }
       
-      // District is NOT editable - it's auto-assigned from current user
+      // District is NOT editable - it's auto-assigned
       
       if (editFormData.is_active !== editFormData.original_is_active) {
         userFormData.append('is_active', editFormData.is_active);
@@ -718,7 +759,13 @@ const Users = () => {
         });
         
         resetEditForm();
-        await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
+        
+        // Refetch data with correct district
+        const targetDistrictId = districtId || userDistrictId;
+        if (targetDistrictId) {
+          await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
+        }
+        
         setTimeout(() => {
           setShowEditModal(null);
         }, 100);
@@ -739,7 +786,6 @@ const Users = () => {
     }
   };
 
-  // Toggle user status
   const handleToggleStatus = async (user) => {
     try {
       const userFormData = new FormData();
@@ -750,7 +796,11 @@ const Users = () => {
         data: userFormData
       })).unwrap();
 
-      await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
+      // Refetch data with correct district
+      const targetDistrictId = districtId || userDistrictId;
+      if (targetDistrictId) {
+        await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
+      }
       
       Swal.fire({
         icon: 'success',
@@ -826,7 +876,6 @@ const Users = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Real-time validation
     let error = '';
     if (name === 'first_name') {
       error = validateFirstName(value);
@@ -860,7 +909,6 @@ const Users = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Real-time validation only for changed fields
     let error = '';
     if (name === 'first_name' && value !== editFormData.original_first_name) {
       error = validateFirstName(value);
@@ -875,7 +923,6 @@ const Users = () => {
       setEditValidationErrors(prev => ({ ...prev, [name]: error }));
       setEditFormErrors(prev => ({ ...prev, [name]: !!error }));
     } else if (name === 'first_name' || name === 'last_name' || name === 'role') {
-      // Field was changed back to original value, clear errors
       setEditValidationErrors(prev => ({ ...prev, [name]: '' }));
       setEditFormErrors(prev => ({ ...prev, [name]: false }));
     }
@@ -889,7 +936,6 @@ const Users = () => {
       email: user.email || '',
       role: user.role || 'shop_manager',
       shop_id: user.shop_id || '',
-      // district_id is NOT included in edit form - it's auto-assigned
       is_active: user.is_active,
       profile_pic: getProfilePicUrl(user.profile_pic_url),
       original_first_name: user.first_name || '',
@@ -913,12 +959,10 @@ const Users = () => {
     setFormError('');
   };
 
-  // Filter active shops
   const getAvailableShops = () => {
     return shops.filter(shop => shop.is_active);
   };
 
-  // Check if edit form has any changes
   const hasEditChanges = () => {
     return (
       editFormData.first_name !== editFormData.original_first_name ||
@@ -934,7 +978,7 @@ const Users = () => {
   // RENDER
   // ============================================
 
-  // Show skeleton during initial load
+  // Show loading during initial load
   if (isInitialLoad || ((localLoading || loading) && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
@@ -955,10 +999,19 @@ const Users = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      {/* Create User Button */}
+      {/* Header with District Info */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-bold text-gray-800">Brand Users</h2>
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">
+              {currentDistrict ? `${currentDistrict.name} District Users` : 'District Users'}
+            </h2>
+            {currentDistrict && (
+              <p className="text-sm text-gray-500">
+                {currentDistrict.city}{currentDistrict.state ? `, ${currentDistrict.state}` : ''}
+              </p>
+            )}
+          </div>
           <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
             {filteredUsers?.length || 0} Users
           </span>
@@ -979,10 +1032,12 @@ const Users = () => {
         </button>
       </div>
 
-      {/* Create User Form - NO DISTRICT FIELD */}
+      {/* Create User Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6 animate-fadeIn">
-          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New User</h2>
+          <h2 className="text-xl font-bold text-blue-600 mb-4">
+            Create New User in {currentDistrict?.name || 'Your District'}
+          </h2>
           
           {formError && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
@@ -1159,11 +1214,6 @@ const Users = () => {
                     {formErrors.role && (
                       <p className="mt-1 text-xs text-red-600">{validationErrors.role}</p>
                     )}
-                    {isDistrictManager && (
-                      <p className="mt-1 text-sm text-gray-500">
-                        As a District Manager, you can only create Shop Manager and Technician roles.
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -1185,11 +1235,11 @@ const Users = () => {
                     </select>
                   </div>
 
-                  {/* District Info - Display only, no dropdown */}
-                  {userDistrictId && (
+                  {/* District Info - Display only */}
+                  {currentDistrict && (
                     <div className="bg-blue-50 p-3 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        <span className="font-medium">District:</span> {currentDistrict?.name || 'Your District'} (auto-assigned)
+                        <span className="font-medium">District:</span> {currentDistrict.name} (auto-assigned)
                       </p>
                     </div>
                   )}
@@ -1225,7 +1275,7 @@ const Users = () => {
         </div>
       )}
 
-      {/* Users Table - Filtered (No Brand Admin) */}
+      {/* Users Table - Filtered by District */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
         {error ? (
           <div className="py-12 text-center">
@@ -1357,8 +1407,10 @@ const Users = () => {
               alt="No users" 
               className="w-16 h-16 mx-auto mb-4 opacity-50 rounded-full"
             />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Users Found</h3>
-            <p className="text-gray-500 mb-4">Create your first user to get started</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No Users Found in {currentDistrict?.name || 'This District'}
+            </h3>
+            <p className="text-gray-500 mb-4">Create your first user for this district</p>
             <button
               onClick={() => setShowCreateForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -1369,7 +1421,7 @@ const Users = () => {
         )}
       </div>
 
-      {/* Edit User Modal - NO DISTRICT FIELD */}
+      {/* Edit User Modal - Keep your existing edit modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -1546,12 +1598,14 @@ const Users = () => {
                         </select>
                       </div>
 
-                      {/* District Info - Display only, no dropdown */}
-                      <div className="bg-blue-50 p-3 rounded-lg">
-                        <p className="text-sm text-blue-800">
-                          <span className="font-medium">District:</span> {currentDistrict?.name || 'Your District'} (cannot be changed)
-                        </p>
-                      </div>
+                      {/* District Info - Display only */}
+                      {currentDistrict && (
+                        <div className="bg-blue-50 p-3 rounded-lg">
+                          <p className="text-sm text-blue-800">
+                            <span className="font-medium">District:</span> {currentDistrict.name} (cannot be changed)
+                          </p>
+                        </div>
+                      )}
 
                       <label className="flex items-center space-x-2">
                         <input
@@ -1593,7 +1647,7 @@ const Users = () => {
         </div>
       )}
 
-      {/* View User Modal (for district manager role) */}
+      {/* View User Modal - Keep your existing view modal */}
       {showViewModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
