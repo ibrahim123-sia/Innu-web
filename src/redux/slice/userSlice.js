@@ -413,9 +413,10 @@ export const getBrandUsers = createAsyncThunk(
 
 export const getDistrictUsers = createAsyncThunk(
   "user/getDistrictUsers",
-  async (_, { rejectWithValue }) => {
+  async (districtId, { rejectWithValue }) => {
     try {
-      const response = await API.get("/users/district/users");
+      // Use districtId in the API call
+      const response = await API.get(`/users/users/district/${districtId}`);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
