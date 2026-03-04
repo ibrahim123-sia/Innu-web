@@ -18,141 +18,116 @@ const DistrictManagerLayout = ({ children }) => {
   // Get userId from URL if present (for brand admin viewing district manager)
   const userId = searchParams.get("userId");
   
-  // State for district and mode
+  // State for district and impersonation status
   const [selectedDistrict, setSelectedDistrict] = useState(null);
-  const [mode, setMode] = useState('district_manager'); // 'district_manager', 'brand_admin_viewing_district', 'brand_admin_viewing_manager'
+  const [isBrandAdminMode, setIsBrandAdminMode] = useState(false);
 
   useEffect(() => {
-    // Check the mode based on URL parameters
+    // Check if we're in brand admin mode (districtId in URL and no userId)
     if (districtId && !userId) {
-      // Brand admin viewing a district directly (from districts list)
-      setMode('brand_admin_viewing_district');
+      setIsBrandAdminMode(true);
+      // Load district from localStorage
       const district = localStorage.getItem('selectedDistrict');
       if (district) {
         setSelectedDistrict(JSON.parse(district));
-      } else {
-        // If no district in localStorage, clear selection
-        setSelectedDistrict(null);
       }
-    } else if (userId) {
-      // Brand admin viewing a specific district manager's page
-      setMode('brand_admin_viewing_manager');
-      setSelectedDistrict(null);
     } else {
-      // Regular district manager login
-      setMode('district_manager');
-      setSelectedDistrict(null);
-      // Clear any leftover localStorage items
-      localStorage.removeItem('selectedDistrict');
-      localStorage.removeItem('selectedShop');
-      localStorage.removeItem('isImpersonating');
+      setIsBrandAdminMode(false);
     }
   }, [districtId, userId]);
 
   const handleBackToDistricts = () => {
-    // Clear the district data
+    // Clear the impersonation data
     localStorage.removeItem('selectedDistrict');
     localStorage.removeItem('isImpersonating');
     // Navigate back to brand admin districts
     navigate('/brand-admin/districts');
   };
 
-  const handleBackToManagers = () => {
-    // Clear the manager data
-    localStorage.removeItem('isImpersonating');
-    // Navigate back to brand admin users or wherever
-    navigate('/brand-admin/users');
-  };
-
   const getHeaderTitle = () => {
-    switch(mode) {
-      case 'brand_admin_viewing_district':
-        return selectedDistrict ? `${selectedDistrict.name} District` : "District View";
-      case 'brand_admin_viewing_manager':
-        return "District Manager View";
-      default:
-        return "District Management";
+    if (isBrandAdminMode && selectedDistrict) {
+      return `${selectedDistrict.name} District`;
     }
+    return "District Management";
   };
 
   const getHeaderSubtitle = () => {
-    switch(mode) {
-      case 'brand_admin_viewing_district':
-        return selectedDistrict 
-          ? `Viewing as Brand Admin • ${selectedDistrict.city}${selectedDistrict.state ? `, ${selectedDistrict.state}` : ''}`
-          : "Viewing district as Brand Admin";
-      case 'brand_admin_viewing_manager':
-        return "Viewing district manager dashboard as Brand Admin";
-      default:
-        return "Manage your districts and shops";
+    if (isBrandAdminMode && selectedDistrict) {
+      return `Viewing as Brand Admin • ${selectedDistrict.city}${selectedDistrict.state ? `, ${selectedDistrict.state}` : ''}`;
     }
+    return "Manage your districts and shops";
+  };
+
+  const getNavLink = (path) => {
+    // If we're in brand admin mode, use brand admin routes
+    if (isBrandAdminMode && selectedDistrict) {
+      return path.replace('/district-manager', `/brand-admin/districts/${selectedDistrict.id}`);
+    }
+    return path;
   };
 
   // Determine which nav items to show
   const getNavItems = () => {
-    switch(mode) {
-      case 'brand_admin_viewing_district':
-        // Brand admin viewing a specific district
-        return selectedDistrict ? [
-          {
-            name: "Overview",
-            path: `/brand-admin/districts/${selectedDistrict.id}`,
-          },
-          {
-            name: "Shops",
-            path: `/brand-admin/districts/${selectedDistrict.id}/shops`,
-          },
-          {
-            name: "Users",
-            path: `/brand-admin/districts/${selectedDistrict.id}/users`,
-          },
-          {
-            name: "Analytics",
-            path: `/brand-admin/districts/${selectedDistrict.id}/analytics`,
-          },
-        ] : [];
-        
-      case 'brand_admin_viewing_manager':
-        // Brand admin viewing a specific district manager's page
-        return [
-          {
-            name: "Overview",
-            path: `/district-manager?userId=${userId}`,
-          },
-          {
-            name: "Shops",
-            path: `/district-manager/shops?userId=${userId}`,
-          },
-          {
-            name: "Users",
-            path: `/district-manager/users?userId=${userId}`,
-          },
-          {
-            name: "Analytics",
-            path: `/district-manager/analytics?userId=${userId}`,
-          },
-        ];
-        
-      default:
-        // Regular district manager
-        return [
-          {
-            name: "Overview",
-            path: "/district-manager",
-          },
-          {
-            name: "Shops",
-            path: "/district-manager/shops",
-          },
-          {
-            name: "Users",
-            path: "/district-manager/users",
-          },
-          {
-            name: "Analytics",
-            path: "/district-manager/analytics",
-          },
-        ];
+    if (isBrandAdminMode && selectedDistrict) {
+      // Brand admin viewing a specific district
+      return [
+        {
+          name: "Overview",
+          path: `/brand-admin/districts/${selectedDistrict.id}`,
+        },
+        {
+          name: "Shops",
+          path: `/brand-admin/districts/${selectedDistrict.id}/shops`,
+        },
+        {
+          name: "Users",
+          path: `/brand-admin/districts/${selectedDistrict.id}/users`,
+        },
+        {
+          name: "Analytics",
+          path: `/brand-admin/districts/${selectedDistrict.id}/analytics`,
+        },
+      ];
+    } else if (userId) {
+      // Brand admin viewing a specific district manager's page
+      return [
+        {
+          name: "Overview",
+          path: `/district-manager?userId=${userId}`,
+        },
+        {
+          name: "Shops",
+          path: `/district-manager/shops?userId=${userId}`,
+        },
+        {
+          name: "Users",
+          path: `/district-manager/users?userId=${userId}`,
+        },
+        {
+          name: "Analytics",
+          path: `/district-manager/analytics?userId=${userId}`,
+        },
+      ];
+    } else {
+      // Regular district manager
+      return [
+        {
+          name: "Overview",
+          path: "/district-manager",
+        },
+        {
+          name: "Shops",
+          path: "/district-manager/shops",
+        },
+        {
+          name: "Users",
+          path: "/district-manager/users",
+        },
+        {
+          name: "Analytics",
+          path: "/district-manager/analytics",
+        },
+      ];
     }
   };
 
@@ -160,45 +135,14 @@ const DistrictManagerLayout = ({ children }) => {
 
   // Get the correct role badge text
   const getRoleBadge = () => {
-    switch(mode) {
-      case 'brand_admin_viewing_district':
-        return "Brand Admin • Viewing District";
-      case 'brand_admin_viewing_manager':
-        return "Brand Admin • Viewing Manager";
-      default:
-        return "District Manager";
+    if (isBrandAdminMode) {
+      return "Brand Admin";
     }
+    if (userId) {
+      return "Brand Admin Viewing";
+    }
+    return "District Manager";
   };
-
-  // Determine if back button should be shown
-  const showBackButton = () => {
-    return mode === 'brand_admin_viewing_district' || mode === 'brand_admin_viewing_manager';
-  };
-
-  // Get back button action
-  const getBackButtonAction = () => {
-    if (mode === 'brand_admin_viewing_district') {
-      return handleBackToDistricts;
-    }
-    if (mode === 'brand_admin_viewing_manager') {
-      return handleBackToManagers;
-    }
-    return null;
-  };
-
-  // Get back button title
-  const getBackButtonTitle = () => {
-    if (mode === 'brand_admin_viewing_district') {
-      return "Back to Districts";
-    }
-    if (mode === 'brand_admin_viewing_manager') {
-      return "Back to Managers";
-    }
-    return "";
-  };
-
-  const backButtonAction = getBackButtonAction();
-  const backButtonTitle = getBackButtonTitle();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -207,12 +151,12 @@ const DistrictManagerLayout = ({ children }) => {
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <div className="flex items-center">
-              {/* Back button for brand admin viewing */}
-              {showBackButton() && backButtonAction && (
+              {/* Back button for brand admin viewing a district */}
+              {isBrandAdminMode && selectedDistrict && (
                 <button
-                  onClick={backButtonAction}
+                  onClick={handleBackToDistricts}
                   className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
-                  title={backButtonTitle}
+                  title="Back to Districts"
                 >
                   <svg
                     className="w-5 h-5"
@@ -231,9 +175,7 @@ const DistrictManagerLayout = ({ children }) => {
               )}
               <div>
                 <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-                <p className="text-sm text-primary-blue-100">
-                  {getHeaderSubtitle()}
-                </p>
+               
               </div>
             </div>
           </div>
