@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
-  getBrandUsers,
+  getDistrictUsers,
   createUser,
   updateUser
 } from '../../redux/slice/userSlice';
@@ -292,8 +292,8 @@ const Users = () => {
     setIsDataReady(false);
     
     try {
-      console.log('Fetching brand users for brand ID:', currentUser.brand_id);
-      const result = await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
+      console.log('Fetching district users for district ID:', currentUser.district_id);
+      const result = await dispatch(getDistrictUsers(currentUser.district_id)).unwrap();
       console.log('Fetch result:', result);
       
       await dispatch(getShopsByBrand(currentUser.brand_id));
