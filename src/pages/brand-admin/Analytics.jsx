@@ -21,7 +21,6 @@ import {
 
 const DEFAULT_SHOP_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 
-// Skeleton Components
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -99,11 +98,9 @@ const Analytics = () => {
   const user = useSelector(state => state.user.currentUser);
   const brandId = user?.brand_id;
   
-  // Shop and district data
   const shops = useSelector(state => selectShopsForBrand(brandId)(state)) || [];
   const districtsByBrand = useSelector(selectDistrictsByBrand) || [];
   
-  // Video and Edit data
   const [brandVideos, setBrandVideos] = useState([]);
   const [brandEdits, setBrandEdits] = useState([]);
   const [loadingData, setLoadingData] = useState({});
@@ -112,10 +109,8 @@ const Analytics = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   
-  // View toggle state - 'districts' or 'shops'
-  const [viewMode, setViewMode] = useState('districts'); // 'districts' by default
+  const [viewMode, setViewMode] = useState('districts');
   
-  // Modal states
   const [showDistrictAnalyticsModal, setShowDistrictAnalyticsModal] = useState(null);
   const [showShopAnalyticsModal, setShowShopAnalyticsModal] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -152,8 +147,7 @@ const Analytics = () => {
         setIsDataReady(true);
       }, 300);
       
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch {
       setIsInitialLoad(false);
     } finally {
       setLoading(false);
@@ -165,8 +159,7 @@ const Analytics = () => {
       const result = await dispatch(getVideosByBrand(brandId)).unwrap();
       const videosData = Array.isArray(result) ? result : result?.data || [];
       setBrandVideos(videosData);
-    } catch (error) {
-      console.error(`Error fetching videos:`, error);
+    } catch {
       setBrandVideos([]);
     }
   };
@@ -176,13 +169,11 @@ const Analytics = () => {
       const result = await dispatch(getEditDetailsByBrand(brandId)).unwrap();
       const editsData = Array.isArray(result) ? result : result?.data || [];
       setBrandEdits(editsData);
-    } catch (error) {
-      console.error(`Error fetching edits:`, error);
+    } catch {
       setBrandEdits([]);
     }
   };
 
-  // Handle view district analytics
   const handleViewDistrictAnalytics = async (districtId) => {
     setShowDistrictAnalyticsModal(districtId);
     
@@ -190,15 +181,13 @@ const Analytics = () => {
       setLoadingData(prev => ({ ...prev, [`district_${districtId}`]: true }));
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
-      } catch (error) {
-        console.error(`Error fetching data for district ${districtId}:`, error);
+      } catch {
       } finally {
         setLoadingData(prev => ({ ...prev, [`district_${districtId}`]: false }));
       }
     }
   };
 
-  // Handle view shop analytics
   const handleViewShopAnalytics = async (shopId) => {
     setShowShopAnalyticsModal(shopId);
     
@@ -206,55 +195,47 @@ const Analytics = () => {
       setLoadingData(prev => ({ ...prev, [`shop_${shopId}`]: true }));
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
-      } catch (error) {
-        console.error(`Error fetching data for shop ${shopId}:`, error);
+      } catch {
       } finally {
         setLoadingData(prev => ({ ...prev, [`shop_${shopId}`]: false }));
       }
     }
   };
 
-  // Handle view all feedback for shop
   const handleViewAllFeedback = (districtId, shopId) => {
     setSelectedDistrictForFeedback(districtId);
     setSelectedShopForFeedback(shopId);
     setShowAllFeedbackModal(true);
   };
 
-  // Handle view individual feedback
   const handleViewFeedback = (edit) => {
     setSelectedFeedback(edit);
     setShowFeedbackModal(true);
   };
 
-  // Helper function to get shop logo
   const getShopLogo = (shopId) => {
-    if (!shops || !Array.isArray(shops)) return DEFAULT_SHOP_LOGO;
+    if (!Array.isArray(shops)) return DEFAULT_SHOP_LOGO;
     const shop = shops.find(s => String(s.id) === String(shopId));
     return shop?.logo_url?.trim() ? shop.logo_url : DEFAULT_SHOP_LOGO;
   };
 
-  // Get shop name by ID
   const getShopName = (shopId) => {
-    if (!shops || !Array.isArray(shops)) return 'Unknown Shop';
+    if (!Array.isArray(shops)) return 'Unknown Shop';
     const shop = shops.find(s => String(s.id) === String(shopId));
     return shop?.name || 'Unknown Shop';
   };
 
-  // Get district name by ID
   const getDistrictName = (districtId) => {
-    if (!districtsByBrand || !Array.isArray(districtsByBrand)) return 'Unknown District';
+    if (!Array.isArray(districtsByBrand)) return 'Unknown District';
     const district = districtsByBrand.find(d => String(d.id) === String(districtId));
     return district?.name || 'Unknown District';
   };
 
-  // Get shops by district
   const getShopsByDistrict = (districtId) => {
-    if (!shops || !Array.isArray(shops)) return [];
+    if (!Array.isArray(shops)) return [];
     return shops.filter(shop => shop.district_id === districtId);
   };
 
-  // Get district stats for table
   const getDistrictStats = (districtId) => {
     const districtShops = getShopsByDistrict(districtId);
     
@@ -288,7 +269,6 @@ const Analytics = () => {
     };
   };
 
-  // Get shop stats for table
   const getShopStats = (shopId) => {
     const shopVideos = brandVideos.filter(v => v.shop_id === shopId);
     const shopEdits = brandEdits.filter(e => e.shop_id === shopId);
@@ -315,7 +295,6 @@ const Analytics = () => {
     };
   };
 
-  // Get detailed district stats for modal
   const getDistrictDetailedStats = (districtId) => {
     const districtShops = getShopsByDistrict(districtId);
     
@@ -350,7 +329,6 @@ const Analytics = () => {
     };
   };
 
-  // Get detailed shop stats for modal
   const getShopDetailedStats = (shopId) => {
     const shopVideos = brandVideos.filter(v => v.shop_id === shopId);
     const shopEdits = brandEdits.filter(e => e.shop_id === shopId);
@@ -380,7 +358,6 @@ const Analytics = () => {
     };
   };
 
-  // Calculate overall stats for this brand
   const totalAIVideoRequests = brandVideos?.length || 0;
   const totalManualCorrections = brandEdits?.length || 0;
   
@@ -396,7 +373,6 @@ const Analytics = () => {
     ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(2) 
     : 0;
 
-  // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
@@ -408,9 +384,7 @@ const Analytics = () => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {/* Total AI Video Requests Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -430,7 +404,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* AI Success Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -450,7 +423,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* AI Error Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -470,7 +442,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* Manual Corrections Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -491,7 +462,6 @@ const Analytics = () => {
         </div>
       </div>
 
-      {/* View Toggle */}
       <div className="flex items-center space-x-4 mb-4">
         <button
           onClick={() => setViewMode('districts')}
@@ -515,7 +485,6 @@ const Analytics = () => {
         </button>
       </div>
 
-      {/* Districts Performance Table */}
       {viewMode === 'districts' && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="p-6 border-b">
@@ -523,7 +492,7 @@ const Analytics = () => {
             <p className="text-gray-600">AI video requests and manual corrections by district</p>
           </div>
           
-          {districtsByBrand && districtsByBrand.length > 0 ? (
+          {districtsByBrand?.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -634,7 +603,6 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* Shops Performance Table */}
       {viewMode === 'shops' && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="p-6 border-b">
@@ -642,7 +610,7 @@ const Analytics = () => {
             <p className="text-gray-600">AI video requests and manual corrections by shop</p>
           </div>
           
-          {shops && shops.length > 0 ? (
+          {shops?.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -681,9 +649,7 @@ const Analytics = () => {
                                 src={getShopLogo(shop.id)}
                                 alt={shop.name}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = DEFAULT_SHOP_LOGO;
-                                }}
+                                onError={(e) => { e.target.src = DEFAULT_SHOP_LOGO; }}
                               />
                             </div>
                             <div>
@@ -692,9 +658,7 @@ const Analytics = () => {
                                 {shop.city}{shop.state ? `, ${shop.state}` : ''}
                               </div>
                               <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${
-                                shop.is_active 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
+                                shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}>
                                 {shop.is_active ? 'Active' : 'Inactive'}
                               </span>
@@ -776,11 +740,9 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* District Analytics Modal */}
       {showDistrictAnalyticsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
@@ -796,9 +758,7 @@ const Analytics = () => {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  setShowDistrictAnalyticsModal(null);
-                }}
+                onClick={() => setShowDistrictAnalyticsModal(null)}
                 className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -807,7 +767,6 @@ const Analytics = () => {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-6">
               {loadingData[`district_${showDistrictAnalyticsModal}`] ? (
                 <div className="flex justify-center items-center h-64">
@@ -819,7 +778,6 @@ const Analytics = () => {
                   
                   return (
                     <>
-                      {/* Video Processing Stats */}
                       <div className="mb-8">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -850,7 +808,6 @@ const Analytics = () => {
                         </div>
                       </div>
 
-                      {/* AI Performance Stats */}
                       <div className="mb-8">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -920,8 +877,7 @@ const Analytics = () => {
                         </div>
                       </div>
 
-                      {/* Shops List */}
-                      {stats.districtShops && stats.districtShops.length > 0 ? (
+                      {stats.districtShops?.length > 0 ? (
                         <div className="bg-white border rounded-lg p-6">
                           <h3 className="text-lg font-bold text-gray-800 mb-4">Shops in this District</h3>
                           <div className="space-y-4">
@@ -938,9 +894,7 @@ const Analytics = () => {
                                           src={getShopLogo(shop.id)}
                                           alt={shop.name}
                                           className="w-full h-full object-cover"
-                                          onError={(e) => {
-                                            e.target.src = DEFAULT_SHOP_LOGO;
-                                          }}
+                                          onError={(e) => { e.target.src = DEFAULT_SHOP_LOGO; }}
                                         />
                                       </div>
                                       <div>
@@ -951,9 +905,7 @@ const Analytics = () => {
                                       </div>
                                     </div>
                                     <span className={`px-2 py-1 text-xs rounded-full ${
-                                      shop.is_active 
-                                        ? 'bg-green-100 text-green-800' 
-                                        : 'bg-red-100 text-red-800'
+                                      shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                     }`}>
                                       {shop.is_active ? 'Active' : 'Inactive'}
                                     </span>
@@ -1005,7 +957,6 @@ const Analytics = () => {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
               <button
                 onClick={() => setShowDistrictAnalyticsModal(null)}
@@ -1018,11 +969,9 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* Shop Analytics Modal */}
       {showShopAnalyticsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100">
@@ -1030,9 +979,7 @@ const Analytics = () => {
                     src={getShopLogo(showShopAnalyticsModal)}
                     alt={getShopName(showShopAnalyticsModal)}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = DEFAULT_SHOP_LOGO;
-                    }}
+                    onError={(e) => { e.target.src = DEFAULT_SHOP_LOGO; }}
                   />
                 </div>
                 <div>
@@ -1043,9 +990,7 @@ const Analytics = () => {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  setShowShopAnalyticsModal(null);
-                }}
+                onClick={() => setShowShopAnalyticsModal(null)}
                 className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1054,7 +999,6 @@ const Analytics = () => {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-6">
               {loadingData[`shop_${showShopAnalyticsModal}`] ? (
                 <div className="flex justify-center items-center h-64">
@@ -1066,7 +1010,6 @@ const Analytics = () => {
                   
                   return (
                     <>
-                      {/* Shop Info */}
                       <div className="mb-8 bg-gray-50 p-4 rounded-lg">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
@@ -1096,7 +1039,6 @@ const Analytics = () => {
                         </div>
                       </div>
 
-                      {/* Video Processing Stats */}
                       <div className="mb-8">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1127,7 +1069,6 @@ const Analytics = () => {
                         </div>
                       </div>
 
-                      {/* AI Performance Stats */}
                       <div className="mb-8">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1197,8 +1138,7 @@ const Analytics = () => {
                         </div>
                       </div>
 
-                      {/* Manual Corrections List with Feedback */}
-                      {stats.shopEdits && stats.shopEdits.length > 0 ? (
+                      {stats.shopEdits?.length > 0 ? (
                         <div className="bg-white border rounded-lg p-6">
                           <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-gray-800">Manual Correction Feedback</h3>
@@ -1271,7 +1211,6 @@ const Analytics = () => {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
               <button
                 onClick={() => setShowShopAnalyticsModal(null)}
@@ -1284,7 +1223,6 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* All Feedback Modal */}
       {showAllFeedbackModal && selectedShopForFeedback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
@@ -1359,7 +1297,6 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* Individual Feedback Detail Modal */}
       {showFeedbackModal && selectedFeedback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
