@@ -74,7 +74,7 @@ const ShopManagerLayout = ({ children }) => {
         { name: "Orders", path: `/shop-manager/shops/${selectedShop.id}/orders` },
         { name: "Analytics", path: `/shop-manager/shops/${selectedShop.id}/analytics` },
         { name: "Users", path: `/shop-manager/shops/${selectedShop.id}/users` },
-        { name: "Products", path: `/shop-manager/shops/${selectedShop.id}/products` },
+        
       ];
     }
     return [
@@ -82,7 +82,7 @@ const ShopManagerLayout = ({ children }) => {
       { name: "Orders", path: "/shop-manager/orders" },
       { name: "Analytics", path: "/shop-manager/analytics" },
       { name: "Users", path: "/shop-manager/users" },
-      { name: "Products", path: "/shop-manager/products" },
+  
     ];
   };
 
