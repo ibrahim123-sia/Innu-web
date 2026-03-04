@@ -13,10 +13,8 @@ import {
   selectShopsForBrand
 } from '../../redux/slice/shopSlice';
 
-// Import SweetAlert for popup notifications
 import Swal from 'sweetalert2';
 
-// Skeleton Loader Components
 const TableRowSkeleton = () => (
   <tr className="hover:bg-gray-50">
     <td className="px-6 py-4 whitespace-nowrap">
@@ -148,24 +146,20 @@ const Districts = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user?.currentUser);
   
-  // Correct selectors with fallbacks
   const districtsByBrand = useSelector(selectDistrictsByBrand) || [];
   const loading = useSelector(selectDistrictLoading);
   const error = useSelector(selectDistrictError);
   
-  // Get shops for the brand
   const shops = useSelector(
     user?.brand_id ? selectShopsForBrand(user.brand_id) : () => []
   ) || [];
   
-  // Modal and form states
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [expandedDistrict, setExpandedDistrict] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
-  // Data states - REMOVED description
   const [formData, setFormData] = useState({
     name: '',
     is_active: true
@@ -175,64 +169,30 @@ const Districts = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Validation states for create form
-  const [formErrors, setFormErrors] = useState({
-    name: false
-  });
+  const [formErrors, setFormErrors] = useState({ name: false });
+  const [validationErrors, setValidationErrors] = useState({ name: '' });
+  const [editFormErrors, setEditFormErrors] = useState({ name: false });
+  const [editValidationErrors, setEditValidationErrors] = useState({ name: '' });
 
-  const [validationErrors, setValidationErrors] = useState({
-    name: ''
-  });
-
-  // Validation states for edit form
-  const [editFormErrors, setEditFormErrors] = useState({
-    name: false
-  });
-
-  const [editValidationErrors, setEditValidationErrors] = useState({
-    name: ''
-  });
-
-  // Ensure districtsByBrand is an array
   const displayDistricts = Array.isArray(districtsByBrand) ? districtsByBrand : [];
 
-  // ============================================
-  // VALIDATION FUNCTIONS
-  // ============================================
-
   const validateDistrictName = (name) => {
-    if (!name || !name.trim()) {
-      return 'District name is required';
-    }
-    if (name.trim().length < 2) {
-      return 'District name must be at least 2 characters long';
-    }
-    if (name.trim().length > 100) {
-      return 'District name must not exceed 100 characters';
-    }
-    // Allow letters, numbers, spaces, and common special characters
-    const nameRegex = /^[a-zA-Z0-9\s\&\-\.\,]+$/;
-    if (!nameRegex.test(name)) {
-      return 'District name can only contain letters, numbers, spaces, and & - . ,';
-    }
+    if (!name?.trim()) return 'District name is required';
+    const trimmed = name.trim();
+    if (trimmed.length < 2) return 'District name must be at least 2 characters long';
+    if (trimmed.length > 100) return 'District name must not exceed 100 characters';
+    if (!/^[a-zA-Z0-9\s\&\-\.\,]+$/.test(name)) return 'District name can only contain letters, numbers, spaces, and & - . ,';
     return '';
   };
 
-  // Check if district name exists (for validation)
   const checkDistrictNameExists = (name, currentDistrictId = null) => {
     if (!name || !displayDistricts) return false;
-    const exists = displayDistricts.some(district => 
+    return displayDistricts.some(district => 
       district.name.toLowerCase() === name.toLowerCase().trim() && 
       (!currentDistrictId || district.id !== currentDistrictId)
     );
-    return exists;
   };
 
-  // ============================================
-  // EFFECTS
-  // ============================================
-
-  // Fetch districts and shops on component mount
   useEffect(() => {
     if (user?.brand_id) {
       fetchData();
@@ -247,38 +207,23 @@ const Districts = () => {
         dispatch(getShopsByBrand(user.brand_id))
       ]);
       setRefreshKey(prev => prev + 1);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch {
     } finally {
       setIsInitialLoad(false);
     }
   };
 
-  // ============================================
-  // HELPER FUNCTIONS FOR DATA
-  // ============================================
-
   const getShopsForDistrict = (districtId) => {
-    if (!shops || !Array.isArray(shops)) return [];
+    if (!Array.isArray(shops)) return [];
     return shops.filter(shop => shop.district_id === districtId);
   };
-
-  // ============================================
-  // VALIDATE CREATE FORM
-  // ============================================
 
   const validateCreateForm = () => {
     const nameError = validateDistrictName(formData.name);
 
-    setValidationErrors({
-      name: nameError
-    });
+    setValidationErrors({ name: nameError });
+    setFormErrors({ name: !!nameError });
 
-    setFormErrors({
-      name: !!nameError
-    });
-
-    // Check if any validation errors exist
     if (nameError) {
       Swal.fire({
         icon: 'error',
@@ -290,7 +235,6 @@ const Districts = () => {
       return false;
     }
 
-    // Check for duplicate name
     if (checkDistrictNameExists(formData.name)) {
       setFormError('A district with this name already exists');
       Swal.fire({
@@ -306,22 +250,12 @@ const Districts = () => {
     return true;
   };
 
-  // ============================================
-  // VALIDATE EDIT FORM
-  // ============================================
-
   const validateEditForm = () => {
     const nameError = validateDistrictName(editFormData.name);
 
-    setEditValidationErrors({
-      name: nameError
-    });
+    setEditValidationErrors({ name: nameError });
+    setEditFormErrors({ name: !!nameError });
 
-    setEditFormErrors({
-      name: !!nameError
-    });
-
-    // Check if any validation errors exist
     if (nameError) {
       Swal.fire({
         icon: 'error',
@@ -333,7 +267,6 @@ const Districts = () => {
       return false;
     }
 
-    // Check for duplicate name (excluding current district)
     const originalDistrict = displayDistricts.find(d => d.id === showEditModal);
     
     if (editFormData.name !== originalDistrict?.name && 
@@ -352,35 +285,20 @@ const Districts = () => {
     return true;
   };
 
-  // ============================================
-  // HANDLERS
-  // ============================================
-
   const handleViewShops = (districtId) => {
-    if (expandedDistrict === districtId) {
-      setExpandedDistrict(null);
-    } else {
-      setExpandedDistrict(districtId);
-    }
+    setExpandedDistrict(expandedDistrict === districtId ? null : districtId);
   };
 
-  // ============================================
-  // CREATE DISTRICT
-  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
     
-    // Validate all fields
-    if (!validateCreateForm()) {
-      return;
-    }
+    if (!validateCreateForm()) return;
 
     setIsSubmitting(true);
 
     try {
-      // Create district only
       const districtData = {
         name: formData.name.trim(),
         is_active: formData.is_active,
@@ -393,11 +311,7 @@ const Districts = () => {
         Swal.fire({
           icon: 'success',
           title: 'District Created Successfully!',
-          html: `
-            <div style="text-align: left;">
-              <p><strong>District:</strong> ${formData.name.trim()}</p>
-            </div>
-          `,
+          html: `<div style="text-align: left;"><p><strong>District:</strong> ${formData.name.trim()}</p></div>`,
           confirmButtonText: 'OK',
           confirmButtonColor: '#4CAF50',
           width: '450px'
@@ -405,12 +319,9 @@ const Districts = () => {
 
         resetForm();
         dispatch(getDistrictsByBrand(user.brand_id));
-        setTimeout(() => {
-          setShowCreateForm(false);
-        }, 100);
+        setTimeout(() => setShowCreateForm(false), 100);
       }
     } catch (err) {
-      console.error('District creation failed:', err);
       setFormError(err?.error || 'Failed to create district. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -424,34 +335,25 @@ const Districts = () => {
     }
   };
 
-  // ============================================
-  // EDIT DISTRICT
-  // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
 
-    // Validate all fields
-    if (!validateEditForm()) {
-      return;
-    }
+    if (!validateEditForm()) return;
 
     try {
-      // Prepare district update data
       const districtUpdateData = {
         name: editFormData.name.trim(),
         is_active: editFormData.is_active
       };
 
-      // Update district only
       const districtResult = await dispatch(updateDistrict({
         id: showEditModal,
         data: districtUpdateData
       })).unwrap();
 
-      // Check if the update was successful
-      if (districtResult && districtResult.success) {
+      if (districtResult?.success) {
         Swal.fire({
           icon: 'success',
           title: 'Success!',
@@ -462,19 +364,13 @@ const Districts = () => {
         });
         
         resetEditForm();
-        
-        // Force a fresh fetch to ensure UI is updated
         await dispatch(getDistrictsByBrand(user.brand_id));
-        
-        setTimeout(() => {
-          setShowEditModal(null);
-        }, 100);
+        setTimeout(() => setShowEditModal(null), 100);
       } else {
         throw new Error(districtResult?.error || 'Update failed');
       }
       
     } catch (err) {
-      console.error('District update failed:', err);
       setFormError(err?.error || 'Failed to update district. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -486,12 +382,10 @@ const Districts = () => {
     }
   };
 
-  // Toggle district status
   const handleToggleStatus = async (district) => {
     try {
       setIsSubmitting(true);
 
-      // Prepare update data - only include fields that can be updated
       const updateData = {
         name: district.name,
         is_active: !district.is_active
@@ -502,7 +396,7 @@ const Districts = () => {
         data: updateData
       })).unwrap();
 
-      if (result && result.success) {
+      if (result?.success) {
         await dispatch(getDistrictsByBrand(user.brand_id));
         
         Swal.fire({
@@ -517,8 +411,6 @@ const Districts = () => {
         throw new Error(result?.error || 'Failed to update status');
       }
     } catch (err) {
-      console.error('Failed to toggle district status:', err);
-      
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -531,47 +423,27 @@ const Districts = () => {
     }
   };
 
-  // Edit district
   const handleEdit = (district) => {
     setShowEditModal(district.id);
     setEditFormData({
       name: district.name,
       is_active: district.is_active
     });
-    setEditFormErrors({
-      name: false
-    });
-    setEditValidationErrors({
-      name: ''
-    });
+    setEditFormErrors({ name: false });
+    setEditValidationErrors({ name: '' });
     setFormError('');
   };
 
-  // ============================================
-  // FORM HANDLERS
-  // ============================================
-
   const resetForm = () => {
-    setFormData({
-      name: '',
-      is_active: true
-    });
-    setFormErrors({
-      name: false
-    });
-    setValidationErrors({
-      name: ''
-    });
+    setFormData({ name: '', is_active: true });
+    setFormErrors({ name: false });
+    setValidationErrors({ name: '' });
   };
 
   const resetEditForm = () => {
     setEditFormData({});
-    setEditFormErrors({
-      name: false
-    });
-    setEditValidationErrors({
-      name: ''
-    });
+    setEditFormErrors({ name: false });
+    setEditValidationErrors({ name: '' });
   };
 
   const handleInputChange = (e) => {
@@ -582,7 +454,6 @@ const Districts = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Real-time validation
     if (name === 'name') {
       const error = validateDistrictName(value);
       setValidationErrors(prev => ({ ...prev, [name]: error }));
@@ -598,7 +469,6 @@ const Districts = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Real-time validation
     if (name === 'name') {
       const error = validateDistrictName(value);
       setEditValidationErrors(prev => ({ ...prev, [name]: error }));
@@ -606,39 +476,26 @@ const Districts = () => {
     }
   };
 
-  // Check if edit form has changes
   const hasEditChanges = () => {
     const originalDistrict = displayDistricts.find(d => d.id === showEditModal);
     if (!originalDistrict) return false;
     
-    return (
-      editFormData.name !== originalDistrict.name ||
-      editFormData.is_active !== originalDistrict.is_active
-    );
+    return editFormData.name !== originalDistrict.name ||
+           editFormData.is_active !== originalDistrict.is_active;
   };
 
-  // Show skeleton during initial load
   if (isInitialLoad && loading) {
     return (
       <div className="transition-opacity duration-300 ease-in-out" key={refreshKey}>
         <HeaderSkeleton />
         {showCreateForm && <FormSkeleton />}
-        {displayDistricts.length > 0 ? (
-          <TableSkeleton />
-        ) : (
-          <EmptyStateSkeleton />
-        )}
+        {displayDistricts.length > 0 ? <TableSkeleton /> : <EmptyStateSkeleton />}
       </div>
     );
   }
 
-  // ============================================
-  // RENDER
-  // ============================================
-
   return (
     <div className="transition-opacity duration-300 ease-in-out" key={refreshKey}>
-      {/* Create District Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">Your Brand's Districts</h2>
@@ -661,26 +518,18 @@ const Districts = () => {
         </button>
       </div>
 
-      {/* Create District Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Create New District</h2>
           
-          {formError && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-              {formError}
-            </div>
-          )}
-          
-          {formSuccess && (
-            <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-              {formSuccess}
+          {(formError || formSuccess) && (
+            <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+              {formError || formSuccess}
             </div>
           )}
           
           <form onSubmit={handleSubmit} noValidate>
             <div className="space-y-6">
-              {/* District Information */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-700">District Information</h3>
                 
@@ -738,7 +587,6 @@ const Districts = () => {
         </div>
       )}
 
-      {/* Districts Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading && !isInitialLoad ? (
           <div className="py-12 text-center">
@@ -760,18 +608,10 @@ const Districts = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    District Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Shops
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">District Details</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shops</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -781,7 +621,6 @@ const Districts = () => {
                   
                   return (
                     <React.Fragment key={district.id}>
-                      {/* District Row */}
                       <tr className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
@@ -808,9 +647,7 @@ const Districts = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            district.is_active 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
+                            district.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {district.is_active ? 'Active' : 'Inactive'}
                           </span>
@@ -852,7 +689,6 @@ const Districts = () => {
                         </td>
                       </tr>
 
-                      {/* Expanded Shops Dropdown Row */}
                       {isExpanded && (
                         <tr className="bg-gray-50">
                           <td colSpan="4" className="px-6 py-4">
@@ -890,9 +726,7 @@ const Districts = () => {
                                               )}
                                               <div className="flex items-center mt-2 space-x-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full ${
-                                                  shop.is_active 
-                                                    ? 'bg-green-100 text-green-800' 
-                                                    : 'bg-red-100 text-red-800'
+                                                  shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                                 }`}>
                                                   {shop.is_active ? 'Active' : 'Inactive'}
                                                 </span>
@@ -952,28 +786,20 @@ const Districts = () => {
         )}
       </div>
 
-      {/* Edit District Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-blue-600 mb-4">Edit District</h2>
               
-              {formError && (
-                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-                  {formError}
-                </div>
-              )}
-              
-              {formSuccess && (
-                <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-                  {formSuccess}
+              {(formError || formSuccess) && (
+                <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                  {formError || formSuccess}
                 </div>
               )}
               
               <form onSubmit={handleEditSubmit} noValidate>
                 <div className="space-y-6">
-                  {/* District Information */}
                   <div className="space-y-4">
                     <h3 className="font-semibold text-gray-700">District Information</h3>
                     
