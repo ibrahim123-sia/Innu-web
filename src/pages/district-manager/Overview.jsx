@@ -109,6 +109,7 @@ const QuickActionsSkeleton = () => (
   </div>
 );
 
+// New Skeleton for Shops List
 const ShopsListSkeleton = () => (
   <div className="bg-white rounded-lg shadow-md p-6 mt-8">
     <div className="h-6 bg-gray-200 rounded w-48 mb-4 animate-pulse"></div>
@@ -137,46 +138,58 @@ const ShopsListSkeleton = () => (
 
 const Overview = () => {
   const [searchParams] = useSearchParams();
-  const { districtId } = useParams();
+  const { districtId } = useParams(); // Get districtId from URL for brand admin mode
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
+  // Get userId from URL if present (for brand admin viewing district manager)
   const userId = searchParams.get("userId");
   const currentUser = useSelector((state) => state.user.currentUser);
 
+  // Determine which user to use
   const activeUserId = userId || currentUser?.id;
   const isImpersonating = !!userId;
 
+  // State for brand admin mode (selected district from localStorage)
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [isBrandAdminMode, setIsBrandAdminMode] = useState(false);
 
+  // State for the district manager's data (for district manager mode)
   const [districtManager, setDistrictManager] = useState(null);
   const [shops, setShops] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
   const [districtVideos, setDistrictVideos] = useState([]);
+  const [topShopVideos, setTopShopVideos] = useState([]);
   
+  // State for shop videos map (for displaying video counts)
   const [shopVideosMap, setShopVideosMap] = useState({});
 
+  // Loading states
   const [loading, setLoading] = useState(true);
   const [loadingUser, setLoadingUser] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+  // Check if we're in brand admin mode (districtId in URL and no userId)
   useEffect(() => {
     if (districtId && !userId) {
       setIsBrandAdminMode(true);
+      // Get selected district from localStorage
       const district = localStorage.getItem('selectedDistrict');
       if (district) {
         setSelectedDistrict(JSON.parse(district));
         setLoadingUser(false);
       } else {
+        // If no district in localStorage, try to fetch by ID
         fetchDistrictById(districtId);
       }
     } else if (userId) {
+      // District manager mode
       setIsBrandAdminMode(false);
       fetchDistrictManagerData();
     } else if (currentUser) {
+      // Normal login - use current user's data
       setDistrictManager(currentUser);
       setLoadingUser(false);
     }
@@ -189,12 +202,15 @@ const Overview = () => {
       const response = await axios.get(
         `http://localhost:5000/api/districts/${id}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
       const districtData = response.data.data || response.data;
       setSelectedDistrict(districtData);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching district:", error);
     } finally {
       setLoadingUser(false);
     }
@@ -206,16 +222,23 @@ const Overview = () => {
       const token = localStorage.getItem("token");
       const response = await axios.get(
         `http://localhost:5000/api/users/getUsers/${userId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
       );
+
       const userData = response.data.data || response.data;
       setDistrictManager(userData);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching district manager:", error);
     } finally {
       setLoadingUser(false);
     }
   };
 
+  // Get district ID based on mode
   const getDistrictId = () => {
     if (isBrandAdminMode && selectedDistrict) {
       return selectedDistrict.id;
@@ -226,6 +249,7 @@ const Overview = () => {
     return null;
   };
 
+  // Once we have district ID, fetch data
   useEffect(() => {
     const districtId = getDistrictId();
     if (districtId) {
@@ -236,6 +260,7 @@ const Overview = () => {
       districtManager &&
       !districtManager.district_id
     ) {
+      // District manager has no district assigned (only show for district manager mode)
       setLoading(false);
       setIsInitialLoad(false);
     }
@@ -249,12 +274,14 @@ const Overview = () => {
     setDataFetched(false);
 
     try {
+      // Fetch all data in parallel
       const [shopsResult, ordersResult, usersResult] = await Promise.all([
         dispatch(getShopsByDistrict(districtId)).unwrap(),
         dispatch(getOrdersByDistrict(districtId)).unwrap(),
         dispatch(getUsersByDistrict(districtId)).unwrap(),
       ]);
 
+      // Process shops data
       let shopsData = [];
       if (shopsResult?.data && Array.isArray(shopsResult.data)) {
         shopsData = shopsResult.data;
@@ -265,6 +292,7 @@ const Overview = () => {
       }
       setShops(shopsData);
 
+      // Process orders data
       let ordersData = [];
       if (ordersResult?.data && Array.isArray(ordersResult.data)) {
         ordersData = ordersResult.data;
@@ -273,6 +301,7 @@ const Overview = () => {
       }
       setOrders(ordersData);
 
+      // Process users data
       let usersData = [];
       if (usersResult?.data && Array.isArray(usersResult.data)) {
         usersData = usersResult.data;
@@ -281,11 +310,15 @@ const Overview = () => {
       }
       setUsers(usersData);
 
+      // Fetch videos for the district
       await fetchVideosForDistrict(districtId);
+      
+      // Fetch videos for each shop
       await fetchAllShopVideos(shopsData);
 
       setDataFetched(true);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
       setTimeout(() => setIsInitialLoad(false), 300);
@@ -304,7 +337,8 @@ const Overview = () => {
       }
 
       setDistrictVideos(videosData);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching videos:", error);
     }
   };
 
@@ -316,7 +350,8 @@ const Overview = () => {
         const result = await dispatch(getVideosByShop(shop.id)).unwrap();
         const shopVideos = result?.data || (Array.isArray(result) ? result : []);
         videosByShop[shop.id] = shopVideos;
-      } catch {
+      } catch (error) {
+        console.error(`Error fetching videos for shop ${shop.id}:`, error);
         videosByShop[shop.id] = [];
       }
     }
@@ -324,11 +359,30 @@ const Overview = () => {
     setShopVideosMap(videosByShop);
   };
 
+  const fetchTopShopVideos = async (shopId) => {
+    try {
+      const result = await dispatch(getVideosByShop(shopId)).unwrap();
+
+      let videosData = [];
+      if (result?.data && Array.isArray(result.data)) {
+        videosData = result.data;
+      } else if (Array.isArray(result)) {
+        videosData = result;
+      }
+
+      setTopShopVideos(videosData);
+    } catch (error) {
+      console.error("Error fetching top shop videos:", error);
+    }
+  };
+
+  // Filter shop managers
   const shopManagers = useMemo(() => {
-    if (!users?.length) return [];
+    if (!users || users.length === 0) return [];
     return users.filter((user) => user.role === "shop_manager");
   }, [users]);
 
+  // Calculate daily orders
   const dailyOrders = useMemo(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -339,36 +393,62 @@ const Overview = () => {
     }).length;
   }, [orders]);
 
+  // Calculate video stats
   const totalVideos = districtVideos.length;
 
+  // Shop stats
   const totalShops = shops.length;
   const activeShops = shops.filter((shop) => shop.is_active).length;
 
-  const handleOpenShop = (shop) => {
-    localStorage.removeItem('selectedDistrict');
-    localStorage.setItem('selectedShop', JSON.stringify(shop));
-    
-    if (isBrandAdminMode) {
-      navigate(`/brand-admin/shops/${shop.id}`);
-    } else {
-      const shopManager = shopManagers.find(m => m.shop_id === shop.id);
-      if (shopManager) {
-        navigate(`/shop-manager?userId=${shopManager.id}`);
-      } else {
-        navigate(`/shop-manager?shopId=${shop.id}`);
-      }
-    }
-  };
+  // Get top shop (first shop for now - you can modify logic)
+  const topShop = useMemo(() => (shops.length > 0 ? shops[0] : null), [shops]);
 
+  // Fetch top shop videos
+  useEffect(() => {
+    if (topShop?.id) {
+      fetchTopShopVideos(topShop.id);
+    }
+  }, [topShop]);
+
+  // Handle open shop - navigates to shop overview using localStorage approach
+  // Handle open shop - navigates to shop overview using localStorage approach
+const handleOpenShop = (shop) => {
+  // Clear any existing district context
+  localStorage.removeItem('selectedDistrict');
+  
+  // Store the selected shop in localStorage
+  localStorage.setItem('selectedShop', JSON.stringify(shop));
+  
+  // Navigate based on mode
+  if (isBrandAdminMode) {
+    navigate(`/brand-admin/shops/${shop.id}`);
+  } else {
+    // For district manager mode, we need to find the shop manager for this shop
+    const shopManager = shopManagers.find(m => m.shop_id === shop.id);
+    if (shopManager) {
+      navigate(`/shop-manager?userId=${shopManager.id}`);
+    } else {
+      // If no shop manager found, still try to open the shop
+      navigate(`/shop-manager?shopId=${shop.id}`);
+    }
+  }
+};
+  // Get profile picture URL
   const getProfilePicUrl = (profilePicData) => {
-    if (!profilePicData) return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+    if (!profilePicData)
+      return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
     if (typeof profilePicData === "string") {
       if (profilePicData.startsWith("{")) {
         try {
           const parsed = JSON.parse(profilePicData);
-          return parsed.publicUrl || parsed.signedUrl || parsed.filePath || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
-        } catch {
+          return (
+            parsed.publicUrl ||
+            parsed.signedUrl ||
+            parsed.filePath ||
+            "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+          );
+        } catch (e) {
           return profilePicData;
         }
       }
@@ -378,6 +458,7 @@ const Overview = () => {
     return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
   };
 
+  // Show loading while fetching user data
   if (loadingUser) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -391,43 +472,92 @@ const Overview = () => {
     );
   }
 
+  // Show message if no user ID found (only when not logged in)
   if (!activeUserId && !isBrandAdminMode) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
         <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
-          <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          <svg
+            className="w-12 h-12 text-yellow-500 mx-auto mb-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
           </svg>
-          <h3 className="text-lg font-medium text-yellow-800 mb-2">Not Logged In</h3>
-          <p className="text-yellow-700">Please log in to access the district manager dashboard.</p>
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">
+            Not Logged In
+          </h3>
+          <p className="text-yellow-700">
+            Please log in to access the district manager dashboard.
+          </p>
         </div>
       </div>
     );
   }
 
+  // Show message if district manager has no district (only for district manager mode)
   if (!isBrandAdminMode && districtManager && !districtManager.district_id) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
         <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
-          <svg className="w-12 h-12 text-orange-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className="w-12 h-12 text-orange-500 mx-auto mb-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
-          <h3 className="text-lg font-medium text-orange-800 mb-2">No District Assigned</h3>
-          <p className="text-orange-700">This district manager has not been assigned to any district yet.</p>
+          <h3 className="text-lg font-medium text-orange-800 mb-2">
+            No District Assigned
+          </h3>
+          <p className="text-orange-700">
+            This district manager has not been assigned to any district yet.
+          </p>
         </div>
       </div>
     );
   }
 
+  // Show skeleton during initial load
   if (isInitialLoad || (loading && !dataFetched)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
         <StatsSkeleton />
+
+        {/* Shop Managers Section Skeleton */}
+        <div className="mt-8 mb-8">
+          <div className="h-6 bg-gray-200 rounded w-48 mb-4 animate-pulse"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <ShopManagerCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+
+        {/* Shops List Skeleton */}
         <ShopsListSkeleton />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+          <TopShopSkeleton />
+          <QuickActionsSkeleton />
+        </div>
       </div>
     );
   }
 
+  // Get display name based on mode
   const getDisplayName = () => {
     if (isBrandAdminMode && selectedDistrict) {
       return selectedDistrict.name || "District";
@@ -442,6 +572,7 @@ const Overview = () => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
@@ -453,8 +584,16 @@ const Overview = () => {
               <p className="text-xs text-gray-400 mt-1">{activeShops} active</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z" clipRule="evenodd" />
+              <svg
+                className="w-6 h-6 text-blue-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 00-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V9z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
           </div>
@@ -469,8 +608,18 @@ const Overview = () => {
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              <svg
+                className="w-6 h-6 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
               </svg>
             </div>
           </div>
@@ -486,8 +635,16 @@ const Overview = () => {
               <p className="text-xs text-gray-400 mt-1">Last 24 hours</p>
             </div>
             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
+              <svg
+                className="w-6 h-6 text-indigo-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
           </div>
@@ -505,7 +662,11 @@ const Overview = () => {
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+              <svg
+                className="w-6 h-6 text-green-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
                 <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
               </svg>
             </div>
@@ -513,6 +674,7 @@ const Overview = () => {
         </div>
       </div>
 
+      {/* NEW: Shops List Section with Open Buttons */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">
@@ -525,8 +687,18 @@ const Overview = () => {
             className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
           >
             View All Shops
-            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <svg
+              className="w-4 h-4 ml-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </Link>
         </div>
@@ -539,19 +711,26 @@ const Overview = () => {
                 ["completed", "processing"].includes(v?.status)
               ).length;
               
+              // Find shop manager for this shop
               const shopManager = shopManagers.find(m => m.shop_id === shop.id);
 
               return (
-                <div key={shop.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div
+                  key={shop.id}
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xl">
                         {shop.name?.charAt(0).toUpperCase() || 'S'}
                       </div>
                       <div>
-                        <h3 className="font-medium text-gray-800">{shop.name}</h3>
+                        <h3 className="font-medium text-gray-800">
+                          {shop.name}
+                        </h3>
                         <p className="text-xs text-gray-500">
-                          {shop.city}{shop.state ? `, ${shop.state}` : ''}
+                          {shop.city}
+                          {shop.state ? `, ${shop.state}` : ''}
                         </p>
                         {shopManager && (
                           <p className="text-xs text-green-600 mt-1">
@@ -561,13 +740,24 @@ const Overview = () => {
                       </div>
                     </div>
                     
+                    {/* Open Shop Button */}
                     <button
                       onClick={() => handleOpenShop(shop)}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
                       title="Open Shop Overview"
                     >
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      <svg
+                        className="w-4 h-4 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
                       </svg>
                       Open
                     </button>
@@ -575,9 +765,13 @@ const Overview = () => {
 
                   <div className="flex justify-between items-center mt-2 text-sm">
                     <span className="text-gray-600">Status:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      shop.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        shop.is_active
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
                       {shop.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
@@ -600,12 +794,335 @@ const Overview = () => {
           </div>
         ) : (
           <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-            <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            <svg
+              className="w-12 h-12 text-gray-300 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1}
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+              />
             </svg>
             <p className="text-gray-500">No shops found in this district</p>
           </div>
         )}
+      </div>
+
+      {/* Shop Managers Section */}
+      <div className="mt-8 mb-8">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Shop Managers</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {shopManagers.length > 0 ? (
+            shopManagers.map((manager) => {
+              const managerShop = shops.find(s => s.id === manager.shop_id);
+              return (
+                <div key={manager.id} className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <img
+                      src={getProfilePicUrl(manager.profile_pic)}
+                      alt={manager.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
+                      onError={(e) => {
+                        e.target.src = DEFAULT_PROFILE_PIC;
+                      }}
+                    />
+                    <div>
+                      <h3 className="font-medium text-gray-800">{manager.name}</h3>
+                      <p className="text-sm text-gray-500">{manager.email}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <p className="text-gray-600">
+                      <span className="font-medium">Shop:</span> {managerShop?.name || 'Not assigned'}
+                    </p>
+                    <p className="text-gray-600">
+                      <span className="font-medium">Status:</span>{' '}
+                      <span className={manager.is_active ? 'text-green-600' : 'text-red-600'}>
+                        {manager.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </p>
+                  </div>
+                  {managerShop && (
+                    <button
+                      onClick={() => handleOpenShop(managerShop)}
+                      className="mt-3 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      View Shop
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-3 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+              <p className="text-gray-500">No shop managers found</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Top Shop & Quick Actions Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">
+            Top Performing Shop
+          </h2>
+
+          {topShop ? (
+            <div className="border rounded-lg p-4 hover:bg-gray-50 transition-colors duration-150">
+              <div className="flex items-center space-x-4 mb-3">
+                <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
+                  {topShop.logo_url ? (
+                    <img
+                      src={topShop.logo_url}
+                      alt={topShop.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src =
+                          "https://cdn-icons-png.flaticon.com/512/891/891419.png";
+                      }}
+                    />
+                  ) : (
+                    <svg
+                      className="w-8 h-8 text-gray-400"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm3 6a1 1 0 000 2h6a1 1 0 100-2H7z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">{topShop.name}</h3>
+                  <p className="text-sm text-gray-500">
+                    {topShop.city}
+                    {topShop.state ? `, ${topShop.state}` : ""}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <svg
+                      className="w-5 h-5 text-blue-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <div>
+                      <div className="text-xl font-bold text-blue-600">
+                        {topShopVideos.length}
+                      </div>
+                      <div className="text-xs text-blue-500">Videos</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <svg
+                      className="w-5 h-5 text-green-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <div>
+                      <div className="text-xl font-bold text-green-600">
+                        {topShop.is_active ? "Active" : "Inactive"}
+                      </div>
+                      <div className="text-xs text-green-500">Status</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-gray-600">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium">Shop Manager:</span>
+                  <span className="text-sm">
+                    {shopManagers.filter((m) => m.shop_id === topShop.id)
+                      .length || 0}{" "}
+                    assigned
+                  </span>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium">Tekmetric ID:</span>{" "}
+                  {topShop.tekmetric_shop_id || "Not set"}
+                </div>
+              </div>
+              
+              <button
+                onClick={() => handleOpenShop(topShop)}
+                className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                Open Shop
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+              <svg
+                className="w-12 h-12 text-gray-300 mx-auto mb-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <p className="text-gray-500">No shop data available</p>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">
+            Quick Actions
+          </h2>
+          <div className="space-y-4">
+            <Link
+              to={isBrandAdminMode 
+                ? `/brand-admin/districts/${selectedDistrict?.id}/shops` 
+                : `/district-manager/shops?userId=${activeUserId}`}
+              className="flex items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors group"
+            >
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-blue-700 transition-colors">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-gray-800">Manage Shops</h3>
+                <p className="text-sm text-gray-500">
+                  View and manage all shops
+                </p>
+              </div>
+              <svg
+                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </Link>
+
+            <Link
+              to={isBrandAdminMode
+                ? `/brand-admin/districts/${selectedDistrict?.id}/users`
+                : `/district-manager/users?userId=${activeUserId}`}
+              className="flex items-center p-4 border rounded-lg hover:bg-green-50 transition-colors group"
+            >
+              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-700 transition-colors">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-gray-800">
+                  Manage Shop Managers
+                </h3>
+                <p className="text-sm text-gray-500">
+                  View and manage shop managers
+                </p>
+              </div>
+              <svg
+                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </Link>
+
+            <Link
+              to={isBrandAdminMode
+                ? `/brand-admin/districts/${selectedDistrict?.id}/analytics`
+                : `/district-manager/analytics?userId=${activeUserId}`}
+              className="flex items-center p-4 border rounded-lg hover:bg-purple-50 transition-colors group"
+            >
+              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-4 group-hover:bg-purple-700 transition-colors">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-gray-800">View Analytics</h3>
+                <p className="text-sm text-gray-500">
+                  Check performance analytics
+                </p>
+              </div>
+              <svg
+                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
