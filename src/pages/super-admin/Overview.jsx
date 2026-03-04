@@ -6,11 +6,9 @@ import {
   selectShopsByBrand,
 } from "../../redux/slice/shopSlice";
 import { getOrdersByBrand } from "../../redux/slice/orderSlice";
-
 import { getAllVideos, selectVideos } from "../../redux/slice/videoSlice";
 import { Link } from "react-router-dom";
 
-// Skeleton Loader Components
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -117,7 +115,6 @@ const Overview = () => {
   const dispatch = useDispatch();
   const brands = useSelector(selectAllBrands);
   const shopsByBrand = useSelector(selectShopsByBrand);
-  // ✅ Get videos from Redux state using correct selector from videoSlice
   const videos = useSelector(selectVideos);
 
   const [loading, setLoading] = useState(true);
@@ -132,33 +129,27 @@ const Overview = () => {
   const [activeShops, setActiveShops] = useState(0);
 
   useEffect(() => {
-    if (videos && videos.length > 0) {
-      // Set total video count
+    if (videos?.length) {
       setTotalVideos(videos.length);
-
-      // Calculate videos by brand
+      
       const videosByBrandMap = {};
       videos.forEach((video) => {
         if (video.brand_id) {
-          if (!videosByBrandMap[video.brand_id]) {
-            videosByBrandMap[video.brand_id] = {
-              brand_id: video.brand_id,
-              total_videos: 0,
-            };
-          }
+          videosByBrandMap[video.brand_id] = videosByBrandMap[video.brand_id] || {
+            brand_id: video.brand_id,
+            total_videos: 0,
+          };
           videosByBrandMap[video.brand_id].total_videos++;
         }
       });
 
-      const videosByBrandArray = Object.values(videosByBrandMap);
-      setVideosByBrand(videosByBrandArray);
+      setVideosByBrand(Object.values(videosByBrandMap));
     } else {
       setTotalVideos(0);
       setVideosByBrand([]);
     }
   }, [videos]);
 
-  // Calculate shop stats whenever Redux shopsByBrand changes
   useEffect(() => {
     calculateShopStats(shopsByBrand);
   }, [shopsByBrand]);
@@ -166,15 +157,9 @@ const Overview = () => {
   const fetchShopsForBrand = useCallback(
     async (brandId) => {
       try {
-        console.log(`🔍 Fetching shops for brand: ${brandId}`);
         const result = await dispatch(getShopsByBrand(brandId));
-
-        if (result.payload?.data?.data) {
-          return result.payload.data.data;
-        }
-        return [];
-      } catch (error) {
-        console.error(`❌ Error fetching shops for brand ${brandId}:`, error);
+        return result.payload?.data?.data || [];
+      } catch {
         return [];
       }
     },
@@ -182,14 +167,14 @@ const Overview = () => {
   );
 
   const calculateShopStats = useCallback((shopsData) => {
-    let total = 0;
-    let active = 0;
-
     if (!shopsData || Object.keys(shopsData).length === 0) {
       setTotalShops(0);
       setActiveShops(0);
       return;
     }
+
+    let total = 0;
+    let active = 0;
 
     Object.values(shopsData).forEach((shops) => {
       if (Array.isArray(shops)) {
@@ -207,40 +192,25 @@ const Overview = () => {
   }, []);
 
   const calculateStats = useCallback(() => {
-    // Calculate daily orders
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const todayOrders =
-      allOrders?.filter((order) => {
-        if (!order.created_at) return false;
-        const orderDate = new Date(order.created_at);
-        return orderDate >= yesterday;
-      }).length || 0;
+    const todayOrders = allOrders?.filter((order) => {
+      if (!order.created_at) return false;
+      return new Date(order.created_at) >= yesterday;
+    }).length || 0;
 
     setDailyOrders(todayOrders);
 
-    // Find top brand based on video count
-    console.log("Calculating top brand with:", {
-      videos: videos,
-      videosByBrand: videosByBrand,
-      brands: brands,
-    });
-
-    if (videos && videos.length > 0 && brands && brands.length > 0) {
-      // Calculate videos per brand directly from videos array
+    if (videos?.length && brands?.length) {
       const videoCountByBrand = {};
       videos.forEach((video) => {
         if (video.brand_id) {
-          videoCountByBrand[video.brand_id] =
-            (videoCountByBrand[video.brand_id] || 0) + 1;
+          videoCountByBrand[video.brand_id] = (videoCountByBrand[video.brand_id] || 0) + 1;
         }
       });
 
-      console.log("Video count by brand:", videoCountByBrand);
-
-      // Find brand with most videos
       let topBrandId = null;
       let maxVideos = 0;
 
@@ -261,49 +231,38 @@ const Overview = () => {
             ...brandInfo,
             totalVideos: maxVideos,
             shopCount: shopsByBrand[brandInfo.id]?.length || 0,
-            activeShopCount:
-              shopsByBrand[brandInfo.id]?.filter((shop) => shop.is_active)
-                .length || 0,
+            activeShopCount: shopsByBrand[brandInfo.id]?.filter((shop) => shop.is_active).length || 0,
           });
         }
       } else {
         setTopBrand(null);
       }
     } else {
-      console.log("No videos or brands available for top brand calculation");
       setTopBrand(null);
     }
-  }, [allOrders, videos, brands, shopsByBrand, videosByBrand]);
+  }, [allOrders, videos, brands, shopsByBrand]);
 
   useEffect(() => {
     calculateStats();
-  }, [calculateStats, allOrders, videos, brands, shopsByBrand, videosByBrand]);
+  }, [calculateStats, allOrders, videos, brands, shopsByBrand]);
 
   const fetchData = async () => {
     setLoading(true);
     setIsInitialLoad(true);
-    console.log("🚀 Fetching data...");
+    
     try {
-      // ✅ 1. Fetch all brands FIRST
       const brandsResult = await dispatch(getAllBrands());
       const brandsData = brandsResult.payload || brandsResult.data || [];
 
-      // ✅ 2. Fetch ALL videos using correct thunk from videoSlice
-      console.log("🎬 Fetching all videos...");
-      const videosResult = await dispatch(getAllVideos());
-      console.log("Videos API response:", videosResult);
+      await dispatch(getAllVideos());
 
-      // ✅ 3. Fetch shops for each brand
-      if (brandsData && brandsData.length > 0) {
-        console.log("🏪 Fetching shops for each brand...");
-
+      if (brandsData?.length) {
         for (const brand of brandsData) {
           await fetchShopsForBrand(brand.id);
         }
 
-        // ✅ 4. Fetch orders for each brand
         const ordersPromises = brandsData.map((brand) =>
-          dispatch(getOrdersByBrand(brand.id)),
+          dispatch(getOrdersByBrand(brand.id))
         );
 
         const ordersResponses = await Promise.all(ordersPromises);
@@ -316,11 +275,9 @@ const Overview = () => {
         setAllOrders(combinedOrders);
       }
 
-      // Add a small delay to show skeletons
       setTimeout(() => setIsInitialLoad(false), 300);
       setIsDataReady(true);
-    } catch (error) {
-      console.error("💥 Error fetching data:", error);
+    } catch {
       setIsInitialLoad(false);
     } finally {
       setLoading(false);
@@ -332,30 +289,6 @@ const Overview = () => {
   const getActiveShopCountForBrand = (brandId) =>
     shopsByBrand[brandId]?.filter((shop) => shop.is_active).length || 0;
 
-  // Debug logging
-  useEffect(() => {
-    console.log("📊 Current state:", {
-      totalVideos: videos?.length,
-      totalVideos,
-      videosByBrandCount: videosByBrand?.length,
-      brandsCount: brands?.length,
-      totalShops,
-      activeShops,
-      dailyOrders,
-      topBrand: topBrand,
-    });
-  }, [
-    videos,
-    totalVideos,
-    videosByBrand,
-    brands,
-    totalShops,
-    activeShops,
-    dailyOrders,
-    topBrand,
-  ]);
-
-  // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
@@ -375,9 +308,7 @@ const Overview = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Brands Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-primary-blue hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -402,7 +333,6 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* Total Videos Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -410,7 +340,6 @@ const Overview = () => {
               <p className="text-3xl font-bold text-red-600 mt-2">
                 {getTotalVideos()}
               </p>
-             
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
               <svg
@@ -430,7 +359,6 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* Daily Orders Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -456,7 +384,6 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* Active Shops Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -485,7 +412,6 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Brand Shops Summary */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
         <h2 className="text-xl font-bold text-gray-800 mb-4">
           Shops by Company
