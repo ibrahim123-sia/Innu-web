@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useParams } from 'react-router-dom';
 import store from '../../redux/store';
 import { 
   getShopById,
@@ -132,8 +133,10 @@ const TableSkeleton = () => (
 
 const Analytics = () => {
   const dispatch = useDispatch();
+  const { shopId } = useParams();
   const currentUser = useSelector(state => state.user?.currentUser);
-  const shopId = currentUser?.shop_id;
+  
+  const targetShopId = shopId || currentUser?.shop_id;
   
   const myShop = useSelector(selectCurrentShop);
   const orders = useSelector(selectOrdersByShop) || [];
@@ -158,18 +161,18 @@ const Analytics = () => {
   const [selectedUserForFeedback, setSelectedUserForFeedback] = useState(null);
 
   const fetchData = useCallback(async () => {
-    if (!shopId) return;
+    if (!targetShopId) return;
     
     setLoading(true);
     try {
       dispatch(clearUserEditDetails());
       
       await Promise.all([
-        dispatch(getShopById(shopId)),
-        dispatch(getOrdersByShop(shopId)),
-        dispatch(getUsersByShopId(shopId)),
-        dispatch(getVideosByShop(shopId)),
-        dispatch(getEditDetailsByShop(shopId))
+        dispatch(getShopById(targetShopId)),
+        dispatch(getOrdersByShop(targetShopId)),
+        dispatch(getUsersByShopId(targetShopId)),
+        dispatch(getVideosByShop(targetShopId)),
+        dispatch(getEditDetailsByShop(targetShopId))
       ]);
       
     } catch {
@@ -177,7 +180,7 @@ const Analytics = () => {
       setLoading(false);
       setIsDataReady(true);
     }
-  }, [dispatch, shopId]);
+  }, [dispatch, targetShopId]);
 
   const fetchUserEditDetails = useCallback(async (userId) => {
     setLoadingData(prev => ({ ...prev, [userId]: true }));
@@ -202,12 +205,12 @@ const Analytics = () => {
   }, [fetchUserEditDetails]);
 
   useEffect(() => {
-    if (shopId) {
-      dispatch(getShopById(shopId)).then(() => {
+    if (targetShopId) {
+      dispatch(getShopById(targetShopId)).then(() => {
         setTimeout(() => setIsInitialLoad(false), 300);
       });
     }
-  }, [dispatch, shopId]);
+  }, [dispatch, targetShopId]);
 
   useEffect(() => {
     if (myShop?.id) {
@@ -216,13 +219,13 @@ const Analytics = () => {
   }, [myShop?.id, fetchData]);
 
   useEffect(() => {
-    if (shopUsers?.length && shopId) {
+    if (shopUsers?.length && targetShopId) {
       const filtered = shopUsers.filter(user => 
-        user.shop_id === shopId && user.role !== 'brand_admin'
+        user.shop_id === targetShopId && user.role !== 'brand_admin'
       );
       setFilteredShopUsers(filtered);
     }
-  }, [shopUsers, shopId]);
+  }, [shopUsers, targetShopId]);
 
   useEffect(() => {
     if (filteredShopUsers.length && !dataFetchComplete) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useParams } from 'react-router-dom';
 import { 
   getUsersByShopId,
   createUser,
@@ -112,12 +113,14 @@ const TableSkeleton = () => (
 
 const Users = () => {
   const dispatch = useDispatch();
+  const { shopId } = useParams();
   const currentUser = useSelector(state => state.user.currentUser);
-  const shopId = currentUser?.shop_id;
+  
+  const targetShopId = shopId || currentUser?.shop_id;
   
   const myShop = useSelector(selectCurrentShop);
   
-  const shopUsers = useSelector(state => selectUsersByShopId(shopId)(state)) || [];
+  const shopUsers = useSelector(state => selectUsersByShopId(targetShopId)(state)) || [];
   
   const loading = useSelector(selectUserLoading);
   const error = useSelector(selectUserError);
@@ -243,16 +246,16 @@ const Users = () => {
   };
 
   useEffect(() => {
-    if (shopId) {
-      Promise.all([dispatch(getShopById(shopId))]).then(() => {
+    if (targetShopId) {
+      Promise.all([dispatch(getShopById(targetShopId))]).then(() => {
         setTimeout(() => setIsInitialLoad(false), 300);
       });
     }
-  }, [dispatch, shopId]);
+  }, [dispatch, targetShopId]);
 
   useEffect(() => {
-    if (shopId && myShop?.id) {
-      dispatch(getUsersByShopId(shopId))
+    if (targetShopId && myShop?.id) {
+      dispatch(getUsersByShopId(targetShopId))
         .unwrap()
         .then(() => setIsDataReady(true))
         .catch(() => {
@@ -264,7 +267,7 @@ const Users = () => {
           });
         });
     }
-  }, [dispatch, shopId, myShop]);
+  }, [dispatch, targetShopId, myShop]);
 
   const filteredShopUsers = shopUsers.filter(user => user.role === 'technician');
 

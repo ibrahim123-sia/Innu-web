@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   getOrdersByShop,
   selectOrdersByShop,
@@ -91,6 +91,7 @@ const FilterSkeleton = () => (
 );
 
 const Orders = () => {
+  const { shopId } = useParams();
   const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   
@@ -101,7 +102,7 @@ const Orders = () => {
   const isImpersonating = !!userId;
   
   const [shopManager, setShopManager] = useState(null);
-  const [shopId, setShopId] = useState(null);
+  const [targetShopId, setTargetShopId] = useState(null);
   
   const orders = useSelector(selectOrdersByShop) || [];
   const myShop = useSelector(selectCurrentShop);
@@ -124,13 +125,16 @@ const Orders = () => {
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
   useEffect(() => {
-    if (userId) {
+    if (shopId) {
+      setTargetShopId(shopId);
+      setLoadingUser(false);
+    } else if (userId) {
       fetchShopManagerData();
     } else if (currentUser?.shop_id) {
-      setShopId(currentUser.shop_id);
+      setTargetShopId(currentUser.shop_id);
       setLoadingUser(false);
     }
-  }, [userId, currentUser]);
+  }, [shopId, userId, currentUser]);
 
   const fetchShopManagerData = async () => {
     setLoadingUser(true);
@@ -141,7 +145,7 @@ const Orders = () => {
       });
       const userData = response.data.data || response.data;
       setShopManager(userData);
-      if (userData?.shop_id) setShopId(userData.shop_id);
+      if (userData?.shop_id) setTargetShopId(userData.shop_id);
     } catch {
     } finally {
       setLoadingUser(false);
@@ -149,12 +153,12 @@ const Orders = () => {
   };
 
   useEffect(() => {
-    if (shopId) {
-      Promise.all([dispatch(getShopById(shopId))]).then(() => {
+    if (targetShopId) {
+      Promise.all([dispatch(getShopById(targetShopId))]).then(() => {
         setTimeout(() => setIsInitialLoad(false), 300);
       });
     }
-  }, [dispatch, shopId]);
+  }, [dispatch, targetShopId]);
 
   useEffect(() => {
     if (myShop?.id) {
@@ -297,15 +301,15 @@ const Orders = () => {
     );
   }
 
-  if (!activeUserId) {
+  if (!activeUserId && !shopId) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
         <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
           <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
-          <h3 className="text-lg font-medium text-yellow-800 mb-2">No User Selected</h3>
-          <p className="text-yellow-700">Unable to identify the shop manager.</p>
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">No Shop Selected</h3>
+          <p className="text-yellow-700">Unable to identify the shop.</p>
         </div>
       </div>
     );

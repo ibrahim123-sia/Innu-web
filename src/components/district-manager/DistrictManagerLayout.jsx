@@ -38,9 +38,9 @@ const DistrictManagerLayout = ({ children }) => {
       const city = selectedShop.city || '';
       const state = selectedShop.state || '';
       
-      if (city && state) return `Managing: ${city}, ${state}`;
-      if (city) return `Managing: ${city}`;
-      return "Managing Shop";
+      if (city && state) return `Viewing Shop: ${city}, ${state}`;
+      if (city) return `Viewing Shop: ${city}`;
+      return "Viewing Shop";
     }
     return user?.district_name ? `Managing: ${user.district_name}` : "District Management";
   };
@@ -62,6 +62,13 @@ const DistrictManagerLayout = ({ children }) => {
     ];
   };
 
+  const handleBack = () => {
+    if (selectedShop) {
+      localStorage.removeItem('selectedShop');
+      navigate('/district-manager');
+    }
+  };
+
   const navItems = getNavItems();
 
   return (
@@ -69,16 +76,30 @@ const DistrictManagerLayout = ({ children }) => {
       <header className="bg-primary-blue text-white p-4 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <div>
-              <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-              <p className="text-sm text-primary-blue-100">
-                {getHeaderSubtitle()}
-              </p>
+            <div className="flex items-center">
+              {/* Show back button when viewing a shop */}
+              {selectedShop && (
+                <button
+                  onClick={handleBack}
+                  className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
+                  title="Back to District Overview"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+              )}
+              <div>
+                <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
+                <p className="text-sm text-primary-blue-100">
+                  {getHeaderSubtitle()}
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
-              District Manager
+              {selectedShop ? "District Manager • Shop View" : "District Manager"}
             </div>
             <span className="hidden md:inline text-white">{user?.email}</span>
             <LogoutButton />
