@@ -143,7 +143,7 @@ const Overview = () => {
 
     setLoading(true);
     setIsInitialLoad(true);
-    
+
     try {
       await dispatch(getShopsByBrand(brandId));
       await dispatch(getOrdersByBrand(brandId));
@@ -184,7 +184,8 @@ const Overview = () => {
     for (const shop of shopsList) {
       try {
         const result = await dispatch(getVideosByShop(shop.id)).unwrap();
-        const shopVideos = result?.data || (Array.isArray(result) ? result : []);
+        const shopVideos =
+          result?.data || (Array.isArray(result) ? result : []);
         videosByShop[shop.id] = shopVideos;
       } catch {
         videosByShop[shop.id] = [];
@@ -202,19 +203,19 @@ const Overview = () => {
 
   const organizeShopsByDistrict = useCallback(() => {
     const shopsByDistrictMap = {};
-    
-    districts.forEach(district => {
+
+    districts.forEach((district) => {
       shopsByDistrictMap[district.id] = [];
     });
-    
-    shops.forEach(shop => {
+
+    shops.forEach((shop) => {
       if (shop.district_id && shopsByDistrictMap[shop.district_id]) {
         shopsByDistrictMap[shop.district_id].push(shop);
       }
     });
-    
+
     setShopsByDistrict(shopsByDistrictMap);
-    
+
     const expanded = {};
     districts.forEach((district) => {
       expanded[district.id] = false;
@@ -252,11 +253,12 @@ const Overview = () => {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const todayOrders = brandOrders?.filter((order) => {
-      if (!order?.created_at) return false;
-      const orderDate = new Date(order.created_at);
-      return orderDate >= yesterday;
-    }).length || 0;
+    const todayOrders =
+      brandOrders?.filter((order) => {
+        if (!order?.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        return orderDate >= yesterday;
+      }).length || 0;
 
     setDailyOrders(todayOrders);
 
@@ -294,8 +296,10 @@ const Overview = () => {
   const brandEditStats = useMemo(() => {
     if (!brandId) return null;
 
-    const brandEdits = allEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
-    const brandSpecificEdits = brandEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
+    const brandEdits =
+      allEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
+    const brandSpecificEdits =
+      brandEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
     const totalBrandEdits = brandEdits.length + brandSpecificEdits.length;
 
     const aiCorrect = brandEdits.filter(
@@ -309,8 +313,14 @@ const Overview = () => {
       totalEdits: totalBrandEdits,
       aiCorrect,
       aiErrors,
-      aiSuccessRate: totalBrandEdits > 0 ? ((aiCorrect / totalBrandEdits) * 100).toFixed(1) : "0.00",
-      aiErrorRate: totalBrandEdits > 0 ? ((aiErrors / totalBrandEdits) * 100).toFixed(1) : "0.00",
+      aiSuccessRate:
+        totalBrandEdits > 0
+          ? ((aiCorrect / totalBrandEdits) * 100).toFixed(1)
+          : "0.00",
+      aiErrorRate:
+        totalBrandEdits > 0
+          ? ((aiErrors / totalBrandEdits) * 100).toFixed(1)
+          : "0.00",
       totalSegments: brandEdits.length + brandSpecificEdits.length,
     };
   }, [brandId, allEditDetails, brandEditDetails]);
@@ -334,7 +344,9 @@ const Overview = () => {
 
     const byStatusPercentage = {};
     Object.entries(byStatus).forEach(([status, count]) => {
-      byStatusPercentage[status] = ((count / brandVideos.length) * 100).toFixed(1);
+      byStatusPercentage[status] = ((count / brandVideos.length) * 100).toFixed(
+        1,
+      );
     });
 
     const sevenDaysAgo = new Date();
@@ -346,9 +358,10 @@ const Overview = () => {
       return createdDate >= sevenDaysAgo;
     }).length;
 
-    const recentUploadsPercentage = brandVideos.length > 0
-      ? ((recentUploads / brandVideos.length) * 100).toFixed(1)
-      : 0;
+    const recentUploadsPercentage =
+      brandVideos.length > 0
+        ? ((recentUploads / brandVideos.length) * 100).toFixed(1)
+        : 0;
 
     return {
       total: brandVideos.length,
@@ -430,36 +443,45 @@ const Overview = () => {
   }, [shopVideosMap]);
 
   const activeShopsPercentage = useMemo(
-    () => (totalShops > 0 ? ((activeShops / totalShops) * 100).toFixed(1) : "0.0"),
+    () =>
+      totalShops > 0 ? ((activeShops / totalShops) * 100).toFixed(1) : "0.0",
     [activeShops, totalShops],
   );
 
   const totalOrders = brandOrders?.length || 0;
 
   const completedOrders = useMemo(
-    () => brandOrders?.filter((order) => {
-      if (!order?.status) return false;
-      const status = order.status.toLowerCase();
-      return ["posted", "completed", "done"].includes(status);
-    }).length || 0,
+    () =>
+      brandOrders?.filter((order) => {
+        if (!order?.status) return false;
+        const status = order.status.toLowerCase();
+        return ["posted", "completed", "done"].includes(status);
+      }).length || 0,
     [brandOrders],
   );
 
   const pendingOrders = useMemo(
-    () => brandOrders?.filter((order) => {
-      if (!order?.status) return false;
-      const status = order.status.toLowerCase();
-      return ["estimate", "pending"].includes(status);
-    }).length || 0,
+    () =>
+      brandOrders?.filter((order) => {
+        if (!order?.status) return false;
+        const status = order.status.toLowerCase();
+        return ["estimate", "pending"].includes(status);
+      }).length || 0,
     [brandOrders],
   );
 
   const inProgressOrders = useMemo(
-    () => brandOrders?.filter((order) => {
-      if (!order?.status) return false;
-      const status = order.status.toLowerCase();
-      return ["work-in-progress", "in_progress", "processing", "in progress"].includes(status);
-    }).length || 0,
+    () =>
+      brandOrders?.filter((order) => {
+        if (!order?.status) return false;
+        const status = order.status.toLowerCase();
+        return [
+          "work-in-progress",
+          "in_progress",
+          "processing",
+          "in progress",
+        ].includes(status);
+      }).length || 0,
     [brandOrders],
   );
 
@@ -470,7 +492,12 @@ const Overview = () => {
       if (profilePicData.startsWith("{")) {
         try {
           const parsed = JSON.parse(profilePicData);
-          return parsed.publicUrl || parsed.signedUrl || parsed.filePath || DEFAULT_PROFILE_PIC;
+          return (
+            parsed.publicUrl ||
+            parsed.signedUrl ||
+            parsed.filePath ||
+            DEFAULT_PROFILE_PIC
+          );
         } catch {
           return profilePicData;
         }
@@ -488,13 +515,28 @@ const Overview = () => {
     }));
   };
 
+  // In Brand Admin Overview.js - Update these functions
+
   const openDistrictPage = (district) => {
-    localStorage.setItem('selectedDistrict', JSON.stringify(district));
+    // Store that we came from the brand admin overview
+    localStorage.setItem("navigationFrom", "brand-overview");
+    localStorage.setItem("selectedDistrict", JSON.stringify(district));
     navigate(`/brand-admin/districts/${district.id}`);
   };
 
   const openShopPage = (shop) => {
-    localStorage.setItem('selectedShop', JSON.stringify(shop));
+    // Store that we came from a district context or brand overview
+    const fromDistrict = selectedDistrict ? true : false;
+
+    if (fromDistrict) {
+      localStorage.setItem("navigationFrom", "district-overview");
+      localStorage.setItem("fromDistrict", "true");
+      // Keep the selectedDistrict in localStorage for back navigation
+    } else {
+      localStorage.setItem("navigationFrom", "brand-overview");
+    }
+
+    localStorage.setItem("selectedShop", JSON.stringify(shop));
     navigate(`/brand-admin/shops/${shop.id}`);
   };
 
@@ -578,7 +620,8 @@ const Overview = () => {
                 {brandVideoRequestsCount}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {shopsWithAIRequests} {shopsWithAIRequests === 1 ? "shop" : "shops"} with videos
+                {shopsWithAIRequests}{" "}
+                {shopsWithAIRequests === 1 ? "shop" : "shops"} with videos
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -669,21 +712,21 @@ const Overview = () => {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
-                     
                       <div>
                         <h3 className="font-medium text-gray-800">
                           {district.name}
                         </h3>
                         <p className="text-xs text-gray-500">
                           {district.city}
-                          {district.state ? `, ${district.state}` : ''}
+                          {district.state ? `, ${district.state}` : ""}
                         </p>
                         <p className="text-xs text-blue-600 mt-1">
-                          {districtShops.length} {districtShops.length === 1 ? 'shop' : 'shops'}
+                          {districtShops.length}{" "}
+                          {districtShops.length === 1 ? "shop" : "shops"}
                         </p>
                       </div>
                     </div>
-                    
+
                     <button
                       onClick={() => openDistrictPage(district)}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
@@ -711,7 +754,9 @@ const Overview = () => {
                       onClick={() => toggleDistrictExpanded(district.id)}
                       className="w-full flex justify-between items-center text-sm font-medium text-gray-700 hover:text-gray-900"
                     >
-                      <span>Shops in this district ({districtShops.length})</span>
+                      <span>
+                        Shops in this district ({districtShops.length})
+                      </span>
                       <svg
                         className={`w-5 h-5 transform transition-transform ${isExpanded ? "rotate-180" : ""}`}
                         fill="none"
@@ -731,7 +776,6 @@ const Overview = () => {
                       <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
                         {districtShops.length ? (
                           districtShops.map((shop) => {
-
                             return (
                               <div
                                 key={shop.id}
@@ -739,7 +783,7 @@ const Overview = () => {
                               >
                                 <div className="flex items-center space-x-2 flex-1">
                                   <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold text-sm">
-                                    {shop.name?.charAt(0).toUpperCase() || 'S'}
+                                    {shop.name?.charAt(0).toUpperCase() || "S"}
                                   </div>
                                   <div className="flex-1">
                                     <p className="text-sm font-medium text-gray-800">
@@ -747,9 +791,8 @@ const Overview = () => {
                                     </p>
                                     <div className="flex items-center text-xs text-gray-500">
                                       <span className="truncate max-w-[100px]">
-                                        {shop.city || 'No city'}
+                                        {shop.city || "No city"}
                                       </span>
-                                     
                                     </div>
                                   </div>
                                 </div>
@@ -764,11 +807,29 @@ const Overview = () => {
                                   >
                                     {shop.is_active ? "Active" : "Inactive"}
                                   </span>
-                                  
+                                  // Update the open shop button inside the
+                                  expanded districts section
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      openShopPage(shop);
+                                      // Store navigation context
+                                      localStorage.setItem(
+                                        "navigationFrom",
+                                        "district-overview",
+                                      );
+                                      localStorage.setItem(
+                                        "fromDistrict",
+                                        "true",
+                                      );
+                                      localStorage.setItem(
+                                        "selectedDistrict",
+                                        JSON.stringify(district),
+                                      );
+                                      localStorage.setItem(
+                                        "selectedShop",
+                                        JSON.stringify(shop),
+                                      );
+                                      navigate(`/brand-admin/shops/${shop.id}`);
                                     }}
                                     className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-lg text-xs flex items-center transition-colors"
                                     title="Open Shop Overview"

@@ -344,9 +344,26 @@ const Overview = () => {
   const totalShops = shops.length;
   const activeShops = shops.filter((shop) => shop.is_active).length;
 
-  const handleOpenShop = (shop) => {
- localStorage.setItem('selectedShop', JSON.stringify(shop));
-    navigate(`/district-manager/shops/${shop.id}`);
+// In District Overview.js - Update handleOpenShop function
+
+// In District Overview.js - Replace line 417 with:
+
+const handleOpenShop = (shop) => {
+  if (isBrandAdminMode) {
+    // Brand admin opening shop from district view
+    localStorage.setItem('navigationFrom', 'district-overview');
+    localStorage.setItem('fromDistrict', 'true');
+    // Ensure selectedDistrict is still in localStorage
+    if (selectedDistrict) {
+      localStorage.setItem('selectedDistrict', JSON.stringify(selectedDistrict));
+    }
+  } else {
+    // District manager opening shop
+    localStorage.setItem('navigationFrom', 'district-manager-overview');
+  }
+  
+  localStorage.setItem('selectedShop', JSON.stringify(shop));
+  navigate(`/district-manager/shops/${shop.id}`);
 };
 
   const getProfilePicUrl = (profilePicData) => {

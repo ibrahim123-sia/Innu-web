@@ -12,34 +12,44 @@ const ShopManagerLayout = ({ children }) => {
   const [viewMode, setViewMode] = useState('shop_manager'); // 'shop_manager', 'brand_admin', 'district_manager'
   const [activeContext, setActiveContext] = useState('shop'); // Track the context
 
-  useEffect(() => {
-    if (shopId) {
-      const shop = localStorage.getItem('selectedShop');
-      if (shop) {
-        const parsedShop = JSON.parse(shop);
-        if (parsedShop.id === shopId) {
-          setSelectedShop(parsedShop);
-        }
+useEffect(() => {
+  if (shopId) {
+    const shop = localStorage.getItem('selectedShop');
+    if (shop) {
+      const parsedShop = JSON.parse(shop);
+      if (parsedShop.id === shopId) {
+        setSelectedShop(parsedShop);
       }
-      
-      // Determine view mode based on the URL path
-      const path = window.location.pathname;
-      if (path.includes('/brand-admin/')) {
-        setViewMode('brand_admin');
-        setActiveContext('brand');
-      } else if (path.includes('/district-manager/')) {
-        setViewMode('district_manager');
-        setActiveContext('district');
-      } else {
-        setViewMode('shop_manager');
-        setActiveContext('shop');
-      }
+    }
+    
+    // Determine view mode based on the URL path
+    const path = window.location.pathname;
+    if (path.includes('/brand-admin/')) {
+      setViewMode('brand_admin');
+      setActiveContext('brand');
+    } else if (path.includes('/district-manager/')) {
+      setViewMode('district_manager');
+      setActiveContext('district');
     } else {
-      setSelectedShop(null);
       setViewMode('shop_manager');
       setActiveContext('shop');
     }
-  }, [shopId]);
+    
+    // Check if we came from a district
+    const fromDistrict = localStorage.getItem('fromDistrict');
+    if (fromDistrict) {
+      setActiveContext('brand');
+    }
+  } else {
+    setSelectedShop(null);
+    setViewMode('shop_manager');
+    setActiveContext('shop');
+    // Clear navigation tracking when leaving shop view
+    localStorage.removeItem('navigationFrom');
+    localStorage.removeItem('fromDistrict');
+  }
+}, [shopId]);
+
 
   const getHeaderTitle = () => {
     if (selectedShop) {
@@ -119,19 +129,44 @@ const ShopManagerLayout = ({ children }) => {
     ];
   };
 
-  const handleBack = () => {
+const handleBack = () => {
+  const from = localStorage.getItem('navigationFrom');
+  const districtFrom = localStorage.getItem('fromDistrict');
+  
+  if (from === 'brand-admin' || districtFrom) {
+    localStorage.removeItem('navigationFrom');
+    localStorage.removeItem('fromDistrict');
+    localStorage.removeItem('selectedShop');
+    
+    // If coming from a specific district, go back to that district
+    if (districtFrom) {
+      const districtData = localStorage.getItem('selectedDistrict');
+      if (districtData) {
+        const district = JSON.parse(districtData);
+        navigate(`/brand-admin/districts/${district.id}`);
+      } else {
+        navigate('/brand-admin/districts');
+      }
+    } else {
+      navigate('/brand-admin/shops');
+    }
+  } else if (from === 'district-manager') {
+    localStorage.removeItem('navigationFrom');
+    localStorage.removeItem('selectedShop');
+    navigate('/district-manager');
+  } else {
+    // Default behavior
     localStorage.removeItem('selectedShop');
     
     if (viewMode === 'brand_admin') {
       navigate('/brand-admin/shops');
     } else if (viewMode === 'district_manager') {
-      // When going back to district manager, we need to go to the district overview
-      // The district info is still in localStorage
       navigate('/district-manager');
     } else {
       navigate('/shop-manager');
     }
-  };
+  }
+};
 
   const navItems = getNavItems();
 
