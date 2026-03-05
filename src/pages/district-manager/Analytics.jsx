@@ -111,10 +111,10 @@ const Analytics = () => {
   const shopsByDistrict = useSelector(selectShopsByDistrict);
   const currentDistrict = useSelector(selectCurrentDistrict);
   const districtLoading = useSelector(selectDistrictLoading);
-  const districtEdits = useSelector(selectDistrictEditDetails) || [];
-  const shopEditsMap = useSelector(selectShopEditDetails) || {};
   
   const [videos, setVideos] = useState([]);
+  const [edits, setEdits] = useState([]);
+  const [shopEdits, setShopEdits] = useState({});
   const [loading, setLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [dataFetched, setDataFetched] = useState(false);
@@ -170,9 +170,10 @@ const Analytics = () => {
   const fetchEditsForShop = useCallback(async (shopId) => {
     setLoadingShops(prev => ({ ...prev, [shopId]: true }));
     try {
-      await dispatch(getEditDetailsByShop(shopId)).unwrap();
-    } catch (error) {
-      console.error(`Failed to fetch edits for shop ${shopId}:`, error);
+      const result = await dispatch(getEditDetailsByShop(shopId)).unwrap();
+      setShopEdits(prev => ({ ...prev, [shopId]: result?.data || [] }));
+    } catch {
+      setShopEdits(prev => ({ ...prev, [shopId]: [] }));
     } finally {
       setLoadingShops(prev => ({ ...prev, [shopId]: false }));
     }
@@ -187,12 +188,12 @@ const Analytics = () => {
   useEffect(() => {
     if (filteredShops.length > 0 && dataFetched) {
       filteredShops.forEach(shop => {
-        if (!shopEditsMap[shop.id]) {
+        if (!shopEdits[shop.id]) {
           fetchEditsForShop(shop.id);
         }
       });
     }
-  }, [filteredShops, dataFetched, shopEditsMap, fetchEditsForShop]);
+  }, [filteredShops, dataFetched, shopEdits, fetchEditsForShop]);
 
   const fetchAllData = useCallback(async () => {
     if (!targetDistrictId) return;
@@ -201,7 +202,7 @@ const Analytics = () => {
     setFetchError(null);
     
     try {
-      const [videosData] = await Promise.all([
+      const [videosData, editsData] = await Promise.all([
         fetchVideosForDistrict(),
         fetchEditsForDistrict(),
         fetchCurrentDistrict(),
@@ -209,6 +210,7 @@ const Analytics = () => {
       ]);
       
       setVideos(videosData);
+      setEdits(editsData);
       setDataFetched(true);
       
     } catch {
@@ -229,7 +231,7 @@ const Analytics = () => {
 
   const districtStats = useMemo(() => {
     const totalVideos = videos.length;
-    const videosWithCorrections = getUniqueVideoIdsWithEdits(districtEdits);
+    const videosWithCorrections = getUniqueVideoIdsWithEdits(edits);
     
     const manualCorrections = videosWithCorrections;
     const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
@@ -247,15 +249,31 @@ const Analytics = () => {
       pendingVideos: videos.filter(v => v.status === 'pending').length,
       failedVideos: videos.filter(v => v.status === 'failed').length,
     };
-  }, [videos, districtEdits, filteredShops, getUniqueVideoIdsWithEdits]);
+  }, [videos, edits, filteredShops, getUniqueVideoIdsWithEdits]);
 
   const getShopStats = useCallback((shopId) => {
     const shop = filteredShops.find(s => String(s.id) === String(shopId));
     const shopName = shop?.name;
-    const shopEditData = shopEditsMap[shopId] || [];
+    const shopEditData = shopEdits[shopId] || [];
+    
+    if (!shopName) {
+      return {
+        totalVideos: 0,
+        manualCorrections: 0,
+        successCount: 0,
+        successRate: "0.00",
+        errorRate: "0.00",
+        completedVideos: 0,
+        processingVideos: 0,
+        pendingVideos: 0,
+        failedVideos: 0,
+        isActive: shop?.is_active,
+        loading: loadingShops[shopId] || false,
+      };
+    }
     
     const shopVideos = videos.filter(v => 
-      v.shop_name && v.shop_name.trim().toLowerCase() === shopName?.trim().toLowerCase()
+      v.shop_name && v.shop_name.trim().toLowerCase() === shopName.trim().toLowerCase()
     );
     
     const totalVideos = shopVideos.length;
@@ -277,7 +295,7 @@ const Analytics = () => {
       isActive: shop?.is_active,
       loading: loadingShops[shopId] || false,
     };
-  }, [videos, filteredShops, shopEditsMap, loadingShops, getUniqueVideoIdsWithEdits]);
+  }, [videos, filteredShops, shopEdits, loadingShops, getUniqueVideoIdsWithEdits]);
 
   const getShopLogo = useCallback((shopId) => {
     if (!filteredShops?.length) return DEFAULT_SHOP_LOGO;
@@ -298,17 +316,36 @@ const Analytics = () => {
   const getDistrictDetailedStats = useCallback(() => ({
     ...districtStats,
     districtVideos: videos,
-    districtEdits: districtEdits,
+    districtEdits: edits,
     districtShops: filteredShops,
-  }), [districtStats, videos, districtEdits, filteredShops]);
+  }), [districtStats, videos, edits, filteredShops]);
 
   const getShopDetailedStats = useCallback((shopId) => {
     const shop = filteredShops.find(s => String(s.id) === String(shopId));
     const shopName = shop?.name;
-    const shopEditData = shopEditsMap[shopId] || [];
+    const shopEditData = shopEdits[shopId] || [];
+    
+    if (!shopName) {
+      return {
+        totalVideos: 0,
+        manualCorrections: 0,
+        successCount: 0,
+        successRate: "0.00",
+        errorRate: "0.00",
+        completedVideos: 0,
+        processingVideos: 0,
+        pendingVideos: 0,
+        failedVideos: 0,
+        shopVideos: [],
+        shopEdits: [],
+        shop,
+        districtName: getDistrictName(),
+        loading: loadingShops[shopId] || false,
+      };
+    }
     
     const shopVideosData = videos.filter(v => 
-      v.shop_name && v.shop_name.trim().toLowerCase() === shopName?.trim().toLowerCase()
+      v.shop_name && v.shop_name.trim().toLowerCase() === shopName.trim().toLowerCase()
     );
     
     const totalVideos = shopVideosData.length;
@@ -333,7 +370,7 @@ const Analytics = () => {
       districtName: getDistrictName(),
       loading: loadingShops[shopId] || false,
     };
-  }, [videos, filteredShops, shopEditsMap, getDistrictName, getUniqueVideoIdsWithEdits, loadingShops]);
+  }, [videos, filteredShops, shopEdits, getDistrictName, getUniqueVideoIdsWithEdits, loadingShops]);
 
   const handleViewAllFeedback = useCallback((shopId) => {
     setSelectedShopForFeedback(shopId);
@@ -344,10 +381,6 @@ const Analytics = () => {
     setSelectedFeedback(edit);
     setShowFeedbackModal(true);
   }, []);
-
-  const handleRefreshShop = useCallback((shopId) => {
-    fetchEditsForShop(shopId);
-  }, [fetchEditsForShop]);
 
   if (isInitialLoad && loading) {
     return (
@@ -655,29 +688,26 @@ const Analytics = () => {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => handleRefreshShop(shop.id)}
-                              disabled={stats.loading}
-                              className="px-2 py-1 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded text-sm transition-colors disabled:opacity-50"
-                              title="Refresh shop data"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => setShowShopAnalyticsModal(shop.id)}
-                              disabled={stats.loading}
-                              className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center transition-colors disabled:opacity-50"
-                            >
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              View Details
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => setShowShopAnalyticsModal(shop.id)}
+                            disabled={stats.loading}
+                            className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center transition-colors disabled:opacity-50"
+                          >
+                            {stats.loading ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                                Loading...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View Details
+                              </>
+                            )}
+                          </button>
                         </td>
                       </tr>
                     );
@@ -711,7 +741,7 @@ const Analytics = () => {
           stats={getDistrictDetailedStats()}
           shops={filteredShops}
           videos={videos}
-          edits={districtEdits}
+          edits={edits}
           getShopLogo={getShopLogo}
           getShopName={getShopName}
           onClose={() => setShowDistrictAnalyticsModal(null)}
@@ -729,14 +759,13 @@ const Analytics = () => {
           onClose={() => setShowShopAnalyticsModal(null)}
           onViewAllFeedback={handleViewAllFeedback}
           onViewFeedback={handleViewFeedback}
-          onRefresh={handleRefreshShop}
         />
       )}
 
       {showAllFeedbackModal && selectedShopForFeedback && (
         <AllFeedbackModal
           shopId={selectedShopForFeedback}
-          edits={shopEditsMap[selectedShopForFeedback] || []}
+          edits={shopEdits[selectedShopForFeedback] || []}
           shops={filteredShops}
           getShopName={getShopName}
           onClose={() => {
@@ -968,7 +997,7 @@ const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShop
   );
 };
 
-const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, onViewAllFeedback, onViewFeedback, onRefresh }) => (
+const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, onViewAllFeedback, onViewFeedback }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
       <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
@@ -986,23 +1015,11 @@ const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, 
             <p className="text-gray-600">Complete shop analytics</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => onRefresh(shopId)}
-            disabled={stats.loading}
-            className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full disabled:opacity-50"
-            title="Refresh shop data"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       <div className="p-6">
