@@ -22,22 +22,33 @@ const DistrictManagerLayout = ({ children }) => {
   const [mode, setMode] = useState('district_manager'); // 'district_manager', 'brand_admin', 'shop_view'
 
   useEffect(() => {
+    console.log('DistrictManagerLayout - Params:', { districtId, shopId, userId, userRole: user?.role });
+
     // Brand admin viewing a district
     if (districtId && !userId && !shopId) {
       setMode('brand_admin');
       const district = localStorage.getItem('selectedDistrict');
-      if (district) setSelectedDistrict(JSON.parse(district));
-      setSelectedShop(null);
+      if (district) {
+        setSelectedDistrict(JSON.parse(district));
+        setSelectedShop(null);
+      }
     } 
     // District manager viewing a shop
     else if (shopId || (userId && user?.role === 'district_manager')) {
       setMode('shop_view');
       const shop = localStorage.getItem('selectedShop');
-      if (shop) setSelectedShop(JSON.parse(shop));
+      if (shop) {
+        setSelectedShop(JSON.parse(shop));
+      } else {
+        // If no shop in localStorage, try to get from somewhere else or set null
+        setSelectedShop(null);
+      }
       
       // Also keep district info for header
       const district = localStorage.getItem('selectedDistrict');
-      if (district) setSelectedDistrict(JSON.parse(district));
+      if (district) {
+        setSelectedDistrict(JSON.parse(district));
+      }
     }
     // Regular district manager view
     else {
@@ -57,7 +68,7 @@ const DistrictManagerLayout = ({ children }) => {
       localStorage.removeItem('selectedShop');
       // Go back to district overview
       if (selectedDistrict) {
-        navigate(`/district-manager`);
+        navigate('/district-manager');
       } else {
         navigate('/district-manager');
       }
@@ -71,18 +82,24 @@ const DistrictManagerLayout = ({ children }) => {
       return `${selectedDistrict.name} District`;
     }
     if (mode === 'shop_view' && selectedShop) {
-      return `${selectedShop.name} Shop`;
+      return `${selectedShop.name || 'Shop'} Management`;
+    }
+    if (mode === 'shop_view' && !selectedShop) {
+      return "Shop Management";
     }
     return "District Management";
   };
 
   const getHeaderSubtitle = () => {
     if (mode === 'brand_admin' && selectedDistrict) {
-      return `Viewing District: ${selectedDistrict.city}${selectedDistrict.state ? `, ${selectedDistrict.state}` : ''}`;
+      return `Viewing District: ${selectedDistrict.city || ''}${selectedDistrict.state ? `, ${selectedDistrict.state}` : ''}`;
     }
     if (mode === 'shop_view') {
       if (selectedDistrict && selectedShop) {
         return `${selectedDistrict.name} District • ${selectedShop.city || ''} ${selectedShop.state || ''}`;
+      }
+      if (selectedDistrict) {
+        return `${selectedDistrict.name} District • Managing Shop`;
       }
       if (selectedShop) {
         return `Managing Shop: ${selectedShop.city || ''} ${selectedShop.state || ''}`;

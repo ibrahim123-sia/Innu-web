@@ -350,7 +350,10 @@ const Overview = () => {
   const activeShops = shops.filter((shop) => shop.is_active).length;
 
 const handleOpenShop = (shop) => {
-  localStorage.removeItem("selectedDistrict");
+  // Store both district and shop info
+  if (selectedDistrict) {
+    localStorage.setItem('selectedDistrict', JSON.stringify(selectedDistrict));
+  }
   localStorage.setItem("selectedShop", JSON.stringify(shop));
 
   if (isBrandAdminMode) {
