@@ -115,17 +115,19 @@ const ShopManagerLayout = ({ children }) => {
     ];
   };
 
-  const handleBack = () => {
-    localStorage.removeItem('selectedShop');
-    
-    if (viewMode === 'brand_admin') {
-      navigate('/brand-admin/shops');
-    } else if (viewMode === 'district_manager') {
-      navigate('/district-manager');
-    } else {
-      navigate('/shop-manager');
-    }
-  };
+const handleBack = () => {
+  localStorage.removeItem('selectedShop');
+  
+  if (viewMode === 'brand_admin') {
+    navigate('/brand-admin/shops');
+  } else if (viewMode === 'district_manager') {
+    // When going back to district manager, we need to keep the district info
+    // The district is still in localStorage from when we opened the shop
+    navigate('/district-manager');
+  } else {
+    navigate('/shop-manager');
+  }
+};
 
   const navItems = getNavItems();
 
