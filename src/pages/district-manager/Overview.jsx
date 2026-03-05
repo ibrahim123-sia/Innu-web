@@ -350,25 +350,8 @@ const Overview = () => {
   const activeShops = shops.filter((shop) => shop.is_active).length;
 
 const handleOpenShop = (shop) => {
-  // Store both district and shop info
-  if (selectedDistrict) {
-    localStorage.setItem('selectedDistrict', JSON.stringify(selectedDistrict));
-  }
-  localStorage.setItem("selectedShop", JSON.stringify(shop));
-
-  if (isBrandAdminMode) {
-    navigate(`/brand-admin/shops/${shop.id}`);
-  } else {
-    // District manager opening a shop
-    const shopManager = shopManagers.find((m) => m.shop_id === shop.id);
-    if (shopManager) {
-      // Navigate to shop with userId to maintain context
-      navigate(`/district-manager/shops/${shop.id}?userId=${shopManager.id}`);
-    } else {
-      // Navigate to shop directly
-      navigate(`/district-manager/shops/${shop.id}`);
-    }
-  }
+ localStorage.setItem('selectedShop', JSON.stringify(shop));
+    navigate(`/district-manager/shops/${shop.id}`);
 };
 
   const getProfilePicUrl = (profilePicData) => {
