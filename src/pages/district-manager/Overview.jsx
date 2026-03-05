@@ -349,21 +349,24 @@ const Overview = () => {
   const totalShops = shops.length;
   const activeShops = shops.filter((shop) => shop.is_active).length;
 
-  const handleOpenShop = (shop) => {
-    localStorage.removeItem("selectedDistrict");
-    localStorage.setItem("selectedShop", JSON.stringify(shop));
+const handleOpenShop = (shop) => {
+  localStorage.removeItem("selectedDistrict");
+  localStorage.setItem("selectedShop", JSON.stringify(shop));
 
-    if (isBrandAdminMode) {
-      navigate(`/brand-admin/shops/${shop.id}`);
+  if (isBrandAdminMode) {
+    navigate(`/brand-admin/shops/${shop.id}`);
+  } else {
+    // District manager opening a shop
+    const shopManager = shopManagers.find((m) => m.shop_id === shop.id);
+    if (shopManager) {
+      // Navigate to shop with userId to maintain context
+      navigate(`/district-manager/shops/${shop.id}?userId=${shopManager.id}`);
     } else {
-      const shopManager = shopManagers.find((m) => m.shop_id === shop.id);
-      if (shopManager) {
-        navigate(`/shop-manager?userId=${shopManager.id}`);
-      } else {
-        navigate(`/shop-manager?shopId=${shop.id}`);
-      }
+      // Navigate to shop directly
+      navigate(`/district-manager/shops/${shop.id}`);
     }
-  };
+  }
+};
 
   const getProfilePicUrl = (profilePicData) => {
     if (!profilePicData)
