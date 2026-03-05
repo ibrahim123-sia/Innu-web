@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Outlet, NavLink, useNavigate, useParams } from "react-router-dom";
+import { Outlet, NavLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import LogoutButton from "../../components/common/LogoutButton";
 
@@ -7,32 +7,69 @@ const ShopManagerLayout = ({ children }) => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.user.currentUser);
   const { shopId } = useParams();
+  const [searchParams] = useSearchParams();
+  
+  const userId = searchParams.get('userId');
   
   const [selectedShop, setSelectedShop] = useState(null);
+  const [mode, setMode] = useState('shop_manager'); // 'shop_manager', 'brand_admin', 'district_manager'
 
   useEffect(() => {
-    if (shopId) {
+    console.log('ShopManagerLayout - Params:', { shopId, userId, userRole: user?.role });
+
+    // Determine the mode based on URL params and user role
+    if (shopId && !userId) {
+      // Brand admin viewing a shop directly
+      setMode('brand_admin');
       const shop = localStorage.getItem('selectedShop');
       if (shop) {
         const parsedShop = JSON.parse(shop);
-        if (parsedShop.id === shopId) {
-          setSelectedShop(parsedShop);
-        } else {
-          const shops = JSON.parse(localStorage.getItem('shops') || '[]');
-          const foundShop = shops.find(s => s.id === shopId);
-          if (foundShop) {
-            setSelectedShop(foundShop);
-            localStorage.setItem('selectedShop', JSON.stringify(foundShop));
-          }
-        }
+        setSelectedShop(parsedShop);
+      }
+    } else if (userId) {
+      // Someone is viewing a shop manager's page
+      if (user?.role === 'district_manager') {
+        // District manager viewing a shop manager's page
+        setMode('district_manager');
+      } else if (user?.role === 'brand_admin') {
+        // Brand admin viewing a shop manager's page
+        setMode('brand_admin');
+      } else {
+        // Regular shop manager viewing their own page
+        setMode('shop_manager');
+      }
+      
+      // Try to get shop from localStorage
+      const shop = localStorage.getItem('selectedShop');
+      if (shop) {
+        setSelectedShop(JSON.parse(shop));
       }
     } else {
+      // Regular shop manager login (no params)
+      setMode('shop_manager');
       setSelectedShop(null);
+      // Clear any leftover localStorage items
+      localStorage.removeItem('selectedShop');
     }
-  }, [shopId]);
+  }, [shopId, userId, user?.role]);
+
+  const handleBack = () => {
+    if (mode === 'brand_admin') {
+      localStorage.removeItem('selectedShop');
+      navigate('/brand-admin/shops');
+    } else if (mode === 'district_manager') {
+      localStorage.removeItem('selectedShop');
+      navigate('/district-manager');
+    } else {
+      localStorage.removeItem('selectedShop');
+      navigate('/shop-manager');
+    }
+  };
 
   const getHeaderTitle = () => {
-    if (selectedShop) return `${selectedShop.name || 'Shop'} Management`;
+    if (selectedShop) {
+      return `${selectedShop.name || 'Shop'} Management`;
+    }
     return "Shop Manager Dashboard";
   };
 
@@ -45,34 +82,60 @@ const ShopManagerLayout = ({ children }) => {
       if (city) return `Managing: ${city}`;
       return "Managing Shop";
     }
-    
-    if (user?.shops?.length > 1) return `You have access to ${user.shops.length} shops`;
-    if (user?.shops?.length === 1) return "Managing your shop";
     return "Manage your shop operations";
   };
 
   const getNavItems = () => {
-    if (selectedShop?.id) {
+    if (mode === 'brand_admin' && selectedShop) {
+      // Brand admin viewing a specific shop
       return [
-        { name: "Overview", path: `/shop-manager/shops/${selectedShop.id}` },
-        { name: "Orders", path: `/shop-manager/shops/${selectedShop.id}/orders` },
-        { name: "Analytics", path: `/shop-manager/shops/${selectedShop.id}/analytics` },
-        { name: "Users", path: `/shop-manager/shops/${selectedShop.id}/users` },
+        { name: "Overview", path: `/brand-admin/shops/${selectedShop.id}` },
+        { name: "Orders", path: `/brand-admin/shops/${selectedShop.id}/orders` },
+        { name: "Analytics", path: `/brand-admin/shops/${selectedShop.id}/analytics` },
+        { name: "Users", path: `/brand-admin/shops/${selectedShop.id}/users` },
+      ];
+    } else if (userId) {
+      // District manager or brand admin viewing a shop manager's page
+      // Use the userId in the path to maintain context
+      return [
+        { name: "Overview", path: `/shop-manager?userId=${userId}` },
+        { name: "Orders", path: `/shop-manager/orders?userId=${userId}` },
+        { name: "Analytics", path: `/shop-manager/analytics?userId=${userId}` },
+        { name: "Users", path: `/shop-manager/users?userId=${userId}` },
+      ];
+    } else {
+      // Regular shop manager
+      return [
+        { name: "Overview", path: "/shop-manager" },
+        { name: "Orders", path: "/shop-manager/orders" },
+        { name: "Analytics", path: "/shop-manager/analytics" },
+        { name: "Users", path: "/shop-manager/users" },
       ];
     }
-    return [
-      { name: "Overview", path: "/shop-manager" },
-      { name: "Orders", path: "/shop-manager/orders" },
-      { name: "Analytics", path: "/shop-manager/analytics" },
-      { name: "Users", path: "/shop-manager/users" },
-    ];
   };
 
-  const handleBack = () => {
-    if (selectedShop) {
-      localStorage.removeItem('selectedShop');
-      navigate('/shop-manager');
+  const getRoleBadge = () => {
+    if (mode === 'brand_admin') {
+      return "Brand Admin • Shop View";
     }
+    if (mode === 'district_manager') {
+      return "District Manager • Shop View";
+    }
+    return "Shop Manager";
+  };
+
+  const showBackButton = () => {
+    return mode === 'brand_admin' || mode === 'district_manager';
+  };
+
+  const getBackButtonTitle = () => {
+    if (mode === 'brand_admin') {
+      return "Back to Shops";
+    }
+    if (mode === 'district_manager') {
+      return "Back to District";
+    }
+    return "Back";
   };
 
   const navItems = getNavItems();
@@ -83,11 +146,11 @@ const ShopManagerLayout = ({ children }) => {
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <div className="flex items-center">
-              {selectedShop && (
+              {showBackButton() && selectedShop && (
                 <button
                   onClick={handleBack}
                   className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
-                  title="Back to Dashboard"
+                  title={getBackButtonTitle()}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -96,12 +159,15 @@ const ShopManagerLayout = ({ children }) => {
               )}
               <div>
                 <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
+                <p className="text-sm text-primary-blue-100">
+                  {getHeaderSubtitle()}
+                </p>
               </div>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
-              Shop Manager
+              {getRoleBadge()}
             </div>
             <span className="hidden md:inline text-white">{user?.email}</span>
             <LogoutButton />
