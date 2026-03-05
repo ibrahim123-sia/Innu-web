@@ -259,6 +259,47 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
+        {/* ADDED: District Manager Shop Detail Routes */}
+        <Route path="/district-manager/shops/:shopId" element={
+          <ProtectedRoute>
+            <RoleRoute role={['district_manager', 'brand_admin']}>
+              <DistrictManagerLayout>
+                <ShopManagerOverview />
+              </DistrictManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/district-manager/shops/:shopId/orders" element={
+          <ProtectedRoute>
+            <RoleRoute role={['district_manager', 'brand_admin']}>
+              <DistrictManagerLayout>
+                <ShopManagerOrders />
+              </DistrictManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/district-manager/shops/:shopId/analytics" element={
+          <ProtectedRoute>
+            <RoleRoute role={['district_manager', 'brand_admin']}>
+              <DistrictManagerLayout>
+                <ShopManagerAnalytics />
+              </DistrictManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/district-manager/shops/:shopId/users" element={
+          <ProtectedRoute>
+            <RoleRoute role={['district_manager', 'brand_admin']}>
+              <DistrictManagerLayout>
+                <ShopManagerUsers />
+              </DistrictManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
         <Route path="/district-manager/users" element={
           <ProtectedRoute>
             <RoleRoute role={['district_manager', 'brand_admin']}>
