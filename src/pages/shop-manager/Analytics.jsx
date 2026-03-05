@@ -1,63 +1,31 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useParams } from 'react-router-dom';
-import store from '../../redux/store';
-import { 
-  getShopById,
-  selectCurrentShop
+import { useParams, useSearchParams } from 'react-router-dom';
+import {
+  getShopsByDistrict,
+  selectShopsByDistrict
 } from '../../redux/slice/shopSlice';
 import {
-  getOrdersByShop,
-  selectOrdersByShop
-} from '../../redux/slice/orderSlice';
+  getEditDetailsByDistrict
+} from '../../redux/slice/videoEditSlice';
 import {
-  selectAllUsers,
-  getUsersByShopId
-} from '../../redux/slice/userSlice';
-import {
-  getVideosByShop,
-  getVideosByUser,
-  selectVideos,
+  getVideosByDistrict
 } from '../../redux/slice/videoSlice';
 import {
-  getEditDetailsByShop,
-  getEditDetailsByUser,
-  selectShopEditDetails,
-  selectAllUserEdits,
-  clearUserEditDetails,
-} from '../../redux/slice/videoEditSlice';
+  getDistrictById,
+  selectCurrentDistrict,
+  selectDistrictLoading
+} from '../../redux/slice/districtSlice';
 
-const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-
-const selectVideosByShop = (state) => {
-  const videos = state.video.videos;
-  if (videos?.data && Array.isArray(videos.data)) return videos.data;
-  if (Array.isArray(videos)) return videos;
-  return [];
-};
-
-const selectEditDetailsByShop = (state) => {
-  const edits = state.videoEdit.shopEditDetails;
-  if (edits?.data && Array.isArray(edits.data)) return edits.data;
-  if (Array.isArray(edits)) return edits;
-  return [];
-};
-
-const selectVideosByUser = (userId) => (state) => {
-  if (!userId) return [];
-  const shopVideos = selectVideosByShop(state);
-  return shopVideos.filter(video => video.created_by === userId);
-};
-
-const selectEditDetailsByUserId = (userId) => (state) => {
-  if (!userId) return [];
-  return selectAllUserEdits(userId)(state);
-};
+const DEFAULT_SHOP_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
-      <div key={i} className="bg-white p-6 rounded-lg shadow-md border-l-4 border-gray-200">
+      <div
+        key={i}
+        className="bg-white p-6 rounded-lg shadow-md border-l-4 border-gray-200"
+      >
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
@@ -71,58 +39,50 @@ const StatsSkeleton = () => (
   </div>
 );
 
-const VideoStatsSkeleton = () => (
-  <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-    <div className="flex items-center justify-between mb-6">
-      <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
-      <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="text-center p-4 bg-gray-50 rounded-lg">
-          <div className="h-8 bg-gray-200 rounded animate-pulse w-16 mx-auto mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded animate-pulse w-20 mx-auto"></div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
 const TableSkeleton = () => (
-  <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
     <div className="p-6 border-b">
-      <div className="h-6 bg-gray-200 rounded animate-pulse w-64 mb-2"></div>
-      <div className="h-4 bg-gray-200 rounded animate-pulse w-48"></div>
+      <div className="h-6 bg-gray-200 rounded animate-pulse w-48 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-64"></div>
     </div>
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <th key={i} className="px-6 py-3 text-left">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <th key={i} className="px-6 py-3">
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
               </th>
             ))}
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {[1, 2, 3, 4].map((row) => (
-            <tr key={row} className="hover:bg-gray-50">
-              {[1, 2, 3, 4, 5, 6].map((col) => (
-                <td key={col} className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    {col === 1 && (
-                      <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse mr-3"></div>
-                    )}
-                    <div>
-                      <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
-                      {col === 1 && (
-                        <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
-                      )}
-                    </div>
+          {[1, 2, 3].map((i) => (
+            <tr key={i} className="hover:bg-gray-50">
+              <td className="px-6 py-4">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse mr-4"></div>
+                  <div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
                   </div>
-                </td>
-              ))}
+                </div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+                  <div className="h-2 bg-gray-200 rounded-full animate-pulse w-32"></div>
+                </div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="h-8 bg-gray-200 rounded animate-pulse w-24"></div>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -133,211 +93,271 @@ const TableSkeleton = () => (
 
 const Analytics = () => {
   const dispatch = useDispatch();
-  const { shopId } = useParams();
-  const currentUser = useSelector(state => state.user?.currentUser);
+  const { districtId } = useParams();
+  const [searchParams] = useSearchParams();
+  const userId = searchParams.get("userId");
   
-  const targetShopId = shopId || currentUser?.shop_id;
+  const user = useSelector(state => state.user.currentUser);
   
-  const myShop = useSelector(selectCurrentShop);
-  const orders = useSelector(selectOrdersByShop) || [];
-  const shopUsers = useSelector(selectAllUsers) || [];
+  const targetDistrictId = useMemo(() => {
+    if (districtId) return districtId;
+    if (userId) return user?.district_id;
+    return user?.district_id;
+  }, [districtId, userId, user?.district_id]);
   
-  const allVideos = useSelector(selectVideosByShop) || [];
-  const shopEdits = useSelector(selectEditDetailsByShop) || [];
+  const shopsByDistrict = useSelector(selectShopsByDistrict);
+  const currentDistrict = useSelector(selectCurrentDistrict);
+  const districtLoading = useSelector(selectDistrictLoading);
   
-  const [loading, setLoading] = useState(true);
+  const [videos, setVideos] = useState([]);
+  const [edits, setEdits] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isDataReady, setIsDataReady] = useState(false);
-  const [videoStats, setVideoStats] = useState(null);
-  const [filteredShopUsers, setFilteredShopUsers] = useState([]);
-  const [loadingData, setLoadingData] = useState({});
-  const [userPerformanceData, setUserPerformanceData] = useState([]);
-  const [dataFetchComplete, setDataFetchComplete] = useState(false);
+  const [dataFetched, setDataFetched] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
   
-  const [showUserAnalyticsModal, setShowUserAnalyticsModal] = useState(null);
+  const [viewMode, setViewMode] = useState('shops');
+  
+  const [showDistrictAnalyticsModal, setShowDistrictAnalyticsModal] = useState(null);
+  const [showShopAnalyticsModal, setShowShopAnalyticsModal] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
-  const [selectedUserForFeedback, setSelectedUserForFeedback] = useState(null);
+  const [selectedShopForFeedback, setSelectedShopForFeedback] = useState(null);
 
-  const fetchData = useCallback(async () => {
-    if (!targetShopId) return;
+  const filteredShops = useMemo(() => {
+    if (!shopsByDistrict) return [];
+    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) return shopsByDistrict.data;
+    if (Array.isArray(shopsByDistrict)) return shopsByDistrict;
+    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) return shopsByDistrict.shops;
+    return [];
+  }, [shopsByDistrict]);
+
+  const fetchCurrentDistrict = useCallback(async () => {
+    if (!targetDistrictId) return null;
+    try {
+      return await dispatch(getDistrictById(targetDistrictId)).unwrap();
+    } catch {
+      return null;
+    }
+  }, [dispatch, targetDistrictId]);
+
+  const fetchVideosForDistrict = useCallback(async () => {
+    if (!targetDistrictId) return [];
+    try {
+      const result = await dispatch(getVideosByDistrict(targetDistrictId)).unwrap();
+      return result?.data && Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
+    } catch {
+      return [];
+    }
+  }, [dispatch, targetDistrictId]);
+
+  const fetchEditsForDistrict = useCallback(async () => {
+    if (!targetDistrictId) return [];
+    try {
+      const result = await dispatch(getEditDetailsByDistrict(targetDistrictId)).unwrap();
+      return result?.data && Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
+    } catch {
+      return [];
+    }
+  }, [dispatch, targetDistrictId]);
+
+  useEffect(() => {
+    if (targetDistrictId) {
+      fetchAllData();
+    }
+  }, [targetDistrictId]);
+
+  const fetchAllData = useCallback(async () => {
+    if (!targetDistrictId) return;
     
     setLoading(true);
+    setFetchError(null);
+    
     try {
-      dispatch(clearUserEditDetails());
-      
-      await Promise.all([
-        dispatch(getShopById(targetShopId)),
-        dispatch(getOrdersByShop(targetShopId)),
-        dispatch(getUsersByShopId(targetShopId)),
-        dispatch(getVideosByShop(targetShopId)),
-        dispatch(getEditDetailsByShop(targetShopId))
+      const [videosData, editsData] = await Promise.all([
+        fetchVideosForDistrict(),
+        fetchEditsForDistrict(),
+        fetchCurrentDistrict(),
+        dispatch(getShopsByDistrict(targetDistrictId)).unwrap()
       ]);
       
+      setVideos(videosData);
+      setEdits(editsData);
+      setDataFetched(true);
+      
     } catch {
+      setFetchError('Failed to load analytics data. Please try again.');
     } finally {
       setLoading(false);
-      setIsDataReady(true);
+      setIsInitialLoad(false);
     }
-  }, [dispatch, targetShopId]);
+  }, [targetDistrictId, dispatch, fetchVideosForDistrict, fetchEditsForDistrict, fetchCurrentDistrict]);
 
-  const fetchUserEditDetails = useCallback(async (userId) => {
-    setLoadingData(prev => ({ ...prev, [userId]: true }));
-    try {
-      await dispatch(getEditDetailsByUser(userId));
-      return true;
-    } catch {
-      return false;
-    } finally {
-      setLoadingData(prev => ({ ...prev, [userId]: false }));
-    }
-  }, [dispatch]);
-
-  const fetchAllUsersEditDetails = useCallback(async (users) => {
-    if (!users.length) return;
+  const districtStats = useMemo(() => {
+    const totalVideos = videos.length;
     
-    for (const user of users) {
-      await fetchUserEditDetails(user.id);
-    }
+    // Count unique videos that have corrections (using Set)
+    const videosWithCorrections = new Set();
+    edits.forEach(edit => {
+      if (edit.video_id) videosWithCorrections.add(edit.video_id);
+    });
     
-    setDataFetchComplete(true);
-  }, [fetchUserEditDetails]);
-
-  useEffect(() => {
-    if (targetShopId) {
-      dispatch(getShopById(targetShopId)).then(() => {
-        setTimeout(() => setIsInitialLoad(false), 300);
-      });
-    }
-  }, [dispatch, targetShopId]);
-
-  useEffect(() => {
-    if (myShop?.id) {
-      fetchData();
-    }
-  }, [myShop?.id, fetchData]);
-
-  useEffect(() => {
-    if (shopUsers?.length && targetShopId) {
-      const filtered = shopUsers.filter(user => 
-        user.shop_id === targetShopId && user.role !== 'brand_admin'
-      );
-      setFilteredShopUsers(filtered);
-    }
-  }, [shopUsers, targetShopId]);
-
-  useEffect(() => {
-    if (filteredShopUsers.length && !dataFetchComplete) {
-      fetchAllUsersEditDetails(filteredShopUsers);
-    }
-  }, [filteredShopUsers, dataFetchComplete, fetchAllUsersEditDetails]);
-
-  useEffect(() => {
-    if (allVideos?.length) {
-      calculateVideoStats(allVideos);
-    }
-  }, [allVideos]);
-
-  const calculateVideoStats = useCallback((videos) => {
-    if (!videos?.length) return;
+    const manualCorrections = videosWithCorrections.size;
+    const successCount = Math.max(0, totalVideos - manualCorrections);
     
-    const stats = {
-      total: videos.length,
-      byStatus: {
-        uploading: videos.filter(v => v.status === 'uploading').length,
-        processing: videos.filter(v => v.status === 'processing').length,
-        completed: videos.filter(v => v.status === 'completed').length,
-        failed: videos.filter(v => v.status === 'failed').length,
-      },
+    return {
+      totalVideos,
+      manualCorrections,
+      successCount,
+      successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00",
+      errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00",
+      totalShops: filteredShops.length,
+      activeShops: filteredShops.filter(shop => shop.is_active).length,
+      completedVideos: videos.filter(v => v.status === 'completed').length,
+      processingVideos: videos.filter(v => v.status === 'processing').length,
+      pendingVideos: videos.filter(v => v.status === 'pending').length,
+      failedVideos: videos.filter(v => v.status === 'failed').length,
     };
-    
-    setVideoStats(stats);
-  }, []);
+  }, [videos, edits, filteredShops]);
 
-  useEffect(() => {
-    if (!filteredShopUsers.length) {
-      setUserPerformanceData([]);
-      return;
-    }
-
-    const state = store.getState();
+  const getShopStats = useCallback((shopId) => {
+    const shop = filteredShops.find(s => String(s.id) === String(shopId));
+    const shopName = shop?.name;
     
-    const processedData = filteredShopUsers.map(user => {
-      const userVideos = allVideos.filter(video => video.created_by === user.id) || [];
-      const userEdits = selectEditDetailsByUserId(user.id)(state) || [];
-      
-      const totalVideos = userVideos.length;
-      
-      const uniqueVideoIdsWithEdits = new Set();
-      userEdits.forEach(edit => {
-        if (edit.video_id) uniqueVideoIdsWithEdits.add(edit.video_id);
-      });
-      
-      const manualCorrections = uniqueVideoIdsWithEdits.size;
-      const successCount = totalVideos - manualCorrections;
-      const adjustedSuccessCount = Math.max(0, successCount);
-      const adjustedManualCorrections = Math.min(manualCorrections, totalVideos);
-      
+    if (!shopName) {
       return {
-        id: user.id,
-        name: `${user.first_name} ${user.last_name}`,
-        email: user.email,
-        role: user.role,
-        is_active: user.is_active,
-        profilePic: user.profile_pic_url || DEFAULT_PROFILE_PIC,
-        totalVideos,
-        manualCorrections: adjustedManualCorrections,
-        successCount: adjustedSuccessCount,
-        successRate: totalVideos > 0 ? ((adjustedSuccessCount / totalVideos) * 100).toFixed(1) : 0,
-        errorRate: totalVideos > 0 ? ((adjustedManualCorrections / totalVideos) * 100).toFixed(1) : 0,
-        completedVideos: userVideos.filter(v => v.status === 'completed').length,
-        processingVideos: userVideos.filter(v => v.status === 'processing').length,
-        pendingVideos: userVideos.filter(v => v.status === 'pending').length,
-        failedVideos: userVideos.filter(v => v.status === 'failed').length,
-        loading: loadingData[user.id] || false,
-        userEdits
+        totalVideos: 0,
+        manualCorrections: 0,
+        successCount: 0,
+        successRate: "0.00",
+        errorRate: "0.00",
+        completedVideos: 0,
+        processingVideos: 0,
+        pendingVideos: 0,
+        failedVideos: 0,
+        isActive: shop?.is_active,
       };
-    }).sort((a, b) => b.totalVideos - a.totalVideos);
+    }
     
-    setUserPerformanceData(processedData);
-  }, [filteredShopUsers, loadingData, dataFetchComplete, allVideos]);
-
-  const stats = useMemo(() => {
-    const totalAIVideoRequests = allVideos?.length || 0;
+    const shopVideos = videos.filter(v => 
+      v.shop_name && v.shop_name.trim().toLowerCase() === shopName.trim().toLowerCase()
+    );
     
+    const shopEdits = edits.filter(e => {
+      const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+      return editShopName && editShopName.trim().toLowerCase() === shopName.trim().toLowerCase();
+    });
+    
+    const totalVideos = shopVideos.length;
+    
+    // Count unique videos that have corrections
     const videosWithCorrections = new Set();
     shopEdits.forEach(edit => {
       if (edit.video_id) videosWithCorrections.add(edit.video_id);
     });
     
-    const totalManualCorrections = videosWithCorrections.size;
-    const aiSuccess = totalAIVideoRequests - totalManualCorrections;
-    const adjustedAiSuccess = Math.max(0, aiSuccess);
+    const manualCorrections = videosWithCorrections.size;
+    const successCount = Math.max(0, totalVideos - manualCorrections);
     
     return {
-      totalAIVideoRequests,
-      totalManualCorrections,
-      aiSuccess: adjustedAiSuccess,
-      aiSuccessRate: totalAIVideoRequests > 0 
-        ? ((adjustedAiSuccess / totalAIVideoRequests) * 100).toFixed(1) 
-        : 0,
-      aiErrorRate: totalAIVideoRequests > 0 
-        ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(1) 
-        : 0,
+      totalVideos,
+      manualCorrections,
+      successCount,
+      successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00",
+      errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00",
+      completedVideos: shopVideos.filter(v => v.status === 'completed').length,
+      processingVideos: shopVideos.filter(v => v.status === 'processing').length,
+      pendingVideos: shopVideos.filter(v => v.status === 'pending').length,
+      failedVideos: shopVideos.filter(v => v.status === 'failed').length,
+      isActive: shop?.is_active,
     };
-  }, [allVideos, shopEdits]);
+  }, [videos, edits, filteredShops]);
 
-  const handleViewUserAnalytics = useCallback(async (userId) => {
-    setShowUserAnalyticsModal(userId);
+  const getShopLogo = useCallback((shopId) => {
+    if (!filteredShops?.length) return DEFAULT_SHOP_LOGO;
+    const shop = filteredShops.find(s => String(s.id) === String(shopId));
+    return shop?.logo_url?.trim() ? shop.logo_url : DEFAULT_SHOP_LOGO;
+  }, [filteredShops]);
+
+  const getShopName = useCallback((shopId) => {
+    if (!filteredShops?.length) return 'Unknown Shop';
+    const shop = filteredShops.find(s => String(s.id) === String(shopId));
+    return shop?.name || 'Unknown Shop';
+  }, [filteredShops]);
+
+  const getDistrictName = useCallback(() => {
+    return currentDistrict?.name || 'Your District';
+  }, [currentDistrict]);
+
+  const getDistrictDetailedStats = useCallback(() => ({
+    ...districtStats,
+    districtVideos: videos,
+    districtEdits: edits,
+    districtShops: filteredShops,
+  }), [districtStats, videos, edits, filteredShops]);
+
+  const getShopDetailedStats = useCallback((shopId) => {
+    const shop = filteredShops.find(s => String(s.id) === String(shopId));
+    const shopName = shop?.name;
     
-    if (!loadingData[userId]) {
-      await fetchUserEditDetails(userId);
+    if (!shopName) {
+      return {
+        totalVideos: 0,
+        manualCorrections: 0,
+        successCount: 0,
+        successRate: "0.00",
+        errorRate: "0.00",
+        completedVideos: 0,
+        processingVideos: 0,
+        pendingVideos: 0,
+        failedVideos: 0,
+        shopVideos: [],
+        shopEdits: [],
+        shop,
+        districtName: getDistrictName(),
+      };
     }
-  }, [loadingData, fetchUserEditDetails]);
+    
+    const shopVideosData = videos.filter(v => 
+      v.shop_name && v.shop_name.trim().toLowerCase() === shopName.trim().toLowerCase()
+    );
+    
+    const shopEditsData = edits.filter(e => {
+      const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+      return editShopName && editShopName.trim().toLowerCase() === shopName.trim().toLowerCase();
+    });
+    
+    const totalVideos = shopVideosData.length;
+    
+    // Count unique videos that have corrections
+    const videosWithCorrections = new Set();
+    shopEditsData.forEach(edit => {
+      if (edit.video_id) videosWithCorrections.add(edit.video_id);
+    });
+    
+    const manualCorrections = videosWithCorrections.size;
+    const successCount = Math.max(0, totalVideos - manualCorrections);
+    
+    return {
+      totalVideos,
+      manualCorrections,
+      successCount,
+      successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00",
+      errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00",
+      completedVideos: shopVideosData.filter(v => v.status === 'completed').length,
+      processingVideos: shopVideosData.filter(v => v.status === 'processing').length,
+      pendingVideos: shopVideosData.filter(v => v.status === 'pending').length,
+      failedVideos: shopVideosData.filter(v => v.status === 'failed').length,
+      shopVideos: shopVideosData,
+      shopEdits: shopEditsData,
+      shop,
+      districtName: getDistrictName(),
+    };
+  }, [videos, edits, filteredShops, getDistrictName]);
 
-  const handleViewAllFeedback = useCallback((userId) => {
-    setSelectedUserForFeedback(userId);
+  const handleViewAllFeedback = useCallback((shopId) => {
+    setSelectedShopForFeedback(shopId);
     setShowAllFeedbackModal(true);
   }, []);
 
@@ -346,22 +366,45 @@ const Analytics = () => {
     setShowFeedbackModal(true);
   }, []);
 
-  const handleRefreshData = useCallback(() => {
-    setDataFetchComplete(false);
-    setUserPerformanceData([]);
-    fetchData();
-  }, [fetchData]);
-
-  if (isInitialLoad || (loading && !isDataReady)) {
+  if (isInitialLoad && loading) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
-        <div className="mb-8">
-          <div className="h-8 bg-gray-200 rounded animate-pulse w-64 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded animate-pulse w-96"></div>
-        </div>
         <StatsSkeleton />
-        <VideoStatsSkeleton />
         <TableSkeleton />
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="p-6 flex justify-center items-center min-h-[400px]">
+        <div className="text-center bg-red-50 p-8 rounded-lg border border-red-200">
+          <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="text-xl font-bold text-red-800 mb-2">Error Loading Data</h3>
+          <p className="text-red-600 mb-4">{fetchError}</p>
+          <button
+            onClick={fetchAllData}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!targetDistrictId) {
+    return (
+      <div className="p-6 flex justify-center items-center min-h-[400px]">
+        <div className="text-center bg-yellow-50 p-8 rounded-lg border border-yellow-200">
+          <svg className="w-16 h-16 text-yellow-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h3 className="text-xl font-bold text-yellow-800 mb-2">No District Selected</h3>
+          <p className="text-yellow-600">You are not assigned to any district.</p>
+        </div>
       </div>
     );
   }
@@ -369,12 +412,16 @@ const Analytics = () => {
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total AI Video Requests</h3>
-              <p className="text-3xl font-bold text-blue-600 mt-2">{stats.totalAIVideoRequests}</p>
-              <p className="text-xs text-gray-400 mt-1">Total videos processed</p>
+              <p className="text-3xl font-bold text-blue-600 mt-2">
+                {districtStats.totalVideos}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                In {getDistrictName()}
+              </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -383,13 +430,17 @@ const Analytics = () => {
             </div>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600 hover:shadow-lg transition-shadow duration-200">
+
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">AI Success Rate</h3>
-              <p className="text-3xl font-bold text-green-600 mt-2">{stats.aiSuccessRate}%</p>
-              <p className="text-xs text-gray-400 mt-1">{stats.aiSuccess} videos without corrections</p>
+              <p className="text-3xl font-bold text-green-600 mt-2">
+                {districtStats.successRate}%
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {districtStats.successCount} videos without corrections
+              </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -398,13 +449,17 @@ const Analytics = () => {
             </div>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600 hover:shadow-lg transition-shadow duration-200">
+
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">AI Error Rate</h3>
-              <p className="text-3xl font-bold text-red-600 mt-2">{stats.aiErrorRate}%</p>
-              <p className="text-xs text-gray-400 mt-1">{stats.totalManualCorrections} videos with corrections</p>
+              <p className="text-3xl font-bold text-red-600 mt-2">
+                {districtStats.errorRate}%
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {districtStats.manualCorrections} videos with corrections
+              </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -413,234 +468,279 @@ const Analytics = () => {
             </div>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600 hover:shadow-lg transition-shadow duration-200">
+
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Total Users</h3>
-              <p className="text-3xl font-bold text-purple-600 mt-2">{filteredShopUsers?.length || 0}</p>
-              <p className="text-xs text-gray-400 mt-1">{filteredShopUsers?.filter(u => u.is_active).length || 0} active</p>
+              <h3 className="text-sm text-gray-500">Manual Corrections</h3>
+              <p className="text-3xl font-bold text-purple-600 mt-2">
+                {districtStats.manualCorrections}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Unique videos with corrections
+              </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
             </div>
           </div>
         </div>
       </div>
 
-      {videoStats?.total > 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">AI Video Statistics</h2>
-            <span className="text-sm text-gray-500">Video processing status</span>
+      <div className="flex items-center space-x-4 mb-4">
+        <button
+          onClick={() => setViewMode('districts')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            viewMode === 'districts'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          District Performance
+        </button>
+        <button
+          onClick={() => setViewMode('shops')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            viewMode === 'shops'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Shops Performance
+        </button>
+      </div>
+
+      {viewMode === 'districts' && currentDistrict && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
+          <div className="p-6 border-b">
+            <h2 className="text-xl font-bold text-gray-800">District Performance</h2>
+            <p className="text-gray-600">AI video requests and manual corrections for your district</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{videoStats.byStatus.uploading}</div>
-              <div className="text-sm text-blue-500">Uploading</div>
-            </div>
-            
-            <div className="text-center p-4 bg-yellow-50 rounded-lg">
-              <div className="text-2xl font-bold text-yellow-600">{videoStats.byStatus.processing}</div>
-              <div className="text-sm text-yellow-500">Processing</div>
-            </div>
-            
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{videoStats.byStatus.completed}</div>
-              <div className="text-sm text-green-500">Completed</div>
-            </div>
-            
-            <div className="text-center p-4 bg-red-50 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">{videoStats.byStatus.failed}</div>
-              <div className="text-sm text-red-500">Failed</div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <p className="text-center text-gray-500">No video statistics available</p>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
-        <div className="p-6 border-b flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">User Performance</h2>
-            <p className="text-gray-600">AI video requests and manual corrections by user</p>
-          </div>
-          <button
-            onClick={handleRefreshData}
-            className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center transition-colors"
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
-          </button>
-        </div>
-        
-        {filteredShopUsers.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Details</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">District Details</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Video Requests</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual Corrections</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {userPerformanceData.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-150">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full overflow-hidden mr-3 border bg-gray-100">
-                          <img 
-                            src={user.profilePic}
-                            alt={user.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
-                          />
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">{user.name}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </div>
+                <tr key={currentDistrict.id} className="hover:bg-gray-50 transition-colors duration-150">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-blue-100">
+                        <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                        </svg>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                        user.role === 'editor' ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {user.role || 'User'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.loading ? (
-                        <div className="animate-pulse h-6 w-12 bg-gray-200 rounded"></div>
-                      ) : (
-                        <div className="text-lg font-bold text-blue-600">{user.totalVideos}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.loading ? (
-                        <div className="animate-pulse h-6 w-12 bg-gray-200 rounded"></div>
-                      ) : (
-                        <div className="text-lg font-bold text-purple-600">{user.manualCorrections}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.loading ? (
-                        <div className="space-y-2">
-                          <div className="animate-pulse h-4 w-20 bg-gray-200 rounded"></div>
-                          <div className="animate-pulse h-2 w-32 bg-gray-200 rounded-full"></div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Success Rate:</span>
-                            <span className="text-sm font-medium text-green-600">{user.successRate}%</span>
+                      <div>
+                        <div className="font-medium text-gray-900">{currentDistrict.name}</div>
+                        <div className="text-sm text-gray-500">{districtStats.totalShops} shops, {districtStats.activeShops} active</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-lg font-bold text-blue-600">{districtStats.totalVideos}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-lg font-bold text-purple-600">{districtStats.manualCorrections}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Success Rate:</span>
+                        <span className="text-sm font-medium text-green-600">{districtStats.successRate}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div 
+                          className="bg-green-500 h-1.5 rounded-full"
+                          style={{ width: `${Math.min(parseFloat(districtStats.successRate), 100)}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Error Rate:</span>
+                        <span className="text-sm font-medium text-red-600">{districtStats.errorRate}%</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => setShowDistrictAnalyticsModal(currentDistrict.id)}
+                      className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'shops' && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
+          <div className="p-6 border-b">
+            <h2 className="text-xl font-bold text-gray-800">Shops Performance in {getDistrictName()}</h2>
+            <p className="text-gray-600">AI video requests and manual corrections by shop</p>
+          </div>
+          
+          {filteredShops?.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Details</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Video Requests</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual Corrections</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredShops.map((shop) => {
+                    const stats = getShopStats(shop.id);
+                    
+                    return (
+                      <tr key={shop.id} className="hover:bg-gray-50 transition-colors duration-150">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
+                              <img 
+                                src={getShopLogo(shop.id)}
+                                alt={shop.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { e.target.src = DEFAULT_SHOP_LOGO; }}
+                              />
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{shop.name}</div>
+                              <div className="text-sm text-gray-500">
+                                {shop.city}{shop.state ? `, ${shop.state}` : ''}
+                              </div>
+                              <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${
+                                shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {shop.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-1.5">
-                            <div 
-                              className="bg-green-500 h-1.5 rounded-full"
-                              style={{ width: `${Math.min(parseFloat(user.successRate), 100)}%` }}
-                            ></div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-lg font-bold text-blue-600">{stats.totalVideos}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Success Rate:</span>
+                              <span className="text-sm font-medium text-green-600">{stats.successRate}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-green-500 h-1.5 rounded-full"
+                                style={{ width: `${Math.min(parseFloat(stats.successRate), 100)}%` }}
+                              ></div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Error Rate:</span>
+                              <span className="text-sm font-medium text-red-600">{stats.errorRate}%</span>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Error Rate:</span>
-                            <span className="text-sm font-medium text-red-600">{user.errorRate}%</span>
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleViewUserAnalytics(user.id)}
-                        disabled={loadingData[user.id] || user.loading}
-                        className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                      >
-                        {loadingData[user.id] || user.loading ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
-                            Loading...
-                          </>
-                        ) : (
-                          <>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => setShowShopAnalyticsModal(shop.id)}
+                            className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm flex items-center transition-colors"
+                          >
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                             View Details
-                          </>
-                        )}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="py-12 text-center">
-            <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-            </svg>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Users Found</h3>
-            <p className="text-gray-500 mb-4">No users are associated with this shop yet.</p>
-            <button
-              onClick={handleRefreshData}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Refresh Data
-            </button>
-          </div>
-        )}
-      </div>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="py-12 text-center">
+              <img 
+                src={DEFAULT_SHOP_LOGO}
+                alt="No shops" 
+                className="w-16 h-16 mx-auto mb-4 opacity-50"
+              />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Shops Found in {getDistrictName()}</h3>
+              <p className="text-gray-500 mb-4">No shops have been added to this district yet.</p>
+              <button
+                onClick={fetchAllData}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Refresh Data
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
-      {showUserAnalyticsModal && (
-        <UserAnalyticsModal
-          userId={showUserAnalyticsModal}
-          user={filteredShopUsers.find(u => u.id === showUserAnalyticsModal)}
-          shopName={myShop?.name}
-          loading={loadingData[showUserAnalyticsModal]}
-          onClose={() => setShowUserAnalyticsModal(null)}
+      {showDistrictAnalyticsModal && currentDistrict && (
+        <DistrictAnalyticsModal
+          district={currentDistrict}
+          stats={getDistrictDetailedStats()}
+          shops={filteredShops}
+          videos={videos}
+          edits={edits}
+          getShopLogo={getShopLogo}
+          getShopName={getShopName}
+          onClose={() => setShowDistrictAnalyticsModal(null)}
           onViewAllFeedback={handleViewAllFeedback}
           onViewFeedback={handleViewFeedback}
-          allVideos={allVideos}
         />
       )}
 
-      {showAllFeedbackModal && selectedUserForFeedback && (
+      {showShopAnalyticsModal && (
+        <ShopAnalyticsModal
+          shopId={showShopAnalyticsModal}
+          stats={getShopDetailedStats(showShopAnalyticsModal)}
+          getShopLogo={getShopLogo}
+          getShopName={getShopName}
+          onClose={() => setShowShopAnalyticsModal(null)}
+          onViewAllFeedback={handleViewAllFeedback}
+          onViewFeedback={handleViewFeedback}
+        />
+      )}
+
+      {showAllFeedbackModal && selectedShopForFeedback && (
         <AllFeedbackModal
-          userId={selectedUserForFeedback}
-          user={filteredShopUsers.find(u => u.id === selectedUserForFeedback)}
+          shopId={selectedShopForFeedback}
+          edits={edits}
+          shops={filteredShops}
+          getShopName={getShopName}
           onClose={() => {
             setShowAllFeedbackModal(false);
-            setSelectedUserForFeedback(null);
+            setSelectedShopForFeedback(null);
           }}
           onViewFeedback={handleViewFeedback}
         />
       )}
 
       {showFeedbackModal && selectedFeedback && (
-        <FeedbackDetailModal
+        <FeedbackModal
           feedback={selectedFeedback}
           onClose={() => {
             setShowFeedbackModal(false);
@@ -652,194 +752,370 @@ const Analytics = () => {
   );
 };
 
-const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAllFeedback, onViewFeedback, allVideos }) => {
-  const state = useSelector(state => state);
-  const userVideos = allVideos?.filter(video => video.created_by === userId) || [];
-  const userEdits = selectEditDetailsByUserId(userId)(state) || [];
-  
-  const uniqueVideoIdsWithEdits = new Set();
-  userEdits.forEach(edit => {
-    if (edit.video_id) uniqueVideoIdsWithEdits.add(edit.video_id);
-  });
-  
-  const totalVideos = userVideos.length;
-  const manualCorrections = uniqueVideoIdsWithEdits.size;
-  const successCount = totalVideos - manualCorrections;
-  const adjustedSuccessCount = Math.max(0, successCount);
-  const adjustedManualCorrections = Math.min(manualCorrections, totalVideos);
-  
-  const successRate = totalVideos > 0 ? ((adjustedSuccessCount / totalVideos) * 100).toFixed(1) : 0;
-  const errorRate = totalVideos > 0 ? ((adjustedManualCorrections / totalVideos) * 100).toFixed(1) : 0;
-  
-  const completedVideos = userVideos.filter(v => v.status === 'completed').length;
-  const processingVideos = userVideos.filter(v => v.status === 'processing').length;
-  const pendingVideos = userVideos.filter(v => v.status === 'pending').length;
-  const failedVideos = userVideos.filter(v => v.status === 'failed').length;
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full p-6">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShopLogo, getShopName, onClose, onViewAllFeedback, onViewFeedback }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 rounded-lg overflow-hidden border bg-blue-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">{district.name}</h2>
+            <p className="text-gray-600">Complete district analytics</p>
           </div>
         </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-    );
-  }
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 rounded-full overflow-hidden border bg-gray-100">
-              <img 
-                src={user?.profile_pic_url || DEFAULT_PROFILE_PIC}
-                alt={user?.first_name}
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
-              />
+      <div className="p-6">
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="text-sm text-blue-600">Total Videos</div>
+              <div className="text-2xl font-bold text-blue-700">{stats.totalVideos}</div>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="text-sm text-green-600">Completed</div>
+              <div className="text-2xl font-bold text-green-700">{stats.completedVideos}</div>
+            </div>
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <div className="text-sm text-yellow-600">Processing</div>
+              <div className="text-2xl font-bold text-yellow-700">{stats.processingVideos}</div>
+            </div>
+            <div className="bg-red-50 p-4 rounded-lg">
+              <div className="text-sm text-red-600">Failed</div>
+              <div className="text-2xl font-bold text-red-700">{stats.failedVideos}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-blue-600">AI Video Requests</h4>
+                  <p className="text-2xl font-bold text-blue-700 mt-1">{stats.totalVideos}</p>
+                </div>
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-green-600">Success Rate</h4>
+                  <p className="text-2xl font-bold text-green-700 mt-1">{stats.successRate}%</p>
+                </div>
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-red-600">Error Rate</h4>
+                  <p className="text-2xl font-bold text-red-700 mt-1">{stats.errorRate}%</p>
+                </div>
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-purple-600">Manual Corrections</h4>
+                  <p className="text-2xl font-bold text-purple-700 mt-1">{stats.manualCorrections}</p>
+                  <p className="text-xs text-purple-500">({edits.length} total edits)</p>
+                </div>
+                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {shops?.length > 0 ? (
+          <div className="bg-white border rounded-lg p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Shops in this District</h3>
+            <div className="space-y-4">
+              {shops.map((shop) => {
+                const shopVideos = videos.filter(v => 
+                  v.shop_name && v.shop_name.trim().toLowerCase() === shop.name.trim().toLowerCase()
+                );
+                const shopEdits = edits.filter(e => {
+                  const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+                  return editShopName && editShopName.trim().toLowerCase() === shop.name.trim().toLowerCase();
+                });
+                
+                // Count unique videos with corrections
+                const videosWithCorrections = new Set();
+                shopEdits.forEach(edit => {
+                  if (edit.video_id) videosWithCorrections.add(edit.video_id);
+                });
+                
+                return (
+                  <div key={shop.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center mr-3 border bg-gray-100">
+                          <img 
+                            src={getShopLogo(shop.id)}
+                            alt={shop.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.target.src = DEFAULT_SHOP_LOGO; }}
+                          />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">{shop.name}</h4>
+                          <p className="text-sm text-gray-500">
+                            {shop.city}{shop.state ? `, ${shop.state}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {shop.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2 mb-3 text-sm">
+                      <div className="text-center p-2 bg-blue-50 rounded">
+                        <div className="font-bold text-blue-600">{shopVideos.length}</div>
+                        <div className="text-xs text-gray-500">Videos</div>
+                      </div>
+                      <div className="text-center p-2 bg-purple-50 rounded">
+                        <div className="font-bold text-purple-600">{videosWithCorrections.size}</div>
+                        <div className="text-xs text-gray-500">Videos w/ Edits</div>
+                      </div>
+                      <div className="text-center p-2 bg-green-50 rounded">
+                        <div className="font-bold text-green-600">
+                          {shopEdits.filter(e => e.feedback_reason === 'correct').length}
+                        </div>
+                        <div className="text-xs text-gray-500">Total Edits</div>
+                      </div>
+                    </div>
+
+                    {shopEdits.length > 0 && (
+                      <div className="mt-3">
+                        <button
+                          onClick={() => onViewAllFeedback(shop.id)}
+                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                          </svg>
+                          View {shopEdits.length} feedback items
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white border rounded-lg p-6 text-center">
+            <p className="text-gray-500">No shops found in this district</p>
+          </div>
+        )}
+      </div>
+
+      <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
+        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, onViewAllFeedback, onViewFeedback }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100">
+            <img 
+              src={getShopLogo(shopId)}
+              alt={getShopName(shopId)}
+              className="w-full h-full object-cover"
+              onError={(e) => { e.target.src = DEFAULT_SHOP_LOGO; }}
+            />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">{getShopName(shopId)}</h2>
+            <p className="text-gray-600">Complete shop analytics</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="p-6">
+        <div className="mb-8 bg-gray-50 p-4 rounded-lg">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">District</p>
+              <p className="font-medium text-gray-900">{stats.districtName}</p>
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">{user?.first_name} {user?.last_name}</h2>
-              <p className="text-gray-600">Complete user analytics</p>
+              <p className="text-sm text-gray-500">Status</p>
+              <p className={`font-medium ${stats.shop?.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                {stats.shop?.is_active ? 'Active' : 'Inactive'}
+              </p>
             </div>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="p-6">
-          <div className="mb-8 bg-gray-50 p-4 rounded-lg">
-            <div className="grid grid-cols-2 gap-4">
+            {stats.shop?.city && (
               <div>
-                <p className="text-sm text-gray-500">Email</p>
-                <p className="font-medium text-gray-900">{user?.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Role</p>
-                <p className="font-medium text-gray-900">{user?.role || 'User'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Status</p>
-                <p className={`font-medium ${user?.is_active ? 'text-green-600' : 'text-red-600'}`}>
-                  {user?.is_active ? 'Active' : 'Inactive'}
+                <p className="text-sm text-gray-500">Location</p>
+                <p className="font-medium text-gray-900">
+                  {stats.shop.city}{stats.shop.state ? `, ${stats.shop.state}` : ''}
                 </p>
               </div>
+            )}
+            {stats.shop?.tekmetric_shop_id && (
               <div>
-                <p className="text-sm text-gray-500">Shop</p>
-                <p className="font-medium text-gray-900">{shopName}</p>
+                <p className="text-sm text-gray-500">Tekmetric ID</p>
+                <p className="font-medium text-gray-900">{stats.shop.tekmetric_shop_id}</p>
               </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="text-sm text-blue-600">Total Videos</div>
+              <div className="text-2xl font-bold text-blue-700">{stats.totalVideos}</div>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="text-sm text-green-600">Completed</div>
+              <div className="text-2xl font-bold text-green-700">{stats.completedVideos}</div>
+            </div>
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <div className="text-sm text-yellow-600">Processing</div>
+              <div className="text-2xl font-bold text-yellow-700">{stats.processingVideos}</div>
+            </div>
+            <div className="bg-red-50 p-4 rounded-lg">
+              <div className="text-sm text-red-600">Failed</div>
+              <div className="text-2xl font-bold text-red-700">{stats.failedVideos}</div>
             </div>
           </div>
+        </div>
 
-          <div className="mb-8">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="text-sm text-blue-600">Total Videos</div>
-                <div className="text-2xl font-bold text-blue-700">{totalVideos}</div>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="text-sm text-green-600">Completed</div>
-                <div className="text-2xl font-bold text-green-700">{completedVideos}</div>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <div className="text-sm text-yellow-600">Processing</div>
-                <div className="text-2xl font-bold text-yellow-700">{processingVideos}</div>
-              </div>
-              <div className="bg-red-50 p-4 rounded-lg">
-                <div className="text-sm text-red-600">Failed</div>
-                <div className="text-2xl font-bold text-red-700">{failedVideos}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium text-blue-600">AI Video Requests</h4>
-                    <p className="text-2xl font-bold text-blue-700 mt-1">{totalVideos}</p>
-                  </div>
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </div>
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-blue-600">AI Video Requests</h4>
+                  <p className="text-2xl font-bold text-blue-700 mt-1">{stats.totalVideos}</p>
                 </div>
-              </div>
-
-              <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium text-green-600">Success Rate</h4>
-                    <p className="text-2xl font-bold text-green-700 mt-1">{successRate}%</p>
-                  </div>
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium text-red-600">Error Rate</h4>
-                    <p className="text-2xl font-bold text-red-700 mt-1">{errorRate}%</p>
-                  </div>
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium text-purple-600">Manual Corrections</h4>
-                    <p className="text-2xl font-bold text-purple-700 mt-1">{adjustedManualCorrections}</p>
-                    <p className="text-xs text-purple-500">({userEdits.length} total edits)</p>
-                  </div>
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {userEdits?.length > 0 ? (
-            <div className="bg-white border rounded-lg p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-800">Manual Correction Feedback</h3>
-                <button
-                  onClick={() => onViewAllFeedback(userId)}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                >
-                  View All ({userEdits.length})
-                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                </button>
+                </div>
               </div>
-              <div className="space-y-3">
-                {userEdits.slice(0, 5).map((edit, index) => (
+            </div>
+
+            <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-green-600">Success Rate</h4>
+                  <p className="text-2xl font-bold text-green-700 mt-1">{stats.successRate}%</p>
+                </div>
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-red-600">Error Rate</h4>
+                  <p className="text-2xl font-bold text-red-700 mt-1">{stats.errorRate}%</p>
+                </div>
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-purple-600">Manual Corrections</h4>
+                  <p className="text-2xl font-bold text-purple-700 mt-1">{stats.manualCorrections}</p>
+                  <p className="text-xs text-purple-500">({stats.shopEdits?.length || 0} total edits)</p>
+                </div>
+                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {stats.shopEdits?.length > 0 ? (
+          <div className="bg-white border rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-800">Manual Correction Feedback</h3>
+              <button
+                onClick={() => onViewAllFeedback(shopId)}
+                className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
+              >
+                View All ({stats.shopEdits.length})
+                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-3">
+              {stats.shopEdits.slice(0, 5).map((edit, index) => {
+                const hasFeedback = edit.feedback_reason;
+                
+                return (
                   <div 
                     key={edit.edit_id || edit.id || index} 
-                    className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    className={`border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors ${!hasFeedback ? 'opacity-60' : ''}`}
                     onClick={() => onViewFeedback(edit)}
                   >
                     <div className="flex justify-between items-start">
@@ -867,47 +1143,52 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
                       </button>
                     </div>
                   </div>
-                ))}
+                );
+              })}
+            </div>
+            {stats.shopEdits.length > 5 && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => onViewAllFeedback(shopId)}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  + {stats.shopEdits.length - 5} more feedback items
+                </button>
               </div>
-              {userEdits.length > 5 && (
-                <div className="mt-4 text-center">
-                  <button
-                    onClick={() => onViewAllFeedback(userId)}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                  >
-                    + {userEdits.length - 5} more feedback items
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-white border rounded-lg p-6 text-center">
-              <p className="text-gray-500">No manual corrections for this user</p>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white border rounded-lg p-6 text-center">
+            <p className="text-gray-500">No manual corrections for this shop</p>
+          </div>
+        )}
+      </div>
 
-        <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
-            Close
-          </button>
-        </div>
+      <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
+        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
+          Close
+        </button>
       </div>
     </div>
-  );
-};
+  </div>
+);
 
-const AllFeedbackModal = ({ userId, user, onClose, onViewFeedback }) => {
-  const state = useSelector(state => state);
-  const userEdits = selectEditDetailsByUserId(userId)(state) || [];
+const AllFeedbackModal = ({ shopId, edits, shops, getShopName, onClose, onViewFeedback }) => {
+  const shop = shops.find(s => String(s.id) === String(shopId));
+  const shopName = shop?.name;
   
+  const shopEdits = edits.filter(e => {
+    const editShopName = e.shop_name || e.shopName || e.shop?.name || e.shop;
+    return editShopName && editShopName.trim().toLowerCase() === shopName?.trim().toLowerCase();
+  });
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
         <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
           <div>
-            <h3 className="text-xl font-bold text-gray-800">Feedback - {user?.first_name} {user?.last_name}</h3>
-            <p className="text-sm text-gray-500 mt-1">Total {userEdits.length} feedback items</p>
+            <h3 className="text-xl font-bold text-gray-800">Feedback - {getShopName(shopId)}</h3>
+            <p className="text-sm text-gray-500 mt-1">Total {shopEdits.length} feedback items</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -917,9 +1198,9 @@ const AllFeedbackModal = ({ userId, user, onClose, onViewFeedback }) => {
         </div>
         
         <div className="p-6">
-          {userEdits.length > 0 ? (
+          {shopEdits.length > 0 ? (
             <div className="space-y-4">
-              {userEdits.map((edit, index) => (
+              {shopEdits.map((edit, index) => (
                 <div 
                   key={edit.edit_id || edit.id || index} 
                   className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
@@ -939,7 +1220,7 @@ const AllFeedbackModal = ({ userId, user, onClose, onViewFeedback }) => {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-gray-500">No feedback available for this user</p>
+              <p className="text-gray-500">No feedback available for this shop</p>
             </div>
           )}
         </div>
@@ -954,7 +1235,7 @@ const AllFeedbackModal = ({ userId, user, onClose, onViewFeedback }) => {
   );
 };
 
-const FeedbackDetailModal = ({ feedback, onClose }) => (
+const FeedbackModal = ({ feedback, onClose }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
     <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
       <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
