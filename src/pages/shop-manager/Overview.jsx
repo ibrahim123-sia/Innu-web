@@ -12,6 +12,7 @@ import axios from 'axios';
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
+// Skeleton components (keep as is)
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -70,6 +71,7 @@ const Overview = () => {
   
   const [selectedShop, setSelectedShop] = useState(null);
   const [isBrandAdminMode, setIsBrandAdminMode] = useState(false);
+  const [isDistrictManagerMode, setIsDistrictManagerMode] = useState(false);
   
   const [shopManager, setShopManager] = useState(null);
   
@@ -85,20 +87,33 @@ const Overview = () => {
   const [dailyOrders, setDailyOrders] = useState(0);
   const [shopStats, setShopStats] = useState(null);
   
+  // Determine mode based on URL params
   useEffect(() => {
+    console.log('ShopManagerOverview - Params:', { shopId, userId });
+    
     if (shopId && !userId) {
+      // Brand admin viewing a shop directly
       setIsBrandAdminMode(true);
+      setIsDistrictManagerMode(false);
       const shop = localStorage.getItem('selectedShop');
       if (shop) {
-        setSelectedShop(JSON.parse(shop));
-        setLoadingUser(false);
-        fetchShopData(shopId);
+        const parsedShop = JSON.parse(shop);
+        if (parsedShop.id === shopId) {
+          setSelectedShop(parsedShop);
+          setLoadingUser(false);
+          fetchShopData(shopId);
+        } else {
+          setLoadingUser(false);
+          fetchShopData(shopId);
+        }
       } else {
         setLoadingUser(false);
         fetchShopData(shopId);
       }
     } else if (userId) {
+      // Someone is viewing a shop manager's page
       setIsBrandAdminMode(false);
+      setIsDistrictManagerMode(true);
       fetchShopManagerData();
     } else {
       setLoadingUser(false);
@@ -115,21 +130,25 @@ const Overview = () => {
       });
       
       const userData = response.data.data || response.data;
+      console.log('Shop manager data:', userData);
       setShopManager(userData);
       setLoadingUser(false);
-    } catch {
+    } catch (error) {
+      console.error('Error fetching shop manager:', error);
       setLoadingUser(false);
     }
   };
 
+  // Once we have shop manager, fetch their shop data
   useEffect(() => {
-    if (!isBrandAdminMode && shopManager?.shop_id) {
+    if (isDistrictManagerMode && shopManager?.shop_id) {
+      console.log('Fetching shop data for shop_id:', shopManager.shop_id);
       fetchShopData(shopManager.shop_id);
-    } else if (!isBrandAdminMode && !loadingUser && shopManager && !shopManager.shop_id) {
+    } else if (isDistrictManagerMode && !loadingUser && shopManager && !shopManager.shop_id) {
       setLoading(false);
       setIsInitialLoad(false);
     }
-  }, [shopManager, loadingUser, isBrandAdminMode]);
+  }, [shopManager, loadingUser, isDistrictManagerMode]);
 
   const fetchShopData = async (shopId) => {
     if (!shopId) return;
@@ -138,6 +157,8 @@ const Overview = () => {
     setIsInitialLoad(true);
     
     try {
+      console.log('Fetching shop data for shopId:', shopId);
+      
       const [shopResult, ordersResult, usersResult, videosResult] = await Promise.all([
         dispatch(getShopById(shopId)).unwrap(),
         dispatch(getOrdersByShop(shopId)).unwrap(),
@@ -146,6 +167,7 @@ const Overview = () => {
       ]);
       
       const shopData = shopResult?.data || shopResult;
+      console.log('Shop data fetched:', shopData);
       setMyShop(shopData);
       
       let ordersData = [];
@@ -174,7 +196,8 @@ const Overview = () => {
       
       setIsDataReady(true);
       
-    } catch {
+    } catch (error) {
+      console.error('Error fetching shop data:', error);
     } finally {
       setLoading(false);
       setTimeout(() => setIsInitialLoad(false), 300);
@@ -225,6 +248,7 @@ const Overview = () => {
     (user) => user.role === "technician" && user.is_active,
   ).length || 0;
 
+  // Show loading while fetching user data
   if (loadingUser) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -238,6 +262,7 @@ const Overview = () => {
     );
   }
 
+  // Show message if no userId and no shopId
   if (!userId && !shopId) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -252,7 +277,8 @@ const Overview = () => {
     );
   }
 
-  if (!isBrandAdminMode && shopManager && !shopManager.shop_id) {
+  // Show message if shop manager has no shop assigned
+  if (isDistrictManagerMode && shopManager && !shopManager.shop_id) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
         <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
@@ -266,6 +292,7 @@ const Overview = () => {
     );
   }
 
+  // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
@@ -284,6 +311,7 @@ const Overview = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
@@ -360,7 +388,7 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Shop Information Card - Only Quick Actions removed */}
+      {/* Shop Information Card */}
       <div className="grid grid-cols-1 gap-8">
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <div className="flex justify-between items-center mb-4">
