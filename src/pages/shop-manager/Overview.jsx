@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useSearchParams, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { getShopById } from "../../redux/slice/shopSlice";
 import {
   getOrdersByShop,
 } from "../../redux/slice/orderSlice";
 import { getUsersByShopId } from "../../redux/slice/userSlice";
 import { getVideosByShop } from "../../redux/slice/videoSlice";
-import axios from 'axios';
 
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/149/149071.png";
@@ -63,17 +62,8 @@ const ShopInfoSkeleton = () => (
 );
 
 const Overview = () => {
-  const [searchParams] = useSearchParams();
   const { shopId } = useParams();
   const dispatch = useDispatch();
-  
-  const userId = searchParams.get('userId');
-  
-  const [selectedShop, setSelectedShop] = useState(null);
-  const [isBrandAdminMode, setIsBrandAdminMode] = useState(false);
-  const [isDistrictManagerMode, setIsDistrictManagerMode] = useState(false);
-  
-  const [shopManager, setShopManager] = useState(null);
   
   const [myShop, setMyShop] = useState(null);
   const [shopOrders, setShopOrders] = useState([]);
@@ -81,74 +71,16 @@ const Overview = () => {
   const [shopVideos, setShopVideos] = useState([]);
   
   const [loading, setLoading] = useState(true);
-  const [loadingUser, setLoadingUser] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   const [dailyOrders, setDailyOrders] = useState(0);
   const [shopStats, setShopStats] = useState(null);
-  
-  // Determine mode based on URL params
-  useEffect(() => {
-    console.log('ShopManagerOverview - Params:', { shopId, userId });
-    
-    if (shopId && !userId) {
-      // Brand admin viewing a shop directly
-      setIsBrandAdminMode(true);
-      setIsDistrictManagerMode(false);
-      const shop = localStorage.getItem('selectedShop');
-      if (shop) {
-        const parsedShop = JSON.parse(shop);
-        if (parsedShop.id === shopId) {
-          setSelectedShop(parsedShop);
-          setLoadingUser(false);
-          fetchShopData(shopId);
-        } else {
-          setLoadingUser(false);
-          fetchShopData(shopId);
-        }
-      } else {
-        setLoadingUser(false);
-        fetchShopData(shopId);
-      }
-    } else if (userId) {
-      // Someone is viewing a shop manager's page
-      setIsBrandAdminMode(false);
-      setIsDistrictManagerMode(true);
-      fetchShopManagerData();
-    } else {
-      setLoadingUser(false);
-    }
-  }, [shopId, userId]);
 
-  const fetchShopManagerData = async () => {
-    setLoadingUser(true);
-    try {
-      const token = localStorage.getItem('token');
-      
-      const response = await axios.get(`http://localhost:5000/api/users/getUsers/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      const userData = response.data.data || response.data;
-      console.log('Shop manager data:', userData);
-      setShopManager(userData);
-      setLoadingUser(false);
-    } catch (error) {
-      console.error('Error fetching shop manager:', error);
-      setLoadingUser(false);
-    }
-  };
-
-  // Once we have shop manager, fetch their shop data
   useEffect(() => {
-    if (isDistrictManagerMode && shopManager?.shop_id) {
-      console.log('Fetching shop data for shop_id:', shopManager.shop_id);
-      fetchShopData(shopManager.shop_id);
-    } else if (isDistrictManagerMode && !loadingUser && shopManager && !shopManager.shop_id) {
-      setLoading(false);
-      setIsInitialLoad(false);
+    if (shopId) {
+      fetchShopData(shopId);
     }
-  }, [shopManager, loadingUser, isDistrictManagerMode]);
+  }, [shopId]);
 
   const fetchShopData = async (shopId) => {
     if (!shopId) return;
@@ -248,51 +180,7 @@ const Overview = () => {
     (user) => user.role === "technician" && user.is_active,
   ).length || 0;
 
-  // Show loading while fetching user data
-  if (loadingUser) {
-    return (
-      <div className="p-6 flex justify-center items-center h-64">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-2 text-gray-600">
-            {isBrandAdminMode ? "Loading shop data..." : "Loading shop manager data..."}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show message if no userId and no shopId
-  if (!userId && !shopId) {
-    return (
-      <div className="p-6 flex justify-center items-center h-64">
-        <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
-          <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <h3 className="text-lg font-medium text-yellow-800 mb-2">No Shop Selected</h3>
-          <p className="text-yellow-700">Please select a shop to view.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show message if shop manager has no shop assigned
-  if (isDistrictManagerMode && shopManager && !shopManager.shop_id) {
-    return (
-      <div className="p-6 flex justify-center items-center h-64">
-        <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
-          <svg className="w-12 h-12 text-orange-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <h3 className="text-lg font-medium text-orange-800 mb-2">No Shop Assigned</h3>
-          <p className="text-orange-700">This shop manager has not been assigned to any shop yet.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show skeleton during initial load
+  // Show loading during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
@@ -306,8 +194,20 @@ const Overview = () => {
     );
   }
 
-  const shopName = myShop?.name || (selectedShop?.name || 'Your Shop');
-  const shopCity = myShop?.city || (selectedShop?.city || '');
+  // Show message if no shop data
+  if (!myShop) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+          <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">Shop Not Found</h3>
+          <p className="text-yellow-700">The shop you're looking for doesn't exist.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
@@ -396,117 +296,105 @@ const Overview = () => {
               Shop Information
             </h2>
             <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-              Tekmetric ID: {myShop?.tekmetric_shop_id || (selectedShop?.tekmetric_shop_id || "N/A")}
+              Tekmetric ID: {myShop?.tekmetric_shop_id || "N/A"}
             </span>
           </div>
 
-          {myShop || selectedShop ? (
-            <div className="border rounded-lg p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Shop Name
-                    </label>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {myShop?.name || selectedShop?.name}
-                    </p>
-                  </div>
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Street Address
-                    </label>
-                    <p className="text-gray-600">
-                      {myShop?.street_address || selectedShop?.street_address || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700">
-                      City
-                    </label>
-                    <p className="text-gray-600">
-                      {myShop?.city || selectedShop?.city || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700">
-                      State
-                    </label>
-                    <p className="text-gray-600">
-                      {myShop?.state || selectedShop?.state || "Not provided"}
-                    </p>
-                  </div>
+          <div className="border rounded-lg p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Shop Name
+                  </label>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {myShop?.name}
+                  </p>
                 </div>
-                <div>
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Status
-                    </label>
-                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-                      (myShop?.is_active || selectedShop?.is_active)
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}>
-                      {(myShop?.is_active || selectedShop?.is_active) ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Created Date
-                    </label>
-                    <p className="text-gray-600">
-                      {myShop?.created_at || selectedShop?.created_at
-                        ? new Date(myShop?.created_at || selectedShop?.created_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })
-                        : "N/A"}
-                    </p>
-                  </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Street Address
+                  </label>
+                  <p className="text-gray-600">
+                    {myShop?.street_address || "Not provided"}
+                  </p>
+                </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    City
+                  </label>
+                  <p className="text-gray-600">
+                    {myShop?.city || "Not provided"}
+                  </p>
+                </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    State
+                  </label>
+                  <p className="text-gray-600">
+                    {myShop?.state || "Not provided"}
+                  </p>
                 </div>
               </div>
-
-              <div className="mt-4 pt-4 border-t">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">
-                    Total employees in shop:
-                  </span>
-                  <span className="font-bold text-blue-600">
-                    {getTotalEmployees()}
+              <div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Status
+                  </label>
+                  <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
+                    myShop?.is_active
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}>
+                    {myShop?.is_active ? "Active" : "Inactive"}
                   </span>
                 </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Created Date
+                  </label>
+                  <p className="text-gray-600">
+                    {myShop?.created_at
+                      ? new Date(myShop.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "N/A"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">
+                  Total employees in shop:
+                </span>
+                <span className="font-bold text-blue-600">
+                  {getTotalEmployees()}
+                </span>
+              </div>
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-sm text-gray-600">
+                  Total orders processed:
+                </span>
+                <span className="font-bold text-green-600">
+                  {getTotalOrders()}
+                </span>
+              </div>
+              {shopStats && (
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-sm text-gray-600">
-                    Total orders processed:
+                    Order completion rate:
                   </span>
-                  <span className="font-bold text-green-600">
-                    {getTotalOrders()}
+                  <span className="font-bold text-purple-600">
+                    {shopStats.completionRate}%
                   </span>
                 </div>
-                {shopStats && (
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-sm text-gray-600">
-                      Order completion rate:
-                    </span>
-                    <span className="font-bold text-purple-600">
-                      {shopStats.completionRate}%
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          ) : (
-            <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-              <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              <p className="text-gray-500">Shop information not available</p>
-              <p className="text-sm text-gray-400 mt-1">
-                Please contact administrator
-              </p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
