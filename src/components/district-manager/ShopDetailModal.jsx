@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectAllShops } from '../../redux/slice/shopSlice';
 import { 
-  selectOrdersByShop, // Changed from selectAllOrders to selectOrdersByShop
-  getOrdersByShop // Add this if you need to fetch orders
+  selectOrdersByShop,
+  getOrdersByShop
 } from '../../redux/slice/orderSlice';
 import { selectAllUsers } from '../../redux/slice/userSlice';
 import { selectVideos } from '../../redux/slice/videoSlice';
@@ -14,7 +14,7 @@ const DEFAULT_SHOP_IMAGE = 'https://cdn-icons-png.flaticon.com/512/891/891419.pn
 const ShopDetailModal = ({ shopId, onClose }) => {
   const dispatch = useDispatch();
   const shops = useSelector(selectAllShops);
-  const ordersByShop = useSelector(selectOrdersByShop) || []; // Changed from selectAllOrders
+  const ordersByShop = useSelector(selectOrdersByShop) || [];
   const users = useSelector(selectAllUsers);
   const videos = useSelector(selectVideos);
   
@@ -25,44 +25,32 @@ const ShopDetailModal = ({ shopId, onClose }) => {
   const shopUsers = users?.filter(user => user.shop_id === shopId) || [];
   const shopVideos = videos?.filter(video => video.shop_id === shopId) || [];
   
-  // Find the shop manager
   const shopManager = shopUsers.find(user => user.role === 'shop_manager') || {};
 
-  // Fetch orders for this specific shop
   useEffect(() => {
-    if (shopId) {
-      fetchShopOrders();
-    }
+    if (shopId) fetchShopOrders();
   }, [shopId]);
 
   const fetchShopOrders = async () => {
     try {
       const result = await dispatch(getOrdersByShop(shopId));
-      if (result.payload?.data) {
-        setShopOrders(result.payload.data);
-      }
-    } catch (error) {
-      console.error('Error fetching shop orders:', error);
+      if (result.payload?.data) setShopOrders(result.payload.data);
+    } catch {
       setShopOrders([]);
     }
   };
 
-  // Helper function to get manager profile pic with fallback
   const getManagerProfilePic = () => {
-    if (shopManager?.profile_pic_url && shopManager.profile_pic_url.trim() !== '') {
-      return shopManager.profile_pic_url;
-    }
+    if (shopManager?.profile_pic_url?.trim()) return shopManager.profile_pic_url;
     return DEFAULT_PROFILE_PIC;
   };
 
-  // Get shop stats
   const getShopStats = () => {
     const totalOrders = shopOrders.length;
     const totalVideos = shopVideos.length;
     const totalUsers = shopUsers.length;
     const activeUsers = shopUsers.filter(u => u.is_active).length;
     
-    // Calculate video stats based on status
     const uploadedVideos = shopVideos.filter(v => v.status === 'uploaded').length;
     const processingVideos = shopVideos.filter(v => v.status === 'processing').length;
     const completedVideos = shopVideos.filter(v => v.status === 'completed').length;
@@ -82,10 +70,28 @@ const ShopDetailModal = ({ shopId, onClose }) => {
   };
 
   useEffect(() => {
-    if (shop) {
-      setLoading(false);
-    }
+    if (shop) setLoading(false);
   }, [shop]);
+
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'uploaded': return 'bg-blue-100 text-blue-800';
+      case 'processing': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'failed': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch(status) {
+      case 'uploaded': return 'Uploaded';
+      case 'processing': return 'Processing';
+      case 'completed': return 'Completed';
+      case 'failed': return 'Failed';
+      default: return status || 'Unknown';
+    }
+  };
 
   if (loading) {
     return (
@@ -109,10 +115,7 @@ const ShopDetailModal = ({ shopId, onClose }) => {
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">Shop Not Found</h3>
           <p className="text-gray-500 mb-4">The shop you're looking for doesn't exist or has been removed.</p>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <button onClick={onClose} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             Close
           </button>
         </div>
@@ -126,15 +129,10 @@ const ShopDetailModal = ({ shopId, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
         <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100 flex items-center justify-center">
-              <img 
-                src={DEFAULT_SHOP_IMAGE}
-                alt={shop.name}
-                className="w-12 h-12 opacity-50"
-              />
+              <img src={DEFAULT_SHOP_IMAGE} alt={shop.name} className="w-12 h-12 opacity-50" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-800">{shop.name}</h2>
@@ -151,19 +149,14 @@ const ShopDetailModal = ({ shopId, onClose }) => {
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Modal Content */}
         <div className="p-6">
-          {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="text-sm text-blue-600 font-medium">Total Orders</h3>
@@ -174,17 +167,13 @@ const ShopDetailModal = ({ shopId, onClose }) => {
             <div className="bg-green-50 p-4 rounded-lg">
               <h3 className="text-sm text-green-600 font-medium">Total Videos</h3>
               <p className="text-2xl font-bold text-green-700 mt-1">{stats.totalVideos}</p>
-              <p className="text-xs text-green-600">
-                {stats.completedVideos} completed
-              </p>
+              <p className="text-xs text-green-600">{stats.completedVideos} completed</p>
             </div>
             
             <div className="bg-purple-50 p-4 rounded-lg">
               <h3 className="text-sm text-purple-600 font-medium">Users</h3>
               <p className="text-2xl font-bold text-purple-700 mt-1">{stats.totalUsers}</p>
-              <p className="text-xs text-purple-600">
-                {stats.activeUsers} Active
-              </p>
+              <p className="text-xs text-purple-600">{stats.activeUsers} Active</p>
             </div>
             
             <div className="bg-yellow-50 p-4 rounded-lg">
@@ -196,7 +185,6 @@ const ShopDetailModal = ({ shopId, onClose }) => {
             </div>
           </div>
 
-          {/* Video Status Breakdown */}
           {stats.totalVideos > 0 && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
@@ -257,9 +245,7 @@ const ShopDetailModal = ({ shopId, onClose }) => {
             </div>
           )}
 
-          {/* Shop & Manager Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            {/* Shop Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-gray-800">Shop Information</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -302,7 +288,6 @@ const ShopDetailModal = ({ shopId, onClose }) => {
               </div>
             </div>
 
-            {/* Manager Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-gray-800">Shop Manager</h3>
               {shopManager.id ? (
@@ -313,9 +298,7 @@ const ShopDetailModal = ({ shopId, onClose }) => {
                         src={managerProfilePic}
                         alt={`${shopManager.first_name} ${shopManager.last_name}`}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = DEFAULT_PROFILE_PIC;
-                        }}
+                        onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
                       />
                     </div>
                     <div>
@@ -329,9 +312,7 @@ const ShopDetailModal = ({ shopId, onClose }) => {
                         }`}>
                           {shopManager.is_active ? 'Active' : 'Inactive'}
                         </span>
-                        <span className="text-xs text-gray-500">
-                          Role: Shop Manager
-                        </span>
+                        <span className="text-xs text-gray-500">Role: Shop Manager</span>
                       </div>
                     </div>
                   </div>
@@ -353,22 +334,15 @@ const ShopDetailModal = ({ shopId, onClose }) => {
               ) : (
                 <div className="bg-gray-50 p-8 rounded-lg text-center">
                   <div className="w-16 h-16 rounded-full overflow-hidden border bg-gray-100 mx-auto mb-4 flex items-center justify-center">
-                    <img 
-                      src={DEFAULT_PROFILE_PIC}
-                      alt="No manager"
-                      className="w-12 h-12 opacity-50"
-                    />
+                    <img src={DEFAULT_PROFILE_PIC} alt="No manager" className="w-12 h-12 opacity-50" />
                   </div>
                   <p className="text-gray-500 italic">No manager assigned to this shop</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Assign a manager in the Shops page
-                  </p>
+                  <p className="text-sm text-gray-400 mt-1">Assign a manager in the Shops page</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Recent Orders */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-800">Recent Orders ({stats.totalOrders})</h3>
@@ -398,9 +372,7 @@ const ShopDetailModal = ({ shopId, onClose }) => {
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
                             #{order.tekmetric_ro_id || order.id?.slice(0, 8) || 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {order.customer_name || 'N/A'}
-                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{order.customer_name || 'N/A'}</td>
                           <td className="px-4 py-3 text-sm text-gray-500">
                             {vehicleInfo.year ? `${vehicleInfo.year} ${vehicleInfo.make} ${vehicleInfo.model}` : 'N/A'}
                           </td>
@@ -432,7 +404,6 @@ const ShopDetailModal = ({ shopId, onClose }) => {
             )}
           </div>
 
-          {/* Recent Videos */}
           <div>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-800">Recent Videos ({stats.totalVideos})</h3>
@@ -463,49 +434,27 @@ const ShopDetailModal = ({ shopId, onClose }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {shopVideos.slice(0, 5).map((video) => {
-                      const getStatusColor = (status) => {
-                        switch(status) {
-                          case 'uploaded': return 'bg-blue-100 text-blue-800';
-                          case 'processing': return 'bg-yellow-100 text-yellow-800';
-                          case 'completed': return 'bg-green-100 text-green-800';
-                          case 'failed': return 'bg-red-100 text-red-800';
-                          default: return 'bg-gray-100 text-gray-800';
-                        }
-                      };
-
-                      const getStatusText = (status) => {
-                        switch(status) {
-                          case 'uploaded': return 'Uploaded';
-                          case 'processing': return 'Processing';
-                          case 'completed': return 'Completed';
-                          case 'failed': return 'Failed';
-                          default: return status || 'Unknown';
-                        }
-                      };
-
-                      return (
-                        <tr key={video.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            {video.id?.slice(0, 8) || 'N/A'}...
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {video.order_id ? `#${video.order_id.slice(0, 8)}...` : 'N/A'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(video.status)}`}>
-                              {getStatusText(video.status)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {video.duration ? `${Math.round(video.duration)}s` : 'N/A'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'N/A'}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {shopVideos.slice(0, 5).map((video) => (
+                      <tr key={video.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {video.id?.slice(0, 8) || 'N/A'}...
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {video.order_id ? `#${video.order_id.slice(0, 8)}...` : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(video.status)}`}>
+                            {getStatusText(video.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {video.duration ? `${Math.round(video.duration)}s` : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
                 {shopVideos.length > 5 && (
@@ -526,12 +475,8 @@ const ShopDetailModal = ({ shopId, onClose }) => {
           </div>
         </div>
 
-        {/* Modal Footer */}
         <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-          >
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
             Close
           </button>
         </div>

@@ -15,12 +15,10 @@ import {
   getDistrictsByBrand
 } from '../../redux/slice/districtSlice';
 
-// Import SweetAlert for popup notifications
 import Swal from 'sweetalert2';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-// Skeleton Components (keep all your existing skeleton components)
 const TableRowSkeleton = () => (
   <tr className="hover:bg-gray-50">
     <td className="px-6 py-4 whitespace-nowrap">
@@ -79,15 +77,14 @@ const TableSkeleton = () => (
 
 const Users = () => {
   const dispatch = useDispatch();
-  const { districtId } = useParams(); // Get districtId from URL for brand admin mode
+  const { districtId } = useParams();
   const [searchParams] = useSearchParams();
-  const userId = searchParams.get("userId"); // For district manager mode
+  const userId = searchParams.get("userId");
   
   const currentUser = useSelector(state => state.user.currentUser);
   const brandId = currentUser?.brand_id;
   const userDistrictId = currentUser?.district_id;
   
-  // Data from Redux
   const users = useSelector(state => state.user.users) || [];
   const loading = useSelector(state => state.user.loading);
   const error = useSelector(state => state.user.error);
@@ -95,27 +92,22 @@ const Users = () => {
   const shops = useSelector(selectShopsForBrand(brandId)) || [];
   const districts = useSelector(selectDistrictsByBrand) || [];
   
-  // Add initial load state
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   
-  // UI States
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [showViewModal, setShowViewModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   
-  // File states
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [profilePicPreview, setProfilePicPreview] = useState(null);
   const [editProfilePicFile, setEditProfilePicFile] = useState(null);
   const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
   
-  // View data state
   const [viewData, setViewData] = useState({});
   
-  // Form states
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -130,54 +122,33 @@ const Users = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [emailExistsError, setEmailExistsError] = useState('');
 
-  // Validation states for create form
   const [formErrors, setFormErrors] = useState({
-    first_name: false,
-    last_name: false,
-    email: false,
-    role: false
+    first_name: false, last_name: false, email: false, role: false
   });
 
   const [validationErrors, setValidationErrors] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    role: ''
+    first_name: '', last_name: '', email: '', role: ''
   });
 
-  // Validation states for edit form
   const [editFormErrors, setEditFormErrors] = useState({
-    first_name: false,
-    last_name: false,
-    role: false
+    first_name: false, last_name: false, role: false
   });
 
   const [editValidationErrors, setEditValidationErrors] = useState({
-    first_name: '',
-    last_name: '',
-    role: ''
+    first_name: '', last_name: '', role: ''
   });
 
-  // Role options
   const roles = [
     { value: 'shop_manager', label: 'Shop Manager' },
     { value: 'technician', label: 'Technician' }
   ];
 
-  // Check if current user is district manager
-  const isDistrictManager = currentUser?.role === 'district_manager';
-
-  // Get current district info
   const getCurrentDistrictInfo = () => {
     if (districtId) {
-      // Brand admin mode - get from localStorage or districts list
       const selectedDistrict = localStorage.getItem('selectedDistrict');
-      if (selectedDistrict) {
-        return JSON.parse(selectedDistrict);
-      }
+      if (selectedDistrict) return JSON.parse(selectedDistrict);
       return districts.find(d => d.id === parseInt(districtId));
     } else if (userId) {
-      // District manager mode - use user's district
       return districts.find(d => d.id === userDistrictId);
     }
     return null;
@@ -185,115 +156,59 @@ const Users = () => {
 
   const currentDistrict = getCurrentDistrictInfo();
 
-  // ============================================
-  // FILTER USERS - REMOVE BRAND ADMIN AND FILTER BY DISTRICT
-  // ============================================
   const filteredUsers = React.useMemo(() => {
-    if (!users || users.length === 0) return [];
+    if (!users?.length) return [];
     
-    // First filter out users with role 'brand_admin'
     let filtered = users.filter(user => user.role !== 'brand_admin');
     
-    // Then filter by district if we have a district context
     if (currentDistrict?.id) {
       filtered = filtered.filter(user => user.district_id === currentDistrict.id);
     } else if (userDistrictId) {
-      // District manager mode
       filtered = filtered.filter(user => user.district_id === userDistrictId);
     }
     
     return filtered;
   }, [users, currentDistrict, userDistrictId]);
 
-  // ============================================
-  // VALIDATION FUNCTIONS (keep your existing validation functions)
-  // ============================================
-
   const validateFirstName = (firstName) => {
-    if (!firstName || !firstName.trim()) {
-      return 'First name is required';
-    }
-    if (firstName.trim().length < 2) {
-      return 'First name must be at least 2 characters long';
-    }
-    if (firstName.trim().length > 50) {
-      return 'First name must not exceed 50 characters';
-    }
-    const nameRegex = /^[a-zA-Z\s\-']+$/;
-    if (!nameRegex.test(firstName)) {
-      return 'First name can only contain letters, spaces, hyphens, and apostrophes';
-    }
+    if (!firstName?.trim()) return 'First name is required';
+    if (firstName.trim().length < 2) return 'First name must be at least 2 characters long';
+    if (firstName.trim().length > 50) return 'First name must not exceed 50 characters';
+    if (!/^[a-zA-Z\s\-']+$/.test(firstName)) return 'First name can only contain letters, spaces, hyphens, and apostrophes';
     return '';
   };
 
   const validateLastName = (lastName) => {
-    if (!lastName || !lastName.trim()) {
-      return 'Last name is required';
-    }
-    if (lastName.trim().length < 2) {
-      return 'Last name must be at least 2 characters long';
-    }
-    if (lastName.trim().length > 50) {
-      return 'Last name must not exceed 50 characters';
-    }
-    const nameRegex = /^[a-zA-Z\s\-']+$/;
-    if (!nameRegex.test(lastName)) {
-      return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
-    }
+    if (!lastName?.trim()) return 'Last name is required';
+    if (lastName.trim().length < 2) return 'Last name must be at least 2 characters long';
+    if (lastName.trim().length > 50) return 'Last name must not exceed 50 characters';
+    if (!/^[a-zA-Z\s\-']+$/.test(lastName)) return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
     return '';
   };
 
   const validateEmail = (email) => {
-    if (!email || !email.trim()) {
-      return 'Email is required';
-    }
-    
+    if (!email?.trim()) return 'Email is required';
     const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-    if (!emailRegex.test(email)) {
-      return 'Please enter a valid email address (e.g., name@example.com)';
-    }
-    
-    if (email.length > 254) {
-      return 'Email address is too long';
-    }
-    
-    if (email.includes('..')) {
-      return 'Email cannot contain consecutive dots';
-    }
-    
-    if (email.startsWith('.') || email.endsWith('.')) {
-      return 'Email cannot start or end with a dot';
-    }
-    
+    if (!emailRegex.test(email)) return 'Please enter a valid email address (e.g., name@example.com)';
+    if (email.length > 254) return 'Email address is too long';
+    if (email.includes('..')) return 'Email cannot contain consecutive dots';
+    if (email.startsWith('.') || email.endsWith('.')) return 'Email cannot start or end with a dot';
     return '';
   };
 
   const validateRole = (role) => {
-    if (!role) {
-      return 'Role is required';
-    }
-    const validRoles = ['shop_manager', 'technician'];
-    if (!validRoles.includes(role)) {
-      return 'Please select a valid role';
-    }
+    if (!role) return 'Role is required';
+    if (!['shop_manager', 'technician'].includes(role)) return 'Please select a valid role';
     return '';
   };
 
   const validateFileType = (file) => {
     if (!file) return '';
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      return 'Please upload a valid image file (JPEG, PNG, GIF, or WEBP)';
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      return 'File size must not exceed 5MB';
-    }
+    if (!allowedTypes.includes(file.type)) return 'Please upload a valid image file (JPEG, PNG, GIF, or WEBP)';
+    if (file.size > 5 * 1024 * 1024) return 'File size must not exceed 5MB';
     return '';
   };
-
-  // ============================================
-  // EFFECTS
-  // ============================================
 
   useEffect(() => {
     if (currentUser?.brand_id) {
@@ -301,7 +216,6 @@ const Users = () => {
     }
   }, [dispatch, currentUser?.brand_id, districtId, userId]);
 
-  // Handle loading completion
   useEffect(() => {
     if (!loading && !localLoading && filteredUsers) {
       setTimeout(() => {
@@ -317,32 +231,17 @@ const Users = () => {
     setIsDataReady(false);
     
     try {
-      // Determine which district ID to use
-      let targetDistrictId = null;
-      
-      if (districtId) {
-        // Brand admin mode - use districtId from URL
-        targetDistrictId = districtId;
-      } else if (userId) {
-        // District manager mode - use current user's district
-        targetDistrictId = currentUser?.district_id;
-      } else {
-        // Fallback to current user's district
-        targetDistrictId = currentUser?.district_id;
-      }
+      let targetDistrictId = districtId || userId ? currentUser?.district_id : currentUser?.district_id;
       
       if (targetDistrictId) {
-        console.log('Fetching district users for district ID:', targetDistrictId);
-        const result = await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
-        console.log('Fetch result:', result);
-      } else {
-        console.log('No district ID available');
+        await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
       }
       
-      await dispatch(getShopsByBrand(currentUser.brand_id));
-      await dispatch(getDistrictsByBrand(currentUser.brand_id));
-    } catch (error) {
-      console.error('Error fetching data:', error);
+      await Promise.all([
+        dispatch(getShopsByBrand(currentUser.brand_id)),
+        dispatch(getDistrictsByBrand(currentUser.brand_id))
+      ]);
+    } catch {
       setIsInitialLoad(false);
       Swal.fire({
         icon: 'error',
@@ -355,10 +254,6 @@ const Users = () => {
       setLocalLoading(false);
     }
   };
-
-  // ============================================
-  // HELPER FUNCTIONS
-  // ============================================
 
   const generateRandomPassword = () => {
     const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -383,8 +278,7 @@ const Users = () => {
   const checkEmailExists = (email, excludeUserId = null) => {
     if (!email) return false;
     const exists = filteredUsers.some(u => 
-      u.email?.toLowerCase() === email.toLowerCase() && 
-      u.id !== excludeUserId
+      u.email?.toLowerCase() === email.toLowerCase() && u.id !== excludeUserId
     );
     setEmailExistsError(exists ? 'A user with this email already exists in this district. Please use a different email.' : '');
     return exists;
@@ -398,7 +292,7 @@ const Users = () => {
         try {
           const parsed = JSON.parse(profilePicData);
           return parsed.publicUrl || parsed.signedUrl || parsed.filePath || DEFAULT_PROFILE_PIC;
-        } catch (e) {
+        } catch {
           return profilePicData;
         }
       }
@@ -431,10 +325,6 @@ const Users = () => {
     return role ? role.label : roleValue;
   };
 
-  // ============================================
-  // VALIDATE CREATE FORM
-  // ============================================
-
   const validateCreateForm = () => {
     const firstNameError = validateFirstName(formData.first_name);
     const lastNameError = validateLastName(formData.last_name);
@@ -458,12 +348,8 @@ const Users = () => {
     const hasErrors = firstNameError || lastNameError || emailError || roleError;
 
     if (hasErrors) {
-      const errorMessages = [];
-      if (firstNameError) errorMessages.push(firstNameError);
-      if (lastNameError) errorMessages.push(lastNameError);
-      if (emailError) errorMessages.push(emailError);
-      if (roleError) errorMessages.push(roleError);
-
+      const errorMessages = [firstNameError, lastNameError, emailError, roleError].filter(Boolean);
+      
       Swal.fire({
         icon: 'error',
         title: 'Validation Errors',
@@ -488,10 +374,6 @@ const Users = () => {
 
     return true;
   };
-
-  // ============================================
-  // VALIDATE EDIT FORM
-  // ============================================
 
   const validateEditForm = () => {
     let firstNameError = '';
@@ -525,11 +407,8 @@ const Users = () => {
     const hasErrors = firstNameError || lastNameError || roleError;
 
     if (hasErrors) {
-      const errorMessages = [];
-      if (firstNameError) errorMessages.push(firstNameError);
-      if (lastNameError) errorMessages.push(lastNameError);
-      if (roleError) errorMessages.push(roleError);
-
+      const errorMessages = [firstNameError, lastNameError, roleError].filter(Boolean);
+      
       Swal.fire({
         icon: 'error',
         title: 'Validation Errors',
@@ -542,10 +421,6 @@ const Users = () => {
 
     return true;
   };
-
-  // ============================================
-  // HANDLERS
-  // ============================================
 
   const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
@@ -576,9 +451,6 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // VIEW USER
-  // ============================================
   const handleViewUser = (user) => {
     setShowViewModal(user.id);
     setViewData({
@@ -593,18 +465,12 @@ const Users = () => {
     });
   };
 
-  // ============================================
-  // CREATE USER
-  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
     
-    if (!validateCreateForm()) {
-      setIsSubmitting(false);
-      return;
-    }
+    if (!validateCreateForm()) return;
 
     setIsSubmitting(true);
 
@@ -619,24 +485,19 @@ const Users = () => {
       userFormData.append('role', formData.role);
       userFormData.append('brand_id', currentUser.brand_id);
       
-      if (formData.shop_id && formData.shop_id !== '') {
+      if (formData.shop_id) {
         userFormData.append('shop_id', formData.shop_id);
       }
       
-      // Auto-assign district from current context
       const targetDistrictId = districtId || userDistrictId;
-      if (targetDistrictId) {
-        userFormData.append('district_id', targetDistrictId);
-      }
+      if (targetDistrictId) userFormData.append('district_id', targetDistrictId);
       
       userFormData.append('is_active', formData.is_active);
       userFormData.append('ft_password', randomPassword);
       userFormData.append('password_type', 'ft_password');
       userFormData.append('is_first_login', 'true');
       
-      if (profilePicFile) {
-        userFormData.append('profile_pic', profilePicFile);
-      }
+      if (profilePicFile) userFormData.append('profile_pic', profilePicFile);
 
       const result = await dispatch(createUser(userFormData)).unwrap();
       
@@ -667,18 +528,12 @@ const Users = () => {
 
         resetForm();
         
-        // Refetch data with correct district
         const targetDistrictId = districtId || userDistrictId;
-        if (targetDistrictId) {
-          await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
-        }
+        if (targetDistrictId) await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
         
-        setTimeout(() => {
-          setShowCreateForm(false);
-        }, 100);
+        setTimeout(() => setShowCreateForm(false), 100);
       }
     } catch (err) {
-      console.error('User creation failed:', err);
       setFormError(err?.error || 'Failed to create user. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -692,17 +547,12 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // EDIT USER
-  // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
 
-    if (!validateEditForm()) {
-      return;
-    }
+    if (!validateEditForm()) return;
 
     try {
       const userFormData = new FormData();
@@ -723,15 +573,9 @@ const Users = () => {
       }
       
       if (editFormData.shop_id !== editFormData.original_shop_id) {
-        if (editFormData.shop_id && editFormData.shop_id !== '') {
-          userFormData.append('shop_id', editFormData.shop_id);
-        } else {
-          userFormData.append('shop_id', '');
-        }
+        userFormData.append('shop_id', editFormData.shop_id || '');
         hasChanges = true;
       }
-      
-      // District is NOT editable - it's auto-assigned
       
       if (editFormData.is_active !== editFormData.original_is_active) {
         userFormData.append('is_active', editFormData.is_active);
@@ -744,10 +588,7 @@ const Users = () => {
       }
 
       if (hasChanges) {
-        await dispatch(updateUser({
-          id: showEditModal,
-          data: userFormData
-        })).unwrap();
+        await dispatch(updateUser({ id: showEditModal, data: userFormData })).unwrap();
 
         Swal.fire({
           icon: 'success',
@@ -760,21 +601,15 @@ const Users = () => {
         
         resetEditForm();
         
-        // Refetch data with correct district
         const targetDistrictId = districtId || userDistrictId;
-        if (targetDistrictId) {
-          await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
-        }
+        if (targetDistrictId) await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
         
-        setTimeout(() => {
-          setShowEditModal(null);
-        }, 100);
+        setTimeout(() => setShowEditModal(null), 100);
       } else {
         setShowEditModal(null);
       }
       
     } catch (err) {
-      console.error('User update failed:', err);
       setFormError(err?.error || 'Failed to update user. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -791,16 +626,10 @@ const Users = () => {
       const userFormData = new FormData();
       userFormData.append('is_active', !user.is_active);
 
-      await dispatch(updateUser({
-        id: user.id,
-        data: userFormData
-      })).unwrap();
+      await dispatch(updateUser({ id: user.id, data: userFormData })).unwrap();
 
-      // Refetch data with correct district
       const targetDistrictId = districtId || userDistrictId;
-      if (targetDistrictId) {
-        await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
-      }
+      if (targetDistrictId) await dispatch(getDistrictUsers(targetDistrictId)).unwrap();
       
       Swal.fire({
         icon: 'success',
@@ -811,7 +640,6 @@ const Users = () => {
         timer: 2000
       });
     } catch (err) {
-      console.error('Failed to toggle user status:', err);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -822,31 +650,12 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // FORM HANDLERS
-  // ============================================
-
   const resetForm = () => {
     setFormData({
-      first_name: '',
-      last_name: '',
-      email: '',
-      role: 'shop_manager',
-      shop_id: '',
-      is_active: true
+      first_name: '', last_name: '', email: '', role: 'shop_manager', shop_id: '', is_active: true
     });
-    setFormErrors({
-      first_name: false,
-      last_name: false,
-      email: false,
-      role: false
-    });
-    setValidationErrors({
-      first_name: '',
-      last_name: '',
-      email: '',
-      role: ''
-    });
+    setFormErrors({ first_name: false, last_name: false, email: false, role: false });
+    setValidationErrors({ first_name: '', last_name: '', email: '', role: '' });
     setProfilePicFile(null);
     setProfilePicPreview(null);
     setEmailExistsError('');
@@ -854,16 +663,8 @@ const Users = () => {
 
   const resetEditForm = () => {
     setEditFormData({});
-    setEditFormErrors({
-      first_name: false,
-      last_name: false,
-      role: false
-    });
-    setEditValidationErrors({
-      first_name: '',
-      last_name: '',
-      role: ''
-    });
+    setEditFormErrors({ first_name: false, last_name: false, role: false });
+    setEditValidationErrors({ first_name: '', last_name: '', role: '' });
     setEditProfilePicFile(null);
     setEditProfilePicPreview(null);
   };
@@ -871,58 +672,46 @@ const Users = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
 
-    let error = '';
-    if (name === 'first_name') {
-      error = validateFirstName(value);
+    const validators = {
+      first_name: validateFirstName,
+      last_name: validateLastName,
+      email: validateEmail,
+      role: validateRole
+    };
+
+    if (name in validators) {
+      const error = validators[name](value);
       setValidationErrors(prev => ({ ...prev, [name]: error }));
       setFormErrors(prev => ({ ...prev, [name]: !!error }));
-    } else if (name === 'last_name') {
-      error = validateLastName(value);
-      setValidationErrors(prev => ({ ...prev, [name]: error }));
-      setFormErrors(prev => ({ ...prev, [name]: !!error }));
-    } else if (name === 'email') {
-      error = validateEmail(value);
-      setValidationErrors(prev => ({ ...prev, [name]: error }));
-      setFormErrors(prev => ({ ...prev, [name]: !!error }));
-      if (!error && value.trim()) {
+      
+      if (name === 'email' && !error && value.trim()) {
         checkEmailExists(value);
-      } else {
+      } else if (name === 'email') {
         setEmailExistsError('');
       }
-    } else if (name === 'role') {
-      error = validateRole(value);
-      setValidationErrors(prev => ({ ...prev, [name]: error }));
-      setFormErrors(prev => ({ ...prev, [name]: !!error }));
     }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setEditFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
 
-    let error = '';
     if (name === 'first_name' && value !== editFormData.original_first_name) {
-      error = validateFirstName(value);
+      const error = validateFirstName(value);
       setEditValidationErrors(prev => ({ ...prev, [name]: error }));
       setEditFormErrors(prev => ({ ...prev, [name]: !!error }));
     } else if (name === 'last_name' && value !== editFormData.original_last_name) {
-      error = validateLastName(value);
+      const error = validateLastName(value);
       setEditValidationErrors(prev => ({ ...prev, [name]: error }));
       setEditFormErrors(prev => ({ ...prev, [name]: !!error }));
     } else if (name === 'role' && value !== editFormData.original_role) {
-      error = validateRole(value);
+      const error = validateRole(value);
       setEditValidationErrors(prev => ({ ...prev, [name]: error }));
       setEditFormErrors(prev => ({ ...prev, [name]: !!error }));
-    } else if (name === 'first_name' || name === 'last_name' || name === 'role') {
+    } else if (['first_name', 'last_name', 'role'].includes(name)) {
       setEditValidationErrors(prev => ({ ...prev, [name]: '' }));
       setEditFormErrors(prev => ({ ...prev, [name]: false }));
     }
@@ -944,45 +733,27 @@ const Users = () => {
       original_shop_id: user.shop_id || '',
       original_is_active: user.is_active
     });
-    setEditFormErrors({
-      first_name: false,
-      last_name: false,
-      role: false
-    });
-    setEditValidationErrors({
-      first_name: '',
-      last_name: '',
-      role: ''
-    });
+    setEditFormErrors({ first_name: false, last_name: false, role: false });
+    setEditValidationErrors({ first_name: '', last_name: '', role: '' });
     setEditProfilePicPreview(getProfilePicUrl(user.profile_pic_url));
     setEditProfilePicFile(null);
     setFormError('');
   };
 
-  const getAvailableShops = () => {
-    return shops.filter(shop => shop.is_active);
-  };
+  const getAvailableShops = () => shops.filter(shop => shop.is_active);
 
-  const hasEditChanges = () => {
-    return (
-      editFormData.first_name !== editFormData.original_first_name ||
-      editFormData.last_name !== editFormData.original_last_name ||
-      editFormData.role !== editFormData.original_role ||
-      editFormData.shop_id !== editFormData.original_shop_id ||
-      editFormData.is_active !== editFormData.original_is_active ||
-      editProfilePicFile !== null
-    );
-  };
+  const hasEditChanges = () => (
+    editFormData.first_name !== editFormData.original_first_name ||
+    editFormData.last_name !== editFormData.original_last_name ||
+    editFormData.role !== editFormData.original_role ||
+    editFormData.shop_id !== editFormData.original_shop_id ||
+    editFormData.is_active !== editFormData.original_is_active ||
+    editProfilePicFile !== null
+  );
 
-  // ============================================
-  // RENDER
-  // ============================================
-
-  // Show loading during initial load
   if (isInitialLoad || ((localLoading || loading) && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
-        {/* Header Skeleton */}
         <div className="mb-6 flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <div className="h-8 bg-gray-200 rounded animate-pulse w-32"></div>
@@ -990,8 +761,6 @@ const Users = () => {
           </div>
           <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
         </div>
-
-        {/* Table Skeleton */}
         <TableSkeleton />
       </div>
     );
@@ -999,7 +768,6 @@ const Users = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      {/* Header with District Info */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <div>
@@ -1032,28 +800,20 @@ const Users = () => {
         </button>
       </div>
 
-      {/* Create User Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6 animate-fadeIn">
           <h2 className="text-xl font-bold text-blue-600 mb-4">
             Create New User in {currentDistrict?.name || 'Your District'}
           </h2>
           
-          {formError && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-              {formError}
-            </div>
-          )}
-          
-          {formSuccess && (
-            <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-              {formSuccess}
+          {(formError || formSuccess) && (
+            <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+              {formError || formSuccess}
             </div>
           )}
           
           <form onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Left Column: Profile Picture */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-700">Profile Picture</h3>
                 
@@ -1107,9 +867,7 @@ const Users = () => {
                 </div>
               </div>
 
-              {/* Middle and Right Columns: User Info */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Basic Information */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Basic Information</h3>
                   
@@ -1179,16 +937,14 @@ const Users = () => {
                       maxLength={254}
                       required
                     />
-                    {formErrors.email && (
-                      <p className="mt-1 text-xs text-red-600">{validationErrors.email}</p>
-                    )}
-                    {emailExistsError && (
-                      <p className="mt-1 text-xs text-red-600">{emailExistsError}</p>
+                    {(formErrors.email || emailExistsError) && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {validationErrors.email || emailExistsError}
+                      </p>
                     )}
                   </div>
                 </div>
 
-                {/* Role and Assignments */}
                 <div className="space-y-4 border-t pt-6">
                   <h3 className="font-semibold text-gray-700">Role & Assignments</h3>
                   
@@ -1206,9 +962,7 @@ const Users = () => {
                       required
                     >
                       {roles.map(role => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
+                        <option key={role.value} value={role.value}>{role.label}</option>
                       ))}
                     </select>
                     {formErrors.role && (
@@ -1217,9 +971,7 @@ const Users = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assign Shop
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assign Shop</label>
                     <select
                       name="shop_id"
                       value={formData.shop_id}
@@ -1228,14 +980,11 @@ const Users = () => {
                     >
                       <option value="">None (No shop assigned)</option>
                       {getAvailableShops().map(shop => (
-                        <option key={shop.id} value={shop.id}>
-                          {shop.name}
-                        </option>
+                        <option key={shop.id} value={shop.id}>{shop.name}</option>
                       ))}
                     </select>
                   </div>
 
-                  {/* District Info - Display only */}
                   {currentDistrict && (
                     <div className="bg-blue-50 p-3 rounded-lg">
                       <p className="text-sm text-blue-800">
@@ -1261,9 +1010,9 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={!!emailExistsError || isSubmitting || Object.values(formErrors).some(error => error)}
+                disabled={!!emailExistsError || isSubmitting || Object.values(formErrors).some(Boolean)}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  emailExistsError || isSubmitting || Object.values(formErrors).some(error => error)
+                  emailExistsError || isSubmitting || Object.values(formErrors).some(Boolean)
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
@@ -1275,41 +1024,25 @@ const Users = () => {
         </div>
       )}
 
-      {/* Users Table - Filtered by District */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
         {error ? (
           <div className="py-12 text-center">
             <p className="text-red-600 mb-4">{typeof error === 'string' ? error : 'Failed to load users'}</p>
-            <button
-              onClick={fetchData}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
+            <button onClick={fetchData} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Retry
             </button>
           </div>
-        ) : filteredUsers && filteredUsers.length > 0 ? (
+        ) : filteredUsers?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Assigned Shop
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Assigned District
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Shop</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned District</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -1322,9 +1055,7 @@ const Users = () => {
                             src={getProfilePicUrl(userItem.profile_pic_url)}
                             alt={`${userItem.first_name} ${userItem.last_name}`}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = DEFAULT_PROFILE_PIC;
-                            }}
+                            onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
                           />
                         </div>
                         <div>
@@ -1355,16 +1086,13 @@ const Users = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        userItem.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+                        userItem.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {userItem.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
-                        {/* For district manager role: Show View button */}
                         {userItem.role === 'district_manager' ? (
                           <button
                             onClick={() => handleViewUser(userItem)}
@@ -1373,7 +1101,6 @@ const Users = () => {
                             View
                           </button>
                         ) : (
-                          /* For all other roles: Show Edit button */
                           <button
                             onClick={() => handleEdit(userItem)}
                             className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm transition-colors"
@@ -1382,7 +1109,6 @@ const Users = () => {
                           </button>
                         )}
                         
-                        {/* Status toggle button for all users */}
                         <button
                           onClick={() => handleToggleStatus(userItem)}
                           className={`px-3 py-1 rounded text-sm transition-colors ${
@@ -1421,28 +1147,20 @@ const Users = () => {
         )}
       </div>
 
-      {/* Edit User Modal - Keep your existing edit modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-blue-600 mb-4">Edit User</h2>
               
-              {formError && (
-                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-                  {formError}
-                </div>
-              )}
-              
-              {formSuccess && (
-                <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-                  {formSuccess}
+              {(formError || formSuccess) && (
+                <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                  {formError || formSuccess}
                 </div>
               )}
               
               <form onSubmit={handleEditSubmit} noValidate>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* Left Column: Profile Picture */}
                   <div className="space-y-4">
                     <h3 className="font-semibold text-gray-700">Profile Picture</h3>
                     
@@ -1490,17 +1208,13 @@ const Users = () => {
                     </div>
                   </div>
 
-                  {/* Middle and Right Columns: User Info */}
                   <div className="lg:col-span-2 space-y-6">
-                    {/* Basic Information */}
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-700">Basic Information</h3>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            First Name
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                           <input
                             type="text"
                             name="first_name"
@@ -1518,9 +1232,7 @@ const Users = () => {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Last Name
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                           <input
                             type="text"
                             name="last_name"
@@ -1539,9 +1251,7 @@ const Users = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                         <input
                           type="email"
                           name="email"
@@ -1552,14 +1262,11 @@ const Users = () => {
                       </div>
                     </div>
 
-                    {/* Role and Assignments */}
                     <div className="space-y-4 border-t pt-6">
                       <h3 className="font-semibold text-gray-700">Role & Assignments</h3>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Role
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                         <select
                           name="role"
                           value={editFormData.role || 'shop_manager'}
@@ -1569,9 +1276,7 @@ const Users = () => {
                           }`}
                         >
                           {roles.map(role => (
-                            <option key={role.value} value={role.value}>
-                              {role.label}
-                            </option>
+                            <option key={role.value} value={role.value}>{role.label}</option>
                           ))}
                         </select>
                         {editFormErrors.role && (
@@ -1580,9 +1285,7 @@ const Users = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Assign Shop
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Assign Shop</label>
                         <select
                           name="shop_id"
                           value={editFormData.shop_id || ''}
@@ -1591,14 +1294,11 @@ const Users = () => {
                         >
                           <option value="">None (No shop assigned)</option>
                           {getAvailableShops().map(shop => (
-                            <option key={shop.id} value={shop.id}>
-                              {shop.name}
-                            </option>
+                            <option key={shop.id} value={shop.id}>{shop.name}</option>
                           ))}
                         </select>
                       </div>
 
-                      {/* District Info - Display only */}
                       {currentDistrict && (
                         <div className="bg-blue-50 p-3 rounded-lg">
                           <p className="text-sm text-blue-800">
@@ -1631,9 +1331,9 @@ const Users = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={Object.values(editFormErrors).some(error => error) || !hasEditChanges()}
+                    disabled={Object.values(editFormErrors).some(Boolean) || !hasEditChanges()}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      Object.values(editFormErrors).some(error => error) || !hasEditChanges()
+                      Object.values(editFormErrors).some(Boolean) || !hasEditChanges()
                         ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
@@ -1647,7 +1347,6 @@ const Users = () => {
         </div>
       )}
 
-      {/* View User Modal - Keep your existing view modal */}
       {showViewModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1668,7 +1367,6 @@ const Users = () => {
               </div>
               
               <div className="space-y-6">
-                {/* Profile Picture */}
                 <div className="flex justify-center">
                   <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-blue-100">
                     <img 
@@ -1679,7 +1377,6 @@ const Users = () => {
                   </div>
                 </div>
 
-                {/* User Info */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm text-gray-500">First Name</label>

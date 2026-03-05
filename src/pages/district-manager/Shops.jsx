@@ -16,76 +16,60 @@ import {
 } from '../../redux/slice/districtSlice';
 import axios from 'axios';
 
-// Import SweetAlert for popup notifications
 import Swal from 'sweetalert2';
 
-// Create axios instance
 const API = axios.create({
   baseURL: 'https://innu-api-112488489004.us-central1.run.app/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Add request interceptor to attach token
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Default images
 const DEFAULT_SHOP_IMAGE = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 
-// Validation functions
 const validateShopName = (name) => {
-  if (!name.trim()) return 'Shop name is required';
+  if (!name?.trim()) return 'Shop name is required';
   if (name.length < 2) return 'Shop name must be at least 2 characters long';
   if (name.length > 100) return 'Shop name must be less than 100 characters';
-  // Allow letters, numbers, spaces, and common special characters like &, -, .
-  const nameRegex = /^[a-zA-Z0-9\s\&\-\.\,]+$/;
-  if (!nameRegex.test(name)) return 'Shop name can only contain letters, numbers, spaces, and & - . ,';
+  if (!/^[a-zA-Z0-9\s\&\-\.\,]+$/.test(name)) return 'Shop name can only contain letters, numbers, spaces, and & - . ,';
   return '';
 };
 
 const validateTekmetricId = (id) => {
-  if (!id.trim()) return 'Tekmetric Shop ID is required';
+  if (!id?.trim()) return 'Tekmetric Shop ID is required';
   if (id.length < 1) return 'Tekmetric Shop ID must be at least 1 character';
   if (id.length > 50) return 'Tekmetric Shop ID must be less than 50 characters';
-  // Allow alphanumeric and hyphens
-  const idRegex = /^[a-zA-Z0-9\-]+$/;
-  if (!idRegex.test(id)) return 'Tekmetric Shop ID can only contain letters, numbers, and hyphens';
+  if (!/^[a-zA-Z0-9\-]+$/.test(id)) return 'Tekmetric Shop ID can only contain letters, numbers, and hyphens';
   return '';
 };
 
 const validateStreetAddress = (address) => {
-  if (!address.trim()) return 'Street address is required';
+  if (!address?.trim()) return 'Street address is required';
   if (address.length < 5) return 'Street address must be at least 5 characters long';
   if (address.length > 200) return 'Street address must be less than 200 characters';
   return '';
 };
 
 const validateCity = (city) => {
-  if (!city.trim()) return 'City is required';
+  if (!city?.trim()) return 'City is required';
   if (city.length < 2) return 'City must be at least 2 characters long';
   if (city.length > 100) return 'City must be less than 100 characters';
-  const cityRegex = /^[a-zA-Z\s\-\.]+$/;
-  if (!cityRegex.test(city)) return 'City can only contain letters, spaces, hyphens, and periods';
+  if (!/^[a-zA-Z\s\-\.]+$/.test(city)) return 'City can only contain letters, spaces, hyphens, and periods';
   return '';
 };
 
 const validateState = (state) => {
-  if (!state.trim()) return 'State is required';
+  if (!state?.trim()) return 'State is required';
   if (state.length < 2) return 'State must be at least 2 characters long';
   if (state.length > 50) return 'State must be less than 50 characters';
-  const stateRegex = /^[a-zA-Z\s\-\.]+$/;
-  if (!stateRegex.test(state)) return 'State can only contain letters, spaces, hyphens, and periods';
+  if (!/^[a-zA-Z\s\-\.]+$/.test(state)) return 'State can only contain letters, spaces, hyphens, and periods';
   return '';
 };
 
-// Skeleton Components
 const TableRowSkeleton = () => (
   <tr className="hover:bg-gray-50">
     <td className="px-6 py-4 whitespace-nowrap">
@@ -145,10 +129,7 @@ const Shops = () => {
   const user = useSelector(state => state.user.currentUser);
   const districtId = user?.district_id;
   
-  // Shop data
   const shopsByDistrict = useSelector(selectShopsByDistrict);
-  
-  // Current district data from Redux
   const currentDistrict = useSelector(selectCurrentDistrict);
   const districtLoading = useSelector(selectDistrictLoading);
   
@@ -159,11 +140,9 @@ const Shops = () => {
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Add initial load state
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   
-  // Form data with validation errors
   const [formData, setFormData] = useState({
     name: '',
     street_address: '',
@@ -178,71 +157,32 @@ const Shops = () => {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
-  // Validation error states
   const [validationErrors, setValidationErrors] = useState({
-    name: '',
-    tekmetric_shop_id: '',
-    street_address: '',
-    city: '',
-    state: ''
+    name: '', tekmetric_shop_id: '', street_address: '', city: '', state: ''
   });
 
   const [editValidationErrors, setEditValidationErrors] = useState({
-    name: '',
-    tekmetric_shop_id: '',
-    street_address: '',
-    city: '',
-    state: ''
+    name: '', tekmetric_shop_id: '', street_address: '', city: '', state: ''
   });
 
-  // Extract shops from the data object structure
   const filteredShops = React.useMemo(() => {
     if (!shopsByDistrict) return [];
-    
-    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
-      return shopsByDistrict.data;
-    }
-    
-    if (Array.isArray(shopsByDistrict)) {
-      return shopsByDistrict;
-    }
-    
-    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
-      return shopsByDistrict.shops;
-    }
-    
+    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) return shopsByDistrict.data;
+    if (Array.isArray(shopsByDistrict)) return shopsByDistrict;
+    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) return shopsByDistrict.shops;
     if (typeof shopsByDistrict === 'object') {
       const values = Object.values(shopsByDistrict);
-      if (values.length > 0 && Array.isArray(values[0])) {
-        return values[0];
-      }
+      if (values.length > 0 && Array.isArray(values[0])) return values[0];
     }
-    
     return [];
   }, [shopsByDistrict]);
 
-  // Common US timezones for dropdown
   const timezones = [
-    'America/New_York',
-    'America/Chicago',
-    'America/Denver',
-    'America/Phoenix',
-    'America/Los_Angeles',
-    'America/Anchorage',
-    'America/Honolulu',
-    'America/Puerto_Rico',
-    'America/Juneau',
-    'America/Boise',
-    'America/Indiana/Indianapolis',
-    'America/Detroit',
-    'America/Menominee',
-    'America/North_Dakota/Center',
-    'America/Kentucky/Louisville'
+    'America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix',
+    'America/Los_Angeles', 'America/Anchorage', 'America/Honolulu', 'America/Puerto_Rico',
+    'America/Juneau', 'America/Boise', 'America/Indiana/Indianapolis', 'America/Detroit',
+    'America/Menominee', 'America/North_Dakota/Center', 'America/Kentucky/Louisville'
   ];
-
-  // ============================================
-  // VALIDATION FUNCTIONS
-  // ============================================
 
   const validateForm = () => {
     const errors = {
@@ -254,9 +194,7 @@ const Shops = () => {
     };
     
     setValidationErrors(errors);
-    
-    // Check if there are any errors
-    return !Object.values(errors).some(error => error !== '');
+    return !Object.values(errors).some(error => error);
   };
 
   const validateEditForm = () => {
@@ -269,29 +207,17 @@ const Shops = () => {
     };
     
     setEditValidationErrors(errors);
-    
-    // Check if there are any errors
-    return !Object.values(errors).some(error => error !== '');
+    return !Object.values(errors).some(error => error);
   };
 
-  // ============================================
-  // FETCH CURRENT DISTRICT USING REDUX
-  // ============================================
   const fetchCurrentDistrict = async () => {
     if (!districtId) return;
-    
     try {
       await dispatch(getDistrictById(districtId)).unwrap();
-    } catch (error) {
-      console.error('Error fetching current district:', error);
+    } catch {
     }
   };
 
-  // ============================================
-  // EFFECTS
-  // ============================================
-
-  // Fetch shops and current district
   useEffect(() => {
     if (districtId) {
       fetchData();
@@ -299,7 +225,6 @@ const Shops = () => {
     }
   }, [districtId]);
 
-  // Handle loading completion
   useEffect(() => {
     if (!loading && filteredShops) {
       setTimeout(() => {
@@ -312,43 +237,28 @@ const Shops = () => {
   const fetchData = async () => {
     setIsInitialLoad(true);
     setIsDataReady(false);
-    
     try {
-      console.log('Fetching shops for district:', districtId);
       await dispatch(getShopsByDistrict(districtId)).unwrap();
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch {
       setIsInitialLoad(false);
     }
   };
 
-  // ============================================
-  // HELPER FUNCTIONS
-  // ============================================
+  const getDistrictName = () => currentDistrict?.name || 'Your District';
 
-  const getDistrictName = () => {
-    return currentDistrict?.name || 'Your District';
-  };
-
-  // Check if Tekmetric ID already exists
   const checkTekmetricIdExists = (id, excludeShopId = null) => {
     if (!id) return false;
-    const exists = filteredShops.some(shop => 
+    return filteredShops.some(shop => 
       shop.tekmetric_shop_id?.toString() === id.toString() && 
       shop.id !== excludeShopId
     );
-    return exists;
   };
 
-  // ============================================
-  // CREATE SHOP
-  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
 
-    // Validate all fields
     if (!validateForm()) {
       setFormError('Please fix the validation errors before submitting');
       Swal.fire({
@@ -361,7 +271,6 @@ const Shops = () => {
       return;
     }
 
-    // Check if we have district ID
     if (!districtId) {
       setFormError('No district assigned to your account');
       Swal.fire({
@@ -374,7 +283,6 @@ const Shops = () => {
       return;
     }
 
-    // Check if Tekmetric ID already exists
     if (checkTekmetricIdExists(formData.tekmetric_shop_id)) {
       setFormError('A shop with this Tekmetric ID already exists in your district');
       Swal.fire({
@@ -390,7 +298,6 @@ const Shops = () => {
     setIsSubmitting(true);
 
     try {
-      // Create shop with current district_id
       const shopData = {
         name: formData.name.trim(),
         brand_id: user.brand_id,
@@ -406,7 +313,6 @@ const Shops = () => {
       const shopResult = await dispatch(createShop(shopData)).unwrap();
       
       if (shopResult.success) {
-        // Show success popup
         Swal.fire({
           icon: 'success',
           title: 'Shop Created Successfully!',
@@ -426,12 +332,9 @@ const Shops = () => {
 
         resetForm();
         await dispatch(getShopsByDistrict(districtId));
-        setTimeout(() => {
-          setShowCreateForm(false);
-        }, 100);
+        setTimeout(() => setShowCreateForm(false), 100);
       }
     } catch (err) {
-      console.error('Shop creation failed:', err);
       setFormError(err?.error || 'Failed to create shop. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -445,15 +348,11 @@ const Shops = () => {
     }
   };
 
-  // ============================================
-  // EDIT SHOP
-  // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
 
-    // Validate edit form
     if (!validateEditForm()) {
       setFormError('Please fix the validation errors before submitting');
       Swal.fire({
@@ -466,7 +365,6 @@ const Shops = () => {
       return;
     }
 
-    // Check if Tekmetric ID already exists (excluding current shop)
     if (checkTekmetricIdExists(editFormData.tekmetric_shop_id, showEditModal)) {
       setFormError('A shop with this Tekmetric ID already exists in your district');
       Swal.fire({
@@ -480,7 +378,6 @@ const Shops = () => {
     }
 
     try {
-      // Prepare update data
       const updateData = {
         name: editFormData.name.trim(),
         tekmetric_shop_id: editFormData.tekmetric_shop_id.trim(),
@@ -509,14 +406,10 @@ const Shops = () => {
         
         resetEditForm();
         await dispatch(getShopsByDistrict(districtId));
-        
-        setTimeout(() => {
-          setShowEditModal(null);
-        }, 100);
+        setTimeout(() => setShowEditModal(null), 100);
       }
       
     } catch (err) {
-      console.error('Shop update failed:', err);
       setFormError(err?.error || 'Failed to update shop. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -528,7 +421,6 @@ const Shops = () => {
     }
   };
 
-  // Toggle shop status
   const handleToggleStatus = async (shop) => {
     try {
       const updateData = {
@@ -558,7 +450,6 @@ const Shops = () => {
         timer: 2000
       });
     } catch (err) {
-      console.error('Failed to toggle shop status:', err);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -569,38 +460,18 @@ const Shops = () => {
     }
   };
 
-  // ============================================
-  // FORM HANDLERS
-  // ============================================
-
   const resetForm = () => {
     setFormData({
-      name: '',
-      street_address: '',
-      city: '',
-      state: '',
+      name: '', street_address: '', city: '', state: '',
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      tekmetric_shop_id: '',
-      is_active: true
+      tekmetric_shop_id: '', is_active: true
     });
-    setValidationErrors({
-      name: '',
-      tekmetric_shop_id: '',
-      street_address: '',
-      city: '',
-      state: ''
-    });
+    setValidationErrors({ name: '', tekmetric_shop_id: '', street_address: '', city: '', state: '' });
   };
 
   const resetEditForm = () => {
     setEditFormData({});
-    setEditValidationErrors({
-      name: '',
-      tekmetric_shop_id: '',
-      street_address: '',
-      city: '',
-      state: ''
-    });
+    setEditValidationErrors({ name: '', tekmetric_shop_id: '', street_address: '', city: '', state: '' });
   };
 
   const handleInputChange = (e) => {
@@ -611,40 +482,17 @@ const Shops = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Real-time validation
-    switch (name) {
-      case 'name':
-        setValidationErrors(prev => ({
-          ...prev,
-          name: validateShopName(value)
-        }));
-        break;
-      case 'tekmetric_shop_id':
-        setValidationErrors(prev => ({
-          ...prev,
-          tekmetric_shop_id: validateTekmetricId(value)
-        }));
-        break;
-      case 'street_address':
-        setValidationErrors(prev => ({
-          ...prev,
-          street_address: validateStreetAddress(value)
-        }));
-        break;
-      case 'city':
-        setValidationErrors(prev => ({
-          ...prev,
-          city: validateCity(value)
-        }));
-        break;
-      case 'state':
-        setValidationErrors(prev => ({
-          ...prev,
-          state: validateState(value)
-        }));
-        break;
-      default:
-        break;
+    const validators = {
+      name: validateShopName,
+      tekmetric_shop_id: validateTekmetricId,
+      street_address: validateStreetAddress,
+      city: validateCity,
+      state: validateState
+    };
+
+    if (name in validators) {
+      const error = validators[name](value);
+      setValidationErrors(prev => ({ ...prev, [name]: error }));
     }
   };
 
@@ -656,40 +504,17 @@ const Shops = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Real-time validation for edit form
-    switch (name) {
-      case 'name':
-        setEditValidationErrors(prev => ({
-          ...prev,
-          name: value ? validateShopName(value) : ''
-        }));
-        break;
-      case 'tekmetric_shop_id':
-        setEditValidationErrors(prev => ({
-          ...prev,
-          tekmetric_shop_id: value ? validateTekmetricId(value) : ''
-        }));
-        break;
-      case 'street_address':
-        setEditValidationErrors(prev => ({
-          ...prev,
-          street_address: value ? validateStreetAddress(value) : ''
-        }));
-        break;
-      case 'city':
-        setEditValidationErrors(prev => ({
-          ...prev,
-          city: value ? validateCity(value) : ''
-        }));
-        break;
-      case 'state':
-        setEditValidationErrors(prev => ({
-          ...prev,
-          state: value ? validateState(value) : ''
-        }));
-        break;
-      default:
-        break;
+    const validators = {
+      name: validateShopName,
+      tekmetric_shop_id: validateTekmetricId,
+      street_address: validateStreetAddress,
+      city: validateCity,
+      state: validateState
+    };
+
+    if (name in validators) {
+      const error = value ? validators[name](value) : '';
+      setEditValidationErrors(prev => ({ ...prev, [name]: error }));
     }
   };
 
@@ -705,24 +530,12 @@ const Shops = () => {
       district_id: shop.district_id,
       is_active: shop.is_active
     });
-    setEditValidationErrors({
-      name: '',
-      tekmetric_shop_id: '',
-      street_address: '',
-      city: '',
-      state: ''
-    });
+    setEditValidationErrors({ name: '', tekmetric_shop_id: '', street_address: '', city: '', state: '' });
   };
 
-  // ============================================
-  // RENDER
-  // ============================================
-
-  // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady) || districtLoading) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
-        {/* Header Skeleton */}
         <div className="mb-6 flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <div className="h-8 bg-gray-200 rounded animate-pulse w-32"></div>
@@ -730,19 +543,16 @@ const Shops = () => {
           </div>
           <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
         </div>
-
-        {/* Table Skeleton */}
         <TableSkeleton />
       </div>
     );
   }
 
-  const hasValidationErrors = Object.values(validationErrors).some(error => error !== '');
-  const hasEditValidationErrors = Object.values(editValidationErrors).some(error => error !== '');
+  const hasValidationErrors = Object.values(validationErrors).some(error => error);
+  const hasEditValidationErrors = Object.values(editValidationErrors).some(error => error);
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      {/* Create Shop Button */}
       <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">
@@ -756,9 +566,7 @@ const Shops = () => {
           onClick={() => {
             setShowCreateForm(!showCreateForm);
             setFormError('');
-            if (!showCreateForm) {
-              resetForm();
-            }
+            if (!showCreateForm) resetForm();
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
         >
@@ -769,26 +577,18 @@ const Shops = () => {
         </button>
       </div>
 
-      {/* Create Shop Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6 animate-fadeIn">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Create New Shop in {currentDistrict?.name || 'Your District'}</h2>
           
-          {formError && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-              {formError}
-            </div>
-          )}
-          
-          {formSuccess && (
-            <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-              {formSuccess}
+          {(formError || formSuccess) && (
+            <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+              {formError || formSuccess}
             </div>
           )}
           
           <form onSubmit={handleSubmit}>
             <div className="space-y-6">
-              {/* Shop Information */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-700">Shop Information</h3>
                 
@@ -913,7 +713,6 @@ const Shops = () => {
                   </select>
                 </div>
 
-                {/* District Info - Display only, not editable */}
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <p className="text-sm text-blue-800">
                     <span className="font-medium">District:</span> {currentDistrict?.name || 'Your District'} (auto-assigned)
@@ -950,7 +749,6 @@ const Shops = () => {
         </div>
       )}
 
-      {/* Shops Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
         {error ? (
           <div className="py-12 text-center">
@@ -962,89 +760,75 @@ const Shops = () => {
               Retry
             </button>
           </div>
-        ) : filteredShops && filteredShops.length > 0 ? (
+        ) : filteredShops?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Shop Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    District
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Details</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">District</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredShops.map((shop) => {
-                  return (
-                    <tr key={shop.id} className="hover:bg-gray-50 transition-colors duration-150">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
-                            <img 
-                              src={DEFAULT_SHOP_IMAGE}
-                              alt={shop.name}
-                              className="w-8 h-8 opacity-50"
-                            />
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{shop.name}</div>
-                            <div className="text-xs font-medium text-blue-600">
-                              Tekmetric ID: {shop.tekmetric_shop_id || 'Not Set'}
-                            </div>
-                            <div className="text-xs text-gray-400">{shop.timezone}</div>
-                          </div>
+                {filteredShops.map((shop) => (
+                  <tr key={shop.id} className="hover:bg-gray-50 transition-colors duration-150">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
+                          <img 
+                            src={DEFAULT_SHOP_IMAGE}
+                            alt={shop.name}
+                            className="w-8 h-8 opacity-50"
+                          />
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{shop.street_address}</div>
-                        <div className="text-sm text-gray-500">{shop.city}, {shop.state}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {shop.district_id === districtId ? currentDistrict?.name : 'Other District'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          shop.is_active 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {shop.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(shop)}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(shop)}
-                            className={`px-3 py-1 rounded text-sm transition-colors ${
-                              shop.is_active 
-                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
-                            }`}
-                          >
-                            {shop.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{shop.name}</div>
+                          <div className="text-xs font-medium text-blue-600">
+                            Tekmetric ID: {shop.tekmetric_shop_id || 'Not Set'}
+                          </div>
+                          <div className="text-xs text-gray-400">{shop.timezone}</div>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{shop.street_address}</div>
+                      <div className="text-sm text-gray-500">{shop.city}, {shop.state}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {shop.district_id === districtId ? currentDistrict?.name : 'Other District'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {shop.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEdit(shop)}
+                          className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(shop)}
+                          className={`px-3 py-1 rounded text-sm transition-colors ${
+                            shop.is_active 
+                              ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          }`}
+                        >
+                          {shop.is_active ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -1067,28 +851,20 @@ const Shops = () => {
         )}
       </div>
 
-      {/* Edit Shop Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Shop</h2>
               
-              {formError && (
-                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-                  {formError}
-                </div>
-              )}
-              
-              {formSuccess && (
-                <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-                  {formSuccess}
+              {(formError || formSuccess) && (
+                <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                  {formError || formSuccess}
                 </div>
               )}
               
               <form onSubmit={handleEditSubmit}>
                 <div className="space-y-6">
-                  {/* Shop Information */}
                   <div className="space-y-4">
                     <h3 className="font-semibold text-gray-700">Shop Information</h3>
                     
@@ -1213,7 +989,6 @@ const Shops = () => {
                       </select>
                     </div>
 
-                    {/* District Info - Display only, not editable */}
                     <div className="bg-blue-50 p-3 rounded-lg">
                       <p className="text-sm text-blue-800">
                         <span className="font-medium">District:</span> {

@@ -22,10 +22,8 @@ import {
   selectVideoEditSuccess
 } from '../../redux/slice/videoEditSlice';
 
-// GCS Base URL
 const GCS_BASE_URL = 'https://storage.googleapis.com/innu-video-app';
 
-// Preset messages for edit feedback (same as mobile app)
 const PRESET_MESSAGES = [
   "AI selected wrong video",
   "Selected fallback, but actual available",
@@ -47,10 +45,9 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showUploadSection, setShowUploadSection] = useState(false);
   
-  // State for edit popup
   const [showEditPopup, setShowEditPopup] = useState(false);
   const [videoToEdit, setVideoToEdit] = useState(null);
-  const [editStep, setEditStep] = useState('categories'); // 'categories', 'videos', 'feedback'
+  const [editStep, setEditStep] = useState('categories');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedReplacementVideo, setSelectedReplacementVideo] = useState(null);
   const [editLoading, setEditLoading] = useState(false);
@@ -59,14 +56,10 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [selectedProblem, setSelectedProblem] = useState('general_diagnosis');
   
-  // Redux selectors
   const categories = useSelector(selectCategories);
   const categoryVideos = useSelector(selectCategoryVideos);
   const isFetchingCategories = useSelector(selectIsFetchingCategories);
   const isFetchingCategoryVideos = useSelector(selectIsFetching);
-  const isVideoEditLoading = useSelector(selectVideoEditLoading);
-  const videoEditError = useSelector(selectVideoEditError);
-  const videoEditSuccess = useSelector(selectVideoEditSuccess);
   
   const isUploading = useSelector(selectIsUploading);
   const uploadData = useSelector(selectUploadData);
@@ -74,57 +67,36 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
   const uploadTimeoutRef = useRef(null);
   const editSuccessTimeoutRef = useRef(null);
 
-  // Load categories when edit popup opens
   useEffect(() => {
     if (showEditPopup) {
       dispatch(getCategories());
     }
   }, [showEditPopup, dispatch]);
 
-  // Debug: Log order object
-  useEffect(() => {
-    console.log('Order object in modal:', order);
-    console.log('Order ID:', order?.id);
-    console.log('Videos received:', videos);
-  }, [order, videos]);
-
-  // Auto-hide success message after 5 seconds
   useEffect(() => {
     if (uploadSuccess) {
       uploadTimeoutRef.current = setTimeout(() => {
         setUploadSuccess(false);
-        // Trigger parent refresh after successful upload
-        if (onVideoUpdate) {
-          onVideoUpdate();
-        }
+        if (onVideoUpdate) onVideoUpdate();
       }, 5000);
     }
     return () => {
-      if (uploadTimeoutRef.current) {
-        clearTimeout(uploadTimeoutRef.current);
-      }
+      if (uploadTimeoutRef.current) clearTimeout(uploadTimeoutRef.current);
     };
   }, [uploadSuccess, onVideoUpdate]);
 
-  // Clean up object URLs on unmount
   useEffect(() => {
     return () => {
-      if (uploadPreview) {
-        URL.revokeObjectURL(uploadPreview);
-      }
-      if (editSuccessTimeoutRef.current) {
-        clearTimeout(editSuccessTimeoutRef.current);
-      }
+      if (uploadPreview) URL.revokeObjectURL(uploadPreview);
+      if (editSuccessTimeoutRef.current) clearTimeout(editSuccessTimeoutRef.current);
     };
   }, [uploadPreview]);
 
   if (!order) return null;
 
-  // Get order ID safely
   const orderId = order.id || order?.order_id;
   
   if (!orderId) {
-    console.error('No order ID found in order object:', order);
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
@@ -135,10 +107,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
           </div>
           <h3 className="text-xl font-bold text-gray-900 text-center mb-2">Order ID Not Found</h3>
           <p className="text-gray-600 text-center mb-6">Unable to locate the order ID. Please try again or contact support.</p>
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-          >
+          <button onClick={onClose} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
             Close
           </button>
         </div>
@@ -148,7 +117,6 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
 
   const vehicleInfo = order.vehicle_info || {};
 
-  // Parse detected_keywords from videos
   const getVideoDetails = (video) => {
     try {
       if (video.detected_keywords) {
@@ -161,33 +129,20 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
           keywords: parsed[0]?.keywords || []
         };
       }
-    } catch (e) {
-      console.error('Error parsing detected_keywords:', e);
+    } catch {
     }
-    return {
-      problem: 'No problem detected',
-      category: 'Uncategorized',
-      keywords: []
-    };
+    return { problem: 'No problem detected', category: 'Uncategorized', keywords: [] };
   };
 
-  // Get full video URL
   const getFullVideoUrl = (video) => {
     const videoUrl = video.stitched_video_url || video.processed_video_url || video.raw_video_url || video.video_url;
     if (!videoUrl) return null;
-    
-    return videoUrl.startsWith('http') 
-      ? videoUrl 
-      : `${GCS_BASE_URL}/${videoUrl}`;
+    return videoUrl.startsWith('http') ? videoUrl : `${GCS_BASE_URL}/${videoUrl}`;
   };
 
-  // Get full thumbnail URL
   const getThumbnailUrl = (video) => {
     if (!video.thumbnail_url) return null;
-    
-    return video.thumbnail_url.startsWith('http') 
-      ? video.thumbnail_url 
-      : `${GCS_BASE_URL}/${video.thumbnail_url}`;
+    return video.thumbnail_url.startsWith('http') ? video.thumbnail_url : `${GCS_BASE_URL}/${video.thumbnail_url}`;
   };
 
   const handlePlayVideo = (video) => {
@@ -207,7 +162,6 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     setVideoError(null);
   };
 
-  // Handle edit video - open popup with categories
   const handleEditVideo = (video) => {
     setVideoToEdit(video);
     setEditStep('categories');
@@ -221,22 +175,18 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     setShowEditPopup(true);
   };
 
-  // Handle category selection
   const handleCategorySelect = (category) => {
     setSelectedCategory(category);
     setEditStep('videos');
-    // Fetch videos for selected category - use category name
     const categoryName = category.name || category;
     dispatch(getCategoriesVideos(categoryName));
   };
 
-  // Handle video selection
   const handleVideoSelect = (video) => {
     setSelectedReplacementVideo(video);
     setEditStep('feedback');
   };
 
-  // Go back to previous step
   const handleBack = () => {
     if (editStep === 'videos') {
       setEditStep('categories');
@@ -248,7 +198,6 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     }
   };
 
-  // Handle edit submission using the videoEdit slice
   const handleEditSubmit = async () => {
     if (!videoToEdit?.id) {
       setEditError('Video ID not found');
@@ -265,7 +214,6 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     setEditSuccess(false);
 
     try {
-      // Use the createEditVideo thunk from videoEdit slice
       await dispatch(createEditVideo({
         videoId: videoToEdit.id,
         user_selected_vid: selectedReplacementVideo.id,
@@ -273,43 +221,28 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
         feedback_reason: feedbackMessage || 'No feedback provided'
       })).unwrap();
 
-      // Show success state
       setEditSuccess(true);
       
-      // Clear any existing timeout
-      if (editSuccessTimeoutRef.current) {
-        clearTimeout(editSuccessTimeoutRef.current);
-      }
+      if (editSuccessTimeoutRef.current) clearTimeout(editSuccessTimeoutRef.current);
       
-      // Close popup after showing success message for 1.5 seconds
       editSuccessTimeoutRef.current = setTimeout(() => {
         setShowEditPopup(false);
         setVideoToEdit(null);
         setEditSuccess(false);
         setEditLoading(false);
-        // Refresh videos
-        if (onVideoUpdate) {
-          onVideoUpdate();
-        }
-        // Also refresh videos for this order
+        if (onVideoUpdate) onVideoUpdate();
         dispatch(getVideosByOrderId(orderId));
       }, 1500);
       
     } catch (err) {
-      console.error('Failed to update video:', err);
       setEditError(err.message || 'Failed to update video. Please try again.');
       setEditLoading(false);
       setEditSuccess(false);
     }
-    // Don't set loading false here on success - let the timeout handle it
   };
 
-  // Close edit popup
   const handleCloseEditPopup = () => {
-    // Clear any pending timeout
-    if (editSuccessTimeoutRef.current) {
-      clearTimeout(editSuccessTimeoutRef.current);
-    }
+    if (editSuccessTimeoutRef.current) clearTimeout(editSuccessTimeoutRef.current);
     setShowEditPopup(false);
     setVideoToEdit(null);
     setEditStep('categories');
@@ -322,7 +255,6 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     setEditLoading(false);
   };
 
-  // Download video function
   const handleDownloadVideo = async (video) => {
     const videoUrl = getFullVideoUrl(video);
     if (!videoUrl) {
@@ -333,39 +265,22 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     try {
       setDownloading(true);
       
-      // Fetch the video
-      const response = await fetch(videoUrl, {
-        mode: 'cors',
-        headers: {
-          'Cache-Control': 'no-cache',
-        }
-      });
+      const response = await fetch(videoUrl, { mode: 'cors', headers: { 'Cache-Control': 'no-cache' } });
       
       if (!response.ok) throw new Error('Download failed');
       
-      // Get the video blob
       const blob = await response.blob();
-      
-      // Create download link
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      
-      // Extract filename from URL or use default
-      const filename = video.stitched_video_url?.split('/').pop() || 
-                      video.video_url?.split('/').pop() ||
-                      `video-${video.id}.mp4`;
-      
+      const filename = video.stitched_video_url?.split('/').pop() || video.video_url?.split('/').pop() || `video-${video.id}.mp4`;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
-      // Cleanup
       window.URL.revokeObjectURL(url);
       
-    } catch (error) {
-      console.error('Download failed:', error);
+    } catch {
       alert('Failed to download video. Please try again.');
     } finally {
       setDownloading(false);
@@ -385,32 +300,26 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
         return;
       }
       
-      if (uploadPreview) {
-        URL.revokeObjectURL(uploadPreview);
-      }
+      if (uploadPreview) URL.revokeObjectURL(uploadPreview);
       
       setUploadFile(file);
       const previewUrl = URL.createObjectURL(file);
       setUploadPreview(previewUrl);
       setUploadSuccess(false);
       setUploadProgress(0);
-      setShowUploadSection(true); // Show upload section when file is selected
-      setVideoError(null); // Clear any previous errors
+      setShowUploadSection(true);
+      setVideoError(null);
     }
   };
 
   const handleUploadCancel = () => {
-    if (uploadPreview) {
-      URL.revokeObjectURL(uploadPreview);
-    }
+    if (uploadPreview) URL.revokeObjectURL(uploadPreview);
     setUploadFile(null);
     setUploadPreview(null);
     setUploadProgress(0);
     setShowUploadSection(false);
     
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
     
     dispatch(clearUploadData());
   };
@@ -429,64 +338,44 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
       setIsUploadingToGCS(true);
       setVideoError(null);
       setUploadSuccess(false);
-      setUploadProgress(10); // Start progress
+      setUploadProgress(10);
       
-      console.log('Uploading video for order ID:', orderId);
-      
-      // Get upload URL
       const result = await dispatch(getUploadUrl({ order_id: orderId })).unwrap();
-      console.log('Upload URL response:', result);
       
-      setUploadProgress(30); // Got upload URL
+      setUploadProgress(30);
       
       const uploadUrl = result.uploadUrl || result.url;
       const videoId = result.video?.id || result.videoId;
       
-      if (!uploadUrl) {
-        throw new Error('No upload URL received from server');
-      }
-      
-      if (!videoId) {
-        throw new Error('No video ID received from server');
-      }
+      if (!uploadUrl) throw new Error('No upload URL received from server');
+      if (!videoId) throw new Error('No video ID received from server');
       
       const blob = new Blob([uploadFile], { type: uploadFile.type });
       
-      setUploadProgress(50); // Starting upload
+      setUploadProgress(50);
       
-      // Upload to GCS
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         body: blob,
-        headers: {
-          'Content-Type': uploadFile.type || 'video/mp4',
-        },
+        headers: { 'Content-Type': uploadFile.type || 'video/mp4' },
         mode: 'cors'
       });
       
-      setUploadProgress(80); // Upload complete
+      setUploadProgress(80);
       
-      if (!uploadResponse.ok) {
-        throw new Error(`Failed to upload to GCS: ${uploadResponse.status} ${uploadResponse.statusText}`);
-      }
+      if (!uploadResponse.ok) throw new Error(`Failed to upload to GCS: ${uploadResponse.status} ${uploadResponse.statusText}`);
 
-      // Confirm upload
       await dispatch(confirmUpload({ videoId })).unwrap();
       
-      setUploadProgress(100); // Confirmation complete
-      
-      // Show success message
+      setUploadProgress(100);
       setUploadSuccess(true);
       
-      // Clear the upload section after a delay
       setTimeout(() => {
         handleUploadCancel();
-        // Refresh videos after successful upload
         dispatch(getVideosByOrderId(orderId));
       }, 3000);
       
     } catch (error) {
-      console.error('Upload failed:', error);
       setVideoError(`Upload failed: ${error.message || 'Unknown error'}`);
       setUploadProgress(0);
     } finally {
@@ -542,10 +431,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
               </span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -576,10 +462,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
               <span className="text-sm text-blue-800">{uploadProgress}%</span>
             </div>
             <div className="w-full bg-blue-200 rounded-full h-2.5">
-              <div 
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                style={{ width: `${uploadProgress}%` }}
-              ></div>
+              <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
             </div>
             <p className="text-xs text-blue-600 mt-2">
               {uploadProgress === 10 && "Requesting upload URL..."}
@@ -741,7 +624,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
               </div>
             </div>
 
-            {/* Upload Preview - Only show when file is selected */}
+            {/* Upload Preview */}
             {showUploadSection && uploadPreview && (
               <div className="mb-6 p-4 bg-white border-2 border-blue-200 rounded-xl">
                 <div className="flex items-center justify-between mb-3">
@@ -764,12 +647,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                   </button>
                 </div>
                 
-                <video
-                  key={uploadPreview}
-                  src={uploadPreview}
-                  className="w-full max-h-48 rounded-xl bg-black"
-                  controls
-                >
+                <video key={uploadPreview} src={uploadPreview} className="w-full max-h-48 rounded-xl bg-black" controls>
                   <source src={uploadPreview} type={uploadFile?.type || 'video/mp4'} />
                   Your browser does not support the video tag.
                 </video>
@@ -821,9 +699,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                                 src={thumbnailUrl} 
                                 alt={`Video thumbnail ${index + 1}`}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = 'https://via.placeholder.com/320x180?text=Video+Thumbnail';
-                                }}
+                                onError={(e) => { e.target.src = 'https://via.placeholder.com/320x180?text=Video+Thumbnail'; }}
                               />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
@@ -905,15 +781,11 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            {video.created_at ? new Date(video.created_at).toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric', 
-                              year: 'numeric' 
-                            }) : 'N/A'}
+                            {video.created_at ? new Date(video.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                           </div>
                         </div>
                         
-                        {/* Action Buttons - Play, Download, Edit */}
+                        {/* Action Buttons */}
                         <div className="mt-4 flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                           {hasVideoUrl && (
                             <>
@@ -981,10 +853,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 </div>
                 <h4 className="text-lg font-semibold text-gray-900 mb-2">No Videos Yet</h4>
                 <p className="text-gray-600 mb-4">Upload your first AI video to get started</p>
-                <label
-                  htmlFor="video-upload"
-                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl text-sm font-medium cursor-pointer shadow-sm hover:shadow transition-all"
-                >
+                <label htmlFor="video-upload" className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl text-sm font-medium cursor-pointer shadow-sm hover:shadow transition-all">
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
@@ -997,10 +866,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
 
         {/* Modal Footer */}
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-6 py-2 bg-white hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-300 transition-colors font-medium text-sm shadow-sm"
-          >
+          <button onClick={onClose} className="px-6 py-2 bg-white hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-300 transition-colors font-medium text-sm shadow-sm">
             Close
           </button>
         </div>
@@ -1018,15 +884,10 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                   Video #{videos?.findIndex(v => v.id === selectedVideo.id) + 1}
                 </span>
                 {selectedVideo.duration_seconds && (
-                  <span className="text-sm text-gray-500">
-                    {Math.round(selectedVideo.duration_seconds)}s
-                  </span>
+                  <span className="text-sm text-gray-500">{Math.round(selectedVideo.duration_seconds)}s</span>
                 )}
               </div>
-              <button
-                onClick={handleCloseVideo}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
+              <button onClick={handleCloseVideo} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1034,15 +895,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
             </div>
             
             <div className="p-6 bg-black">
-              <video
-                key={videoPreview}
-                src={videoPreview}
-                className="w-full max-h-[60vh] rounded-xl shadow-2xl mx-auto"
-                controls
-                autoPlay
-                controlsList="nodownload"
-                onError={() => setVideoError('Failed to load video')}
-              >
+              <video key={videoPreview} src={videoPreview} className="w-full max-h-[60vh] rounded-xl shadow-2xl mx-auto" controls autoPlay controlsList="nodownload" onError={() => setVideoError('Failed to load video')}>
                 <source src={videoPreview} type="video/mp4" />
                 Your browser does not support the video tag.
               </video>
@@ -1051,8 +904,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
             {selectedVideo.transcription_text && (
               <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
                 <p className="text-sm text-gray-700">
-                  <span className="font-medium text-gray-900">Transcript:</span>{' '}
-                  {selectedVideo.transcription_text}
+                  <span className="font-medium text-gray-900">Transcript:</span> {selectedVideo.transcription_text}
                 </p>
               </div>
             )}
@@ -1060,12 +912,12 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
         </div>
       )}
 
-      {/* Edit Video Popup - Same Design as Main Modal */}
+      {/* Edit Video Popup */}
       {showEditPopup && videoToEdit && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[80] backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             
-            {/* Popup Header - Matching main modal design */}
+            {/* Popup Header */}
             <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
               <div>
                 <div className="flex items-center gap-3">
@@ -1121,31 +973,24 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                           </span>
                         </div>
                         {index < 2 && (
-                          <div className={`w-12 h-0.5 ${
-                            currentStepIndex > index
-                              ? 'bg-green-500'
-                              : 'bg-gray-200'
-                          }`} />
+                          <div className={`w-12 h-0.5 ${currentStepIndex > index ? 'bg-green-500' : 'bg-gray-200'}`} />
                         )}
                       </React.Fragment>
                     );
                   })}
                 </div>
               </div>
-              <button
-                onClick={handleCloseEditPopup}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
+              <button onClick={handleCloseEditPopup} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            {/* Popup Content - Scrollable */}
+            {/* Popup Content */}
             <div className="flex-1 overflow-y-auto p-6">
               
-              {/* Success Message - NEW */}
+              {/* Success Message */}
               {editSuccess && (
                 <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3 animate-fade-in">
                   <div className="flex-shrink-0">
@@ -1160,7 +1005,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 </div>
               )}
 
-              {/* Loading State - NEW */}
+              {/* Loading State */}
               {editLoading && !editError && !editSuccess && (
                 <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                   <div className="flex items-center gap-3">
@@ -1173,7 +1018,6 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                       <p className="text-sm text-blue-600">Please wait while we update your video.</p>
                     </div>
                   </div>
-                  {/* Progress bar animation */}
                   <div className="mt-3 w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
                     <div className="bg-blue-600 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
                   </div>
@@ -1190,7 +1034,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 </div>
               )}
 
-              {/* Step 1: Categories Grid - WITHOUT VIDEO COUNT */}
+              {/* Step 1: Categories Grid */}
               {editStep === 'categories' && !editLoading && !editSuccess && (
                 <div>
                   {isFetchingCategories ? (
@@ -1200,7 +1044,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
                     </div>
-                  ) : categories && categories.length > 0 ? (
+                  ) : categories?.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {categories.map((category) => {
                         const categoryName = category.name || category;
@@ -1252,7 +1096,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
                     </div>
-                  ) : categoryVideos && categoryVideos.length > 0 ? (
+                  ) : categoryVideos?.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {categoryVideos.map((video) => {
                         const thumbnailUrl = getThumbnailUrl(video);
@@ -1275,9 +1119,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                                   src={thumbnailUrl} 
                                   alt={video.title || "Video thumbnail"}
                                   className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.src = 'https://via.placeholder.com/96x64?text=Video';
-                                  }}
+                                  onError={(e) => { e.target.src = 'https://via.placeholder.com/96x64?text=Video'; }}
                                 />
                               ) : (
                                 <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
@@ -1316,7 +1158,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                                   </span>
                                 )}
                               </div>
-                              {video.keywords && video.keywords.length > 0 && (
+                              {video.keywords?.length > 0 && (
                                 <div className="mt-2 flex flex-wrap gap-1">
                                   {video.keywords.slice(0, 3).map((keyword, idx) => (
                                     <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
@@ -1352,11 +1194,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
                       <p className="text-gray-600 mb-4">No videos found in this category</p>
-                      <button
-                        onClick={handleBack}
-                        disabled={editLoading}
-                        className="text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50"
-                      >
+                      <button onClick={handleBack} disabled={editLoading} className="text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50">
                         ← Back to categories
                       </button>
                     </div>
@@ -1440,11 +1278,8 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                             key={msg}
                             type="button"
                             onClick={() => {
-                              if (msg.startsWith("Other")) {
-                                setFeedbackMessage("");
-                              } else {
-                                setFeedbackMessage(msg);
-                              }
+                              if (msg.startsWith("Other")) setFeedbackMessage("");
+                              else setFeedbackMessage(msg);
                             }}
                             disabled={editLoading}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -1475,7 +1310,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
               )}
             </div>
 
-            {/* Popup Footer - Matching main modal design */}
+            {/* Popup Footer */}
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
               <button
                 onClick={handleBack}
@@ -1529,9 +1364,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 ) : (
                   <button
                     onClick={() => {
-                      if (editStep === 'videos' && selectedReplacementVideo) {
-                        setEditStep('feedback');
-                      }
+                      if (editStep === 'videos' && selectedReplacementVideo) setEditStep('feedback');
                     }}
                     disabled={editStep === 'videos' && !selectedReplacementVideo || editLoading}
                     className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm hover:shadow disabled:opacity-50"
@@ -1545,7 +1378,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
         </div>
       )}
 
-      {/* Add this CSS to your global styles or in a style tag */}
+      {/* CSS Animations */}
       <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-10px); }

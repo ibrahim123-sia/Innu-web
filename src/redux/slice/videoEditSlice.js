@@ -2,26 +2,17 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import { createSelector } from "@reduxjs/toolkit";
 
-// Create axios instance with base URL
 const API = axios.create({
   baseURL: "https://innu-api-112488489004.us-central1.run.app/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
 });
 
-// Add request interceptor to attach token
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// ========== ASYNC THUNKS ==========
-
-// Create edit video (user selects educational video)
 export const createEditVideo = createAsyncThunk(
   "videoEdit/createEditVideo",
   async (
@@ -42,7 +33,6 @@ export const createEditVideo = createAsyncThunk(
   },
 );
 
-// Get edit details for a specific video
 export const getEditDetailsByVideoId = createAsyncThunk(
   "videoEdit/getEditDetailsByVideoId",
   async (videoId, { rejectWithValue }) => {
@@ -57,7 +47,6 @@ export const getEditDetailsByVideoId = createAsyncThunk(
   },
 );
 
-// Get all edit details
 export const getAllEditDetails = createAsyncThunk(
   "videoEdit/getAllEditDetails",
   async (_, { rejectWithValue }) => {
@@ -70,7 +59,6 @@ export const getAllEditDetails = createAsyncThunk(
   },
 );
 
-// Get edit details by brand
 export const getEditDetailsByBrand = createAsyncThunk(
   "videoEdit/getEditDetailsByBrand",
   async (brand_id, { rejectWithValue }) => {
@@ -78,16 +66,13 @@ export const getEditDetailsByBrand = createAsyncThunk(
       const response = await API.get(
         `/video-edit-detail/stats/edit-video-by-brand/${brand_id}`,
       );
-      console.log("Raw API response for edits by brand:", response.data);
       return response.data;
     } catch (error) {
-      console.error("Error in getEditDetailsByBrand:", error);
       return rejectWithValue(error.response?.data || error.message);
     }
   },
 );
 
-// Get edit details by shop
 export const getEditDetailsByShop = createAsyncThunk(
   "videoEdit/getEditDetailsByShop",
   async (shop_id, { rejectWithValue }) => {
@@ -102,7 +87,6 @@ export const getEditDetailsByShop = createAsyncThunk(
   },
 );
 
-// Get edit details by district
 export const getEditDetailsByDistrict = createAsyncThunk(
   "videoEdit/getEditDetailsByDistrict",
   async (district_id, { rejectWithValue }) => {
@@ -117,7 +101,6 @@ export const getEditDetailsByDistrict = createAsyncThunk(
   },
 );
 
-// Get edit details by user
 export const getEditDetailsByUser = createAsyncThunk(
   "videoEdit/getEditDetailsByUser",
   async (user_id, { rejectWithValue }) => {
@@ -132,23 +115,19 @@ export const getEditDetailsByUser = createAsyncThunk(
   },
 );
 
-// ========== INITIAL STATE ==========
-
 const initialState = {
   editDetails: {},
   editDetailsList: [],
   brandEditDetails: [],
   shopEditDetails: [],
   districtEditDetails: [],
-  userEditDetails: [], // This will store ALL user edits fetched
+  userEditDetails: [],
   loading: false,
   error: null,
   success: false,
   message: "",
-  lastFetched: {}, // Track when each user was last fetched
+  lastFetched: {},
 };
-
-// ========== SLICE ==========
 
 const videoEditSlice = createSlice({
   name: "videoEdit",
@@ -176,7 +155,6 @@ const videoEditSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // ========== CREATE EDIT VIDEO ==========
       .addCase(createEditVideo.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -185,14 +163,11 @@ const videoEditSlice = createSlice({
       .addCase(createEditVideo.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        state.message =
-          action.payload.message || "Edit video created successfully";
+        state.message = action.payload.message || "Edit video created successfully";
 
         if (action.payload.data) {
           const videoId = action.payload.data.video_id;
-          if (!state.editDetails[videoId]) {
-            state.editDetails[videoId] = [];
-          }
+          if (!state.editDetails[videoId]) state.editDetails[videoId] = [];
           state.editDetails[videoId].push(action.payload.data);
         }
       })
@@ -201,7 +176,6 @@ const videoEditSlice = createSlice({
         state.error = action.payload?.error || "Failed to create edit video";
       })
 
-      // ========== GET EDIT DETAILS BY VIDEO ID ==========
       .addCase(getEditDetailsByVideoId.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -215,7 +189,6 @@ const videoEditSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch edit details";
       })
 
-      // ========== GET ALL EDIT DETAILS ==========
       .addCase(getAllEditDetails.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -226,18 +199,16 @@ const videoEditSlice = createSlice({
       })
       .addCase(getAllEditDetails.rejected, (state, action) => {
         state.loading = false;
-        state.error =
-          action.payload?.error || "Failed to fetch all edit details";
+        state.error = action.payload?.error || "Failed to fetch all edit details";
       })
 
-      // ========== GET EDIT DETAILS BY BRAND ==========
       .addCase(getEditDetailsByBrand.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(getEditDetailsByBrand.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload && action.payload.data && Array.isArray(action.payload.data)) {
+        if (action.payload?.data && Array.isArray(action.payload.data)) {
           state.brandEditDetails = action.payload.data;
         } else if (Array.isArray(action.payload)) {
           state.brandEditDetails = action.payload;
@@ -247,19 +218,17 @@ const videoEditSlice = createSlice({
       })
       .addCase(getEditDetailsByBrand.rejected, (state, action) => {
         state.loading = false;
-        state.error =
-          action.payload?.error || "Failed to fetch brand edit details";
+        state.error = action.payload?.error || "Failed to fetch brand edit details";
         state.brandEditDetails = [];
       })
 
-      // ========== GET EDIT DETAILS BY SHOP ==========
       .addCase(getEditDetailsByShop.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(getEditDetailsByShop.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload && action.payload.data) {
+        if (action.payload?.data) {
           state.shopEditDetails = action.payload.data;
         } else if (Array.isArray(action.payload)) {
           state.shopEditDetails = action.payload;
@@ -269,19 +238,17 @@ const videoEditSlice = createSlice({
       })
       .addCase(getEditDetailsByShop.rejected, (state, action) => {
         state.loading = false;
-        state.error =
-          action.payload?.error || "Failed to fetch shop edit details";
+        state.error = action.payload?.error || "Failed to fetch shop edit details";
         state.shopEditDetails = [];
       })
 
-      // ========== GET EDIT DETAILS BY DISTRICT ==========
       .addCase(getEditDetailsByDistrict.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(getEditDetailsByDistrict.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload && action.payload.data) {
+        if (action.payload?.data) {
           state.districtEditDetails = action.payload.data;
         } else if (Array.isArray(action.payload)) {
           state.districtEditDetails = action.payload;
@@ -291,12 +258,10 @@ const videoEditSlice = createSlice({
       })
       .addCase(getEditDetailsByDistrict.rejected, (state, action) => {
         state.loading = false;
-        state.error =
-          action.payload?.error || "Failed to fetch district edit details";
+        state.error = action.payload?.error || "Failed to fetch district edit details";
         state.districtEditDetails = [];
       })
 
-      // ========== GET EDIT DETAILS BY USER ==========
       .addCase(getEditDetailsByUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -305,27 +270,19 @@ const videoEditSlice = createSlice({
         state.loading = false;
         const userId = action.payload.user_id;
         
-        // FIXED: Extract the data array from the response
         let userEdits = [];
-        if (action.payload && action.payload.data && Array.isArray(action.payload.data)) {
+        if (action.payload?.data && Array.isArray(action.payload.data)) {
           userEdits = action.payload.data;
         } else if (Array.isArray(action.payload)) {
           userEdits = action.payload;
         }
         
-        // Remove any existing edits for this user before adding new ones
-        // This prevents duplicates on refresh
         state.userEditDetails = state.userEditDetails.filter(
           edit => edit.selected_by !== userId && edit.created_by !== userId
         );
         
-        // Add the new edits
         state.userEditDetails = [...state.userEditDetails, ...userEdits];
-        
-        // Track when this user was last fetched
         state.lastFetched[userId] = Date.now();
-        
-        console.log(`✅ Loaded ${userEdits.length} edit details for user ${userId}. Total in store: ${state.userEditDetails.length}`);
       })
       .addCase(getEditDetailsByUser.rejected, (state, action) => {
         state.loading = false;
@@ -334,12 +291,8 @@ const videoEditSlice = createSlice({
   },
 });
 
-// ========== ACTIONS ==========
 export const { resetVideoEditState, clearEditDetails, clearUserEditDetails } = videoEditSlice.actions;
 
-// ========== SELECTORS ==========
-
-// Base selectors
 export const selectVideoEditState = (state) => state.videoEdit;
 export const selectEditDetails = (state) => state.videoEdit.editDetails;
 export const selectEditDetailsList = (state) => state.videoEdit.editDetailsList;
@@ -353,88 +306,52 @@ export const selectVideoEditError = (state) => state.videoEdit.error;
 export const selectVideoEditSuccess = (state) => state.videoEdit.success;
 export const selectVideoEditMessage = (state) => state.videoEdit.message;
 
-// Helper selector to get edit details for a specific video
 export const selectEditDetailsByVideoId = (videoId) => (state) =>
   state.videoEdit.editDetails[videoId] || [];
 
-// FIXED: Selector to get edit details by user ID
-// Based on your Postman response, the field is 'selected_by'
 export const selectEditDetailsByUserId = (userId) => (state) => {
   if (!userId) return [];
-  
-  // Get from userEditDetails array which now contains all fetched edits
   const allEdits = state.videoEdit.userEditDetails || [];
-  
-  // Filter edits where selected_by matches the userId
-  // From your Postman data, the user ID is in the 'selected_by' field
-  const filteredEdits = allEdits.filter(edit => edit.selected_by === userId);
-  
-  return filteredEdits;
+  return allEdits.filter(edit => edit.selected_by === userId);
 };
 
-// Alternative selector that checks both selected_by and created_by
 export const selectAllUserEdits = (userId) => (state) => {
   if (!userId) return [];
-  
   const allEdits = state.videoEdit.userEditDetails || [];
-  
-  // Check both fields that might contain the user ID
-  return allEdits.filter(edit => 
-    edit.selected_by === userId || edit.created_by === userId
-  );
+  return allEdits.filter(edit => edit.selected_by === userId || edit.created_by === userId);
 };
 
-// ========== MEMOIZED SELECTORS ==========
-
-// Get edit count by brand
 export const selectEditCountByBrand = createSelector(
   [selectBrandEditDetails],
-  (brandDetails) => {
-    return (brandDetails || []).length;
-  },
+  (brandDetails) => brandDetails?.length || 0,
 );
 
-// Get edit count by shop
 export const selectEditCountByShop = createSelector(
   [selectShopEditDetails],
-  (shopDetails) => {
-    return (shopDetails || []).length;
-  },
+  (shopDetails) => shopDetails?.length || 0,
 );
 
-// Get edit count by district
 export const selectEditCountByDistrict = createSelector(
   [selectDistrictEditDetails],
-  (districtDetails) => {
-    return (districtDetails || []).length;
-  },
+  (districtDetails) => districtDetails?.length || 0,
 );
 
-// Get edit count by user
 export const selectEditCountByUser = createSelector(
   [selectUserEditDetails],
-  (userDetails) => {
-    return (userDetails || []).length;
-  },
+  (userDetails) => userDetails?.length || 0,
 );
 
-// Get total edit count
 export const selectTotalEditCount = createSelector(
   [selectEditDetailsList],
-  (editList) => {
-    return (editList || []).length;
-  },
+  (editList) => editList?.length || 0,
 );
 
-// Get unique videos with edits for a user
 export const selectUniqueVideosWithEditsByUser = (userId) => createSelector(
   [(state) => selectEditDetailsByUserId(userId)(state)],
   (userEdits) => {
     const uniqueVideoIds = new Set();
     userEdits.forEach(edit => {
-      if (edit.video_id) {
-        uniqueVideoIds.add(edit.video_id);
-      }
+      if (edit.video_id) uniqueVideoIds.add(edit.video_id);
     });
     return Array.from(uniqueVideoIds);
   }

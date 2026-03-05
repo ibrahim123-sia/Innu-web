@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useSearchParams, useParams, Link } from "react-router-dom";
+import { useSearchParams, useParams } from "react-router-dom";
 import { getShopById } from "../../redux/slice/shopSlice";
 import {
   getOrdersByShop,
@@ -12,7 +12,6 @@ import axios from 'axios';
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-// Skeleton Loader Components (keep all your existing skeleton components)
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -62,45 +61,23 @@ const ShopInfoSkeleton = () => (
   </div>
 );
 
-const QuickActionsSkeleton = () => (
-  <div className="bg-white rounded-lg shadow-md p-6">
-    <div className="h-6 bg-gray-200 rounded animate-pulse w-32 mb-4"></div>
-    <div className="space-y-4">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center p-4 border rounded-lg">
-          <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse mr-4"></div>
-          <div className="flex-1">
-            <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
-            <div className="h-3 bg-gray-200 rounded animate-pulse w-48"></div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
 const Overview = () => {
   const [searchParams] = useSearchParams();
-  const { shopId } = useParams(); // Get shopId from URL for brand admin mode
+  const { shopId } = useParams();
   const dispatch = useDispatch();
   
-  // Get userId from URL if present (for shop manager mode)
   const userId = searchParams.get('userId');
   
-  // State for brand admin mode
   const [selectedShop, setSelectedShop] = useState(null);
   const [isBrandAdminMode, setIsBrandAdminMode] = useState(false);
   
-  // State for shop manager mode
   const [shopManager, setShopManager] = useState(null);
   
-  // State for shop data
   const [myShop, setMyShop] = useState(null);
   const [shopOrders, setShopOrders] = useState([]);
   const [shopUsers, setShopUsers] = useState([]);
   const [shopVideos, setShopVideos] = useState([]);
   
-  // Loading states
   const [loading, setLoading] = useState(true);
   const [loadingUser, setLoadingUser] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -108,24 +85,19 @@ const Overview = () => {
   const [dailyOrders, setDailyOrders] = useState(0);
   const [shopStats, setShopStats] = useState(null);
   
-  // Check if we're in brand admin mode (shopId in URL and no userId)
   useEffect(() => {
     if (shopId && !userId) {
       setIsBrandAdminMode(true);
-      // Get selected shop from localStorage
       const shop = localStorage.getItem('selectedShop');
       if (shop) {
         setSelectedShop(JSON.parse(shop));
         setLoadingUser(false);
-        // Fetch shop data directly
         fetchShopData(shopId);
       } else {
-        // If no shop in localStorage, still try to fetch by ID
         setLoadingUser(false);
         fetchShopData(shopId);
       }
     } else if (userId) {
-      // Shop manager mode
       setIsBrandAdminMode(false);
       fetchShopManagerData();
     } else {
@@ -136,31 +108,24 @@ const Overview = () => {
   const fetchShopManagerData = async () => {
     setLoadingUser(true);
     try {
-      // Get token from localStorage
       const token = localStorage.getItem('token');
       
-      // Get the shop manager's details to get shop_id
       const response = await axios.get(`http://localhost:5000/api/users/getUsers/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
       
       const userData = response.data.data || response.data;
       setShopManager(userData);
       setLoadingUser(false);
-    } catch (error) {
-      console.error('Error fetching shop manager:', error);
+    } catch {
       setLoadingUser(false);
     }
   };
 
-  // Once we have shop manager, fetch their shop data
   useEffect(() => {
     if (!isBrandAdminMode && shopManager?.shop_id) {
       fetchShopData(shopManager.shop_id);
     } else if (!isBrandAdminMode && !loadingUser && shopManager && !shopManager.shop_id) {
-      // Shop manager has no shop assigned
       setLoading(false);
       setIsInitialLoad(false);
     }
@@ -173,7 +138,6 @@ const Overview = () => {
     setIsInitialLoad(true);
     
     try {
-      // Fetch all data in parallel
       const [shopResult, ordersResult, usersResult, videosResult] = await Promise.all([
         dispatch(getShopById(shopId)).unwrap(),
         dispatch(getOrdersByShop(shopId)).unwrap(),
@@ -181,11 +145,9 @@ const Overview = () => {
         dispatch(getVideosByShop(shopId)).unwrap()
       ]);
       
-      // Process shop data
       const shopData = shopResult?.data || shopResult;
       setMyShop(shopData);
       
-      // Process orders data
       let ordersData = [];
       if (ordersResult?.data && Array.isArray(ordersResult.data)) {
         ordersData = ordersResult.data;
@@ -194,7 +156,6 @@ const Overview = () => {
       }
       setShopOrders(ordersData);
       
-      // Process users data
       let usersData = [];
       if (usersResult?.data && Array.isArray(usersResult.data)) {
         usersData = usersResult.data;
@@ -203,7 +164,6 @@ const Overview = () => {
       }
       setShopUsers(usersData);
       
-      // Process videos data
       let videosData = [];
       if (videosResult?.data && Array.isArray(videosResult.data)) {
         videosData = videosResult.data;
@@ -214,39 +174,32 @@ const Overview = () => {
       
       setIsDataReady(true);
       
-    } catch (error) {
-      console.error('Error fetching shop data:', error);
+    } catch {
     } finally {
       setLoading(false);
       setTimeout(() => setIsInitialLoad(false), 300);
     }
   };
 
-  // Calculate stats when data changes
   useEffect(() => {
     calculateStats();
   }, [shopOrders, shopUsers, shopVideos, myShop]);
 
   const calculateStats = () => {
-    // Calculate daily orders (last 24 hours)
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(0, 0, 0, 0);
 
-    const todayOrders =
-      shopOrders?.filter((order) => {
-        if (!order?.created_at) return false;
-        const orderDate = new Date(order.created_at);
-        return orderDate >= yesterday;
-      }).length || 0;
+    const todayOrders = shopOrders?.filter((order) => {
+      if (!order?.created_at) return false;
+      const orderDate = new Date(order.created_at);
+      return orderDate >= yesterday;
+    }).length || 0;
 
     setDailyOrders(todayOrders);
 
-    // Calculate shop statistics
     if (myShop && shopOrders && shopUsers) {
-      const activeUsers = shopUsers.filter(
-        (user) => user.is_active,
-      ).length;
+      const activeUsers = shopUsers.filter((user) => user.is_active).length;
       const completedOrders = shopOrders.filter((order) =>
         ["completed", "posted", "done"].includes(order.status?.toLowerCase()),
       ).length;
@@ -254,39 +207,24 @@ const Overview = () => {
       setShopStats({
         activeUsers,
         completedOrders,
-        completionRate:
-          shopOrders.length > 0
-            ? ((completedOrders / shopOrders.length) * 100).toFixed(1)
-            : 0,
+        completionRate: shopOrders.length > 0
+          ? ((completedOrders / shopOrders.length) * 100).toFixed(1)
+          : 0,
       });
     }
   };
 
-  const getTotalEmployees = () => {
-    return shopUsers?.filter((user) => user.is_active).length || 0;
-  };
+  const getTotalEmployees = () => shopUsers?.filter((user) => user.is_active).length || 0;
+  const getTotalOrders = () => shopOrders?.length || 0;
+  
+  const getCompletedOrders = () => shopOrders?.filter((order) =>
+    ["completed", "posted", "done"].includes(order.status?.toLowerCase()),
+  ).length || 0;
+  
+  const getActiveTechnicians = () => shopUsers?.filter(
+    (user) => user.role === "technician" && user.is_active,
+  ).length || 0;
 
-  const getTotalOrders = () => {
-    return shopOrders?.length || 0;
-  };
-
-  const getCompletedOrders = () => {
-    return (
-      shopOrders?.filter((order) =>
-        ["completed", "posted", "done"].includes(order.status?.toLowerCase()),
-      ).length || 0
-    );
-  };
-
-  const getActiveTechnicians = () => {
-    return (
-      shopUsers?.filter(
-        (user) => user.role === "technician" && user.is_active,
-      ).length || 0
-    );
-  };
-
-  // Show loading while fetching user data
   if (loadingUser) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -300,7 +238,6 @@ const Overview = () => {
     );
   }
 
-  // Show message if no userId provided and no shopId (only for invalid access)
   if (!userId && !shopId) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -315,7 +252,6 @@ const Overview = () => {
     );
   }
 
-  // Show message if shop manager has no shop assigned (only for shop manager mode)
   if (!isBrandAdminMode && shopManager && !shopManager.shop_id) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -330,7 +266,6 @@ const Overview = () => {
     );
   }
 
-  // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
@@ -339,10 +274,7 @@ const Overview = () => {
           <div className="h-4 bg-gray-200 rounded animate-pulse w-96"></div>
         </div>
         <StatsSkeleton />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <ShopInfoSkeleton />
-          <QuickActionsSkeleton />
-        </div>
+        <ShopInfoSkeleton />
       </div>
     );
   }
@@ -350,19 +282,8 @@ const Overview = () => {
   const shopName = myShop?.name || (selectedShop?.name || 'Your Shop');
   const shopCity = myShop?.city || (selectedShop?.city || '');
 
-  // Determine the correct base path for links
-  const getBasePath = () => {
-    if (isBrandAdminMode) {
-      return `/brand-admin/shops/${shopId}`;
-    }
-    return `/shop-manager?userId=${userId}`;
-  };
-
-  const basePath = getBasePath();
-
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
@@ -376,16 +297,8 @@ const Overview = () => {
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-blue-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                  clipRule="evenodd"
-                />
+              <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
               </svg>
             </div>
           </div>
@@ -403,16 +316,8 @@ const Overview = () => {
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-red-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z"
-                  clipRule="evenodd"
-                />
+              <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
               </svg>
             </div>
           </div>
@@ -430,18 +335,8 @@ const Overview = () => {
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
             </div>
           </div>
@@ -457,25 +352,16 @@ const Overview = () => {
               <p className="text-xs text-gray-400 mt-1">Last 24 hours</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-purple-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
-                  clipRule="evenodd"
-                />
+              <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
               </svg>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Shop Info & Quick Actions Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Shop Information Card */}
+      {/* Shop Information Card - Only Quick Actions removed */}
+      <div className="grid grid-cols-1 gap-8">
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">
@@ -528,13 +414,11 @@ const Overview = () => {
                     <label className="block text-sm font-medium text-gray-700">
                       Status
                     </label>
-                    <span
-                      className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-                        (myShop?.is_active || selectedShop?.is_active)
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
+                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
+                      (myShop?.is_active || selectedShop?.is_active)
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}>
                       {(myShop?.is_active || selectedShop?.is_active) ? "Active" : "Inactive"}
                     </span>
                   </div>
@@ -544,14 +428,11 @@ const Overview = () => {
                     </label>
                     <p className="text-gray-600">
                       {myShop?.created_at || selectedShop?.created_at
-                        ? new Date(myShop?.created_at || selectedShop?.created_at).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            },
-                          )
+                        ? new Date(myShop?.created_at || selectedShop?.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
                         : "N/A"}
                     </p>
                   </div>
@@ -589,18 +470,8 @@ const Overview = () => {
             </div>
           ) : (
             <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-              <svg
-                className="w-12 h-12 text-gray-300 mx-auto mb-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
+              <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
               <p className="text-gray-500">Shop information not available</p>
               <p className="text-sm text-gray-400 mt-1">
@@ -608,130 +479,6 @@ const Overview = () => {
               </p>
             </div>
           )}
-        </div>
-
-        {/* Quick Actions Card */}
-        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <Link
-              to={isBrandAdminMode ? `/brand-admin/shops/${shopId}/orders` : `/shop-manager/orders?userId=${userId}`}
-              className="flex items-center p-3 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
-            >
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-blue-200 transition-colors">
-                <svg
-                  className="w-4 h-4 text-blue-600"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800">
-                  Manage Orders
-                </p>
-                <p className="text-xs text-gray-500">
-                  View and manage all shop orders
-                </p>
-              </div>
-              <svg
-                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
-
-            <Link
-              to={isBrandAdminMode ? `/brand-admin/shops/${shopId}/users` : `/shop-manager/users?userId=${userId}`}
-              className="flex items-center p-3 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
-            >
-              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-red-200 transition-colors">
-                <svg
-                  className="w-4 h-4 text-red-600"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800">
-                  Manage Technicians
-                </p>
-                <p className="text-xs text-gray-500">
-                  Create and manage technicians
-                </p>
-              </div>
-              <svg
-                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
-
-            <Link
-              to={isBrandAdminMode ? `/brand-admin/shops/${shopId}/analytics` : `/shop-manager/analytics?userId=${userId}`}
-              className="flex items-center p-3 border rounded-lg hover:bg-blue-50 transition-all duration-200 group"
-            >
-              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-green-200 transition-colors">
-                <svg
-                  className="w-4 h-4 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800">
-                  View Analytics
-                </p>
-                <p className="text-xs text-gray-500">
-                  Check shop performance metrics
-                </p>
-              </div>
-              <svg
-                className="w-5 h-5 text-gray-400 group-hover:text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
-          </div>
         </div>
       </div>
     </div>

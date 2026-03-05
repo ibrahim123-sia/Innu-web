@@ -1,25 +1,17 @@
-// src/redux/slice/orderSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-// Create axios instance with base URL
 const API = axios.create({
   baseURL: 'https://innu-api-112488489004.us-central1.run.app/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Add request interceptor to attach token
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Async Thunks - 6 functions total
 export const getOrderById = createAsyncThunk(
   'order/getOrderById',
   async (orderId, { rejectWithValue }) => {
@@ -133,7 +125,6 @@ const orderSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Get Order By ID
       .addCase(getOrderById.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -147,7 +138,6 @@ const orderSlice = createSlice({
         state.error = action.payload?.error || 'Failed to fetch order';
       })
       
-      // Get Orders By Shop
       .addCase(getOrdersByShop.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -161,7 +151,6 @@ const orderSlice = createSlice({
         state.error = action.payload?.error || 'Failed to fetch shop orders';
       })
       
-      // Get Orders By Brand
       .addCase(getOrdersByBrand.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -175,7 +164,6 @@ const orderSlice = createSlice({
         state.error = action.payload?.error || 'Failed to fetch brand orders';
       })
       
-      // Get Orders By District
       .addCase(getOrdersByDistrict.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -189,7 +177,6 @@ const orderSlice = createSlice({
         state.error = action.payload?.error || 'Failed to fetch district orders';
       })
       
-      // Get Orders With Video
       .addCase(getOrdersWithVideo.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -203,7 +190,6 @@ const orderSlice = createSlice({
         state.error = action.payload?.error || 'Failed to fetch orders with video';
       })
       
-      // Get Orders Without Video
       .addCase(getOrdersWithoutVideo.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -229,7 +215,6 @@ export const {
   clearOrdersWithoutVideo,
 } = orderSlice.actions;
 
-// Selectors
 export const selectCurrentOrder = (state) => state.order.currentOrder;
 export const selectOrdersByShop = (state) => state.order.ordersByShop;
 export const selectOrdersByBrand = (state) => state.order.ordersByBrand;

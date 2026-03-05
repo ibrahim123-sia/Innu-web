@@ -15,12 +15,10 @@ import {
   selectCurrentShop
 } from '../../redux/slice/shopSlice';
 
-// Import SweetAlert for popup notifications
 import Swal from 'sweetalert2';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-// Validation functions
 const validateEmail = (email) => {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   return emailRegex.test(email);
@@ -37,7 +35,6 @@ const validateNameLength = (name, fieldName) => {
   return '';
 };
 
-// Skeleton Loader Components
 const StatsSkeleton = () => (
   <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
     <div className="flex items-center space-x-4">
@@ -131,69 +128,49 @@ const Users = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [lastOperation, setLastOperation] = useState(null); // 'create', 'update', null
+  const [lastOperation, setLastOperation] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   
-  // File states
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [profilePicPreview, setProfilePicPreview] = useState(null);
   const [editProfilePicFile, setEditProfilePicFile] = useState(null);
   const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
   
-  // Validation error states
   const [validationErrors, setValidationErrors] = useState({
-    first_name: '',
-    last_name: '',
-    email: ''
+    first_name: '', last_name: '', email: ''
   });
 
   const [editValidationErrors, setEditValidationErrors] = useState({
-    first_name: '',
-    last_name: ''
+    first_name: '', last_name: ''
   });
   
-  // Form states - role is fixed to 'technician'
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    role: 'technician',
-    is_active: true
+    first_name: '', last_name: '', email: '', role: 'technician', is_active: true
   });
   
   const [editFormData, setEditFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    role: '',
-    is_active: true,
-    original_first_name: '',
-    original_last_name: '',
-    profile_pic: ''
+    first_name: '', last_name: '', email: '', role: '', is_active: true,
+    original_first_name: '', original_last_name: '', profile_pic: ''
   });
   
   const [formError, setFormError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [emailExistsError, setEmailExistsError] = useState('');
 
-  // ============================================
-  // VALIDATION FUNCTIONS
-  // ============================================
-
   const validateFirstName = (name) => {
-    if (!name.trim()) return 'First name is required';
+    if (!name?.trim()) return 'First name is required';
     if (!validateName(name)) return 'First name can only contain letters, spaces, hyphens, and apostrophes';
     return validateNameLength(name, 'First name');
   };
 
   const validateLastName = (name) => {
-    if (!name.trim()) return 'Last name is required';
+    if (!name?.trim()) return 'Last name is required';
     if (!validateName(name)) return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
     return validateNameLength(name, 'Last name');
   };
 
   const validateEmailField = (email) => {
-    if (!email.trim()) return 'Email is required';
+    if (!email?.trim()) return 'Email is required';
     if (!validateEmail(email)) return 'Please enter a valid email address (e.g., name@example.com)';
     if (email.length > 100) return 'Email must be less than 100 characters';
     return '';
@@ -201,19 +178,9 @@ const Users = () => {
 
   const validateProfilePic = (file) => {
     if (!file) return '';
-    
-    // Validate file type
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      return 'Please upload only image files (JPEG, PNG, GIF, WEBP)';
-    }
-    
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-    if (file.size > maxSize) {
-      return 'Profile picture must be less than 5MB';
-    }
-    
+    if (!validTypes.includes(file.type)) return 'Please upload only image files (JPEG, PNG, GIF, WEBP)';
+    if (file.size > 5 * 1024 * 1024) return 'Profile picture must be less than 5MB';
     return '';
   };
 
@@ -225,9 +192,7 @@ const Users = () => {
     };
     
     setValidationErrors(errors);
-    
-    // Check if there are any errors
-    return !Object.values(errors).some(error => error !== '');
+    return !Object.values(errors).some(error => error);
   };
 
   const validateEditForm = () => {
@@ -237,16 +202,9 @@ const Users = () => {
     };
     
     setEditValidationErrors(errors);
-    
-    // Check if there are any errors
-    return !Object.values(errors).some(error => error !== '');
+    return !Object.values(errors).some(error => error);
   };
-
-  // ============================================
-  // HELPER FUNCTIONS
-  // ============================================
   
-  // Generate random password (10 characters, strong)
   const generateRandomPassword = () => {
     const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -267,7 +225,6 @@ const Users = () => {
     return password.split('').sort(() => Math.random() - 0.5).join('');
   };
 
-  // Check if email already exists
   const checkEmailExists = (email) => {
     if (!email) return false;
     const exists = shopUsers.some(user => user.email?.toLowerCase() === email.toLowerCase());
@@ -275,7 +232,6 @@ const Users = () => {
     return exists;
   };
 
-  // Get role display name
   const getRoleDisplay = (role) => {
     switch(role) {
       case 'technician': return 'Technician';
@@ -286,11 +242,6 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // EFFECTS
-  // ============================================
-
-  // Fetch shop data when component mounts
   useEffect(() => {
     if (shopId) {
       Promise.all([dispatch(getShopById(shopId))]).then(() => {
@@ -299,16 +250,12 @@ const Users = () => {
     }
   }, [dispatch, shopId]);
 
-  // Fetch users for this specific shop
   useEffect(() => {
     if (shopId && myShop?.id) {
       dispatch(getUsersByShopId(shopId))
         .unwrap()
-        .then(() => {
-          setIsDataReady(true);
-        })
-        .catch(error => {
-          console.error('Failed to fetch shop users:', error);
+        .then(() => setIsDataReady(true))
+        .catch(() => {
           Swal.fire({
             icon: 'error',
             title: 'Error',
@@ -319,12 +266,8 @@ const Users = () => {
     }
   }, [dispatch, shopId, myShop]);
 
-  // Filter users to only show those belonging to this shop
-  const filteredShopUsers = shopUsers.filter(user => 
-    user.role === 'technician' // Additional role filter for safety
-  );
+  const filteredShopUsers = shopUsers.filter(user => user.role === 'technician');
 
-  // Handle success messages and form closing
   useEffect(() => {
     if (success && lastOperation) {
       if (lastOperation === 'create') {
@@ -354,14 +297,9 @@ const Users = () => {
     }
   }, [error]);
 
-  // ============================================
-  // HANDLERS
-  // ============================================
-
   const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate profile picture
       const picError = validateProfilePic(file);
       if (picError) {
         Swal.fire({
@@ -371,7 +309,7 @@ const Users = () => {
           confirmButtonText: 'OK',
           confirmButtonColor: '#d33'
         });
-        e.target.value = ''; // Clear the input
+        e.target.value = '';
         return;
       }
 
@@ -386,14 +324,10 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // CREATE USER - ONLY TECHNICIAN
-  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     
-    // Validate form
     if (!validateForm()) {
       setFormError('Please fix the validation errors before submitting');
       Swal.fire({
@@ -411,7 +345,6 @@ const Users = () => {
       return;
     }
 
-    // Check if email already exists
     if (checkEmailExists(formData.email)) {
       setFormError('Email already exists. Please use a different email.');
       Swal.fire({
@@ -428,31 +361,22 @@ const Users = () => {
     setIsSubmitting(true);
 
     try {
-      // Generate random password for first-time login
       const randomPassword = generateRandomPassword();
       
       const userFormData = new FormData();
       userFormData.append('first_name', formData.first_name.trim());
       userFormData.append('last_name', formData.last_name.trim());
       userFormData.append('email', formData.email.trim());
-      
-      // Always set role to 'technician'
       userFormData.append('role', 'technician');
       userFormData.append('shop_id', myShop.id);
       userFormData.append('brand_id', myShop.brand_id);
-      if (myShop.district_id) {
-        userFormData.append('district_id', myShop.district_id);
-      }
+      if (myShop.district_id) userFormData.append('district_id', myShop.district_id);
       userFormData.append('is_active', formData.is_active);
-      
-      // Add ft_password and password_type
       userFormData.append('ft_password', randomPassword);
       userFormData.append('password_type', 'ft_password');
       userFormData.append('is_first_login', 'true');
       
-      if (profilePicFile) {
-        userFormData.append('profile_pic', profilePicFile);
-      }
+      if (profilePicFile) userFormData.append('profile_pic', profilePicFile);
 
       const userResult = await dispatch(createUser(userFormData)).unwrap();
       
@@ -482,12 +406,10 @@ const Users = () => {
           width: '550px'
         });
         
-        // Refresh the users list for this shop
         dispatch(getUsersByShopId(myShop.id));
       }
       
     } catch (err) {
-      console.error('User creation failed:', err);
       setFormError(err?.error || 'Failed to create technician. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -501,14 +423,10 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // EDIT USER - ONLY PROFILE INFO, NOT ROLE
-  // ============================================
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     
-    // Validate edit form
     if (!validateEditForm()) {
       setFormError('Please fix the validation errors before submitting');
       Swal.fire({
@@ -541,14 +459,12 @@ const Users = () => {
         hasChanges = true;
       }
 
-      // Only update if there are changes
       if (hasChanges) {
         await dispatch(updateUser({
           id: showEditModal,
           data: userFormData
         })).unwrap();
         
-        // Refresh the users list for this shop
         dispatch(getUsersByShopId(myShop.id));
         
         Swal.fire({
@@ -574,7 +490,6 @@ const Users = () => {
       }
       
     } catch (err) {
-      console.error('User update failed:', err);
       setFormError(err?.error || 'Failed to update technician. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -587,23 +502,9 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // FORM HANDLERS
-  // ============================================
-
   const resetForm = () => {
-    setFormData({
-      first_name: '',
-      last_name: '',
-      email: '',
-      role: 'technician',
-      is_active: true
-    });
-    setValidationErrors({
-      first_name: '',
-      last_name: '',
-      email: ''
-    });
+    setFormData({ first_name: '', last_name: '', email: '', role: 'technician', is_active: true });
+    setValidationErrors({ first_name: '', last_name: '', email: '' });
     setProfilePicFile(null);
     setProfilePicPreview(null);
     setEmailExistsError('');
@@ -611,20 +512,9 @@ const Users = () => {
   };
 
   const resetEditForm = () => {
-    setEditFormData({
-      first_name: '',
-      last_name: '',
-      email: '',
-      role: '',
-      is_active: true,
-      original_first_name: '',
-      original_last_name: '',
-      profile_pic: ''
-    });
-    setEditValidationErrors({
-      first_name: '',
-      last_name: ''
-    });
+    setEditFormData({ first_name: '', last_name: '', email: '', role: '', is_active: true,
+      original_first_name: '', original_last_name: '', profile_pic: '' });
+    setEditValidationErrors({ first_name: '', last_name: '' });
     setEditProfilePicFile(null);
     setEditProfilePicPreview(null);
     setShowEditModal(null);
@@ -633,84 +523,34 @@ const Users = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'email') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      
-      // Validate email
-      const emailError = validateEmailField(value);
-      setValidationErrors(prev => ({
-        ...prev,
-        email: emailError
-      }));
-      
-      checkEmailExists(value);
-    } else if (name === 'first_name') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      
-      // Validate first name
-      const nameError = validateFirstName(value);
-      setValidationErrors(prev => ({
-        ...prev,
-        first_name: nameError
-      }));
-    } else if (name === 'last_name') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      
-      // Validate last name
-      const nameError = validateLastName(value);
-      setValidationErrors(prev => ({
-        ...prev,
-        last_name: nameError
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+
+    const validators = {
+      email: validateEmailField,
+      first_name: validateFirstName,
+      last_name: validateLastName
+    };
+
+    if (name in validators) {
+      const error = validators[name](value);
+      setValidationErrors(prev => ({ ...prev, [name]: error }));
+      if (name === 'email') checkEmailExists(value);
     }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name === 'first_name') {
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      
-      // Validate first name if not empty
-      const nameError = value ? validateFirstName(value) : '';
-      setEditValidationErrors(prev => ({
-        ...prev,
-        first_name: nameError
-      }));
-    } else if (name === 'last_name') {
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      
-      // Validate last name if not empty
-      const nameError = value ? validateLastName(value) : '';
-      setEditValidationErrors(prev => ({
-        ...prev,
-        last_name: nameError
-      }));
-    } else {
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
+    setEditFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+
+    const validators = {
+      first_name: validateFirstName,
+      last_name: validateLastName
+    };
+
+    if (name in validators) {
+      const error = value ? validators[name](value) : '';
+      setEditValidationErrors(prev => ({ ...prev, [name]: error }));
     }
   };
 
@@ -726,10 +566,7 @@ const Users = () => {
       original_last_name: user.last_name,
       profile_pic: user.profile_pic_url || DEFAULT_PROFILE_PIC
     });
-    setEditValidationErrors({
-      first_name: '',
-      last_name: ''
-    });
+    setEditValidationErrors({ first_name: '', last_name: '' });
     setEditProfilePicPreview(user.profile_pic_url || DEFAULT_PROFILE_PIC);
     setEditProfilePicFile(null);
   };
@@ -741,7 +578,6 @@ const Users = () => {
         is_active: !currentStatus
       })).unwrap();
       
-      // Refresh the users list for this shop
       dispatch(getUsersByShopId(myShop.id));
       
       Swal.fire({
@@ -753,7 +589,6 @@ const Users = () => {
         timer: 2000
       });
     } catch (err) {
-      console.error('Failed to toggle user status:', err);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -764,10 +599,6 @@ const Users = () => {
     }
   };
 
-  // ============================================
-  // FILTERS AND UTILITIES
-  // ============================================
-
   const filteredUsers = filteredShopUsers?.filter(user => {
     let matches = true;
     
@@ -776,18 +607,14 @@ const Users = () => {
       const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
       const email = user.email.toLowerCase();
       
-      if (!fullName.includes(searchLower) && !email.includes(searchLower)) {
-        matches = false;
-      }
+      if (!fullName.includes(searchLower) && !email.includes(searchLower)) matches = false;
     }
     
     return matches;
   });
 
-  // Get user counts
   const getUserCounts = () => {
     if (!filteredShopUsers) return { total: 0, active: 0, technicians: 0 };
-    
     return {
       total: filteredShopUsers.length,
       active: filteredShopUsers.filter(u => u.is_active).length,
@@ -796,12 +623,9 @@ const Users = () => {
   };
 
   const userCounts = getUserCounts();
+  const hasValidationErrors = Object.values(validationErrors).some(error => error);
+  const hasEditValidationErrors = Object.values(editValidationErrors).some(error => error);
 
-  // Check if form has validation errors
-  const hasValidationErrors = Object.values(validationErrors).some(error => error !== '');
-  const hasEditValidationErrors = Object.values(editValidationErrors).some(error => error !== '');
-
-  // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
@@ -812,13 +636,8 @@ const Users = () => {
     );
   }
 
-  // ============================================
-  // RENDER
-  // ============================================
-
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      {/* Create Technician Button and Stats */}
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-gray-800">
@@ -843,17 +662,11 @@ const Users = () => {
                 setShowCreateForm(true);
                 setFormError('');
                 setEmailExistsError('');
-                setValidationErrors({
-                  first_name: '',
-                  last_name: '',
-                  email: ''
-                });
+                setValidationErrors({ first_name: '', last_name: '', email: '' });
               }
             }}
             className={`px-4 py-2 rounded-lg flex items-center transition-colors duration-200 ${
-              showCreateForm 
-                ? 'bg-gray-500 hover:bg-gray-600' 
-                : 'bg-red-600 hover:bg-red-700'
+              showCreateForm ? 'bg-gray-500 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
             } text-white`}
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -872,31 +685,22 @@ const Users = () => {
         </div>
       </div>
 
-      {/* Create Technician Form */}
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300 ease-in-out">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Add New Technician</h2>
           
-          {formError && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-              {formError}
-            </div>
-          )}
-          
-          {successMessage && (
-            <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-              {successMessage}
+          {(formError || successMessage) && (
+            <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+              {formError || successMessage}
             </div>
           )}
           
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left Column: Profile Picture */}
               <div className="space-y-8">
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Profile Picture</h3>
                   
-                  {/* Information about auto-generated password */}
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
                       <strong>Note:</strong> A random password will be auto-generated and sent to the technician's email.
@@ -950,7 +754,6 @@ const Users = () => {
                 </div>
               </div>
 
-              {/* Right Column: Technician Info */}
               <div className="space-y-6">
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-700">Technician Information</h3>
@@ -1012,15 +815,13 @@ const Users = () => {
                       placeholder="technician@example.com"
                       required
                     />
-                    {validationErrors.email && (
-                      <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
-                    )}
-                    {!validationErrors.email && emailExistsError && (
-                      <p className="mt-1 text-sm text-red-600">{emailExistsError}</p>
+                    {(validationErrors.email || emailExistsError) && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {validationErrors.email || emailExistsError}
+                      </p>
                     )}
                   </div>
 
-                  {/* Role is fixed to Technician - hidden field */}
                   <input type="hidden" name="role" value="technician" />
 
                   <label className="flex items-center space-x-2">
@@ -1060,7 +861,6 @@ const Users = () => {
         </div>
       )}
 
-      {/* Search Filter */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6 hover:shadow-lg transition-shadow duration-200">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
@@ -1089,14 +889,13 @@ const Users = () => {
         </div>
       </div>
 
-      {/* Technicians Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
         {loading && !isDataReady ? (
           <div className="py-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading technicians...</p>
           </div>
-        ) : filteredUsers && filteredUsers.length > 0 ? (
+        ) : filteredUsers?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -1129,9 +928,7 @@ const Users = () => {
                               src={profilePic}
                               alt={`${user.first_name} ${user.last_name}`}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = DEFAULT_PROFILE_PIC;
-                              }}
+                              onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
                             />
                           </div>
                           <div>
@@ -1150,18 +947,14 @@ const Users = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          user.is_active 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
+                          user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}>
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric', 
-                          year: 'numeric' 
+                          month: 'short', day: 'numeric', year: 'numeric' 
                         }) : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -1199,9 +992,7 @@ const Users = () => {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Technicians Found</h3>
             <p className="text-gray-500 mb-4">
-              {searchTerm 
-                ? 'Try adjusting your search' 
-                : 'Add your first technician to get started'}
+              {searchTerm ? 'Try adjusting your search' : 'Add your first technician to get started'}
             </p>
             {!showCreateForm && (
               <button
@@ -1209,11 +1000,7 @@ const Users = () => {
                   setShowCreateForm(true);
                   setFormError('');
                   setEmailExistsError('');
-                  setValidationErrors({
-                    first_name: '',
-                    last_name: '',
-                    email: ''
-                  });
+                  setValidationErrors({ first_name: '', last_name: '', email: '' });
                 }}
                 className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
               >
@@ -1227,28 +1014,20 @@ const Users = () => {
         )}
       </div>
 
-      {/* Edit Technician Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 transition-opacity duration-300">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto transform transition-all duration-300 scale-100">
             <div className="p-6">
               <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Technician</h2>
               
-              {formError && (
-                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-                  {formError}
-                </div>
-              )}
-              
-              {successMessage && (
-                <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg">
-                  {successMessage}
+              {(formError || successMessage) && (
+                <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                  {formError || successMessage}
                 </div>
               )}
               
               <form onSubmit={handleEditSubmit}>
                 <div className="space-y-6">
-                  {/* Profile Picture */}
                   <div className="space-y-4">
                     <h3 className="font-semibold text-gray-700">Profile Picture</h3>
                     
@@ -1304,7 +1083,6 @@ const Users = () => {
                     </div>
                   </div>
 
-                  {/* Technician Information */}
                   <div className="space-y-4">
                     <h3 className="font-semibold text-gray-700">Technician Information</h3>
                     
@@ -1346,7 +1124,6 @@ const Users = () => {
                       </div>
                     </div>
 
-                    {/* Email (Read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Email
@@ -1360,7 +1137,6 @@ const Users = () => {
                       <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
                     </div>
 
-                    {/* Role (Read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Role
@@ -1407,11 +1183,8 @@ const Users = () => {
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   >
-                    {lastOperation === 'update' 
-                      ? 'Updating...' 
-                      : hasEditValidationErrors 
-                        ? 'Fix Validation Errors' 
-                        : 'Update Technician'}
+                    {lastOperation === 'update' ? 'Updating...' : 
+                     hasEditValidationErrors ? 'Fix Validation Errors' : 'Update Technician'}
                   </button>
                 </div>
               </form>

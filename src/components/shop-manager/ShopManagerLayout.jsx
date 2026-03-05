@@ -11,16 +11,13 @@ const ShopManagerLayout = ({ children }) => {
   const [selectedShop, setSelectedShop] = useState(null);
 
   useEffect(() => {
-    // Load from localStorage when component mounts or params change
     if (shopId) {
       const shop = localStorage.getItem('selectedShop');
       if (shop) {
         const parsedShop = JSON.parse(shop);
-        // Only set if the shop in localStorage matches the URL
         if (parsedShop.id === shopId) {
           setSelectedShop(parsedShop);
         } else {
-          // Try to find shop from shops list if available
           const shops = JSON.parse(localStorage.getItem('shops') || '[]');
           const foundShop = shops.find(s => s.id === shopId);
           if (foundShop) {
@@ -30,51 +27,37 @@ const ShopManagerLayout = ({ children }) => {
         }
       }
     } else {
-      // Clear selections when on main shop manager pages
       setSelectedShop(null);
     }
   }, [shopId]);
 
   const getHeaderTitle = () => {
-    if (selectedShop) {
-      return `${selectedShop.name || 'Shop'} Management`;
-    }
+    if (selectedShop) return `${selectedShop.name || 'Shop'} Management`;
     return "Shop Manager Dashboard";
   };
 
   const getHeaderSubtitle = () => {
     if (selectedShop) {
-      // Only show city/state if they exist, never show the UUID
       const city = selectedShop.city || '';
       const state = selectedShop.state || '';
       
-      if (city && state) {
-        return `Managing: ${city}, ${state}`;
-      } else if (city) {
-        return `Managing: ${city}`;
-      } else {
-        return "Managing Shop";
-      }
+      if (city && state) return `Managing: ${city}, ${state}`;
+      if (city) return `Managing: ${city}`;
+      return "Managing Shop";
     }
     
-    // When no specific shop is selected
-    if (user?.shops?.length > 1) {
-      return `You have access to ${user.shops.length} shops`;
-    } else if (user?.shops?.length === 1) {
-      return "Managing your shop";
-    }
+    if (user?.shops?.length > 1) return `You have access to ${user.shops.length} shops`;
+    if (user?.shops?.length === 1) return "Managing your shop";
     return "Manage your shop operations";
   };
 
-  // Dynamic navigation items based on context
   const getNavItems = () => {
-    if (selectedShop && selectedShop.id) {
+    if (selectedShop?.id) {
       return [
         { name: "Overview", path: `/shop-manager/shops/${selectedShop.id}` },
         { name: "Orders", path: `/shop-manager/shops/${selectedShop.id}/orders` },
         { name: "Analytics", path: `/shop-manager/shops/${selectedShop.id}/analytics` },
         { name: "Users", path: `/shop-manager/shops/${selectedShop.id}/users` },
-        
       ];
     }
     return [
@@ -82,7 +65,6 @@ const ShopManagerLayout = ({ children }) => {
       { name: "Orders", path: "/shop-manager/orders" },
       { name: "Analytics", path: "/shop-manager/analytics" },
       { name: "Users", path: "/shop-manager/users" },
-  
     ];
   };
 
@@ -97,36 +79,23 @@ const ShopManagerLayout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-primary-blue text-white p-4 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <div className="flex items-center">
-              {/* Back button when viewing specific shop */}
               {selectedShop && (
                 <button
                   onClick={handleBack}
                   className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
                   title="Back to Dashboard"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                    />
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                   </svg>
                 </button>
               )}
               <div>
                 <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-               
               </div>
             </div>
           </div>
@@ -134,15 +103,12 @@ const ShopManagerLayout = ({ children }) => {
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
               Shop Manager
             </div>
-            <span className="hidden md:inline text-white">
-              {user?.email}
-            </span>
+            <span className="hidden md:inline text-white">{user?.email}</span>
             <LogoutButton />
           </div>
         </div>
       </header>
 
-      {/* Navigation */}
       <nav className="bg-white shadow-sm border-b">
         <div className="container mx-auto">
           <div className="flex space-x-1 overflow-x-auto">
@@ -166,7 +132,6 @@ const ShopManagerLayout = ({ children }) => {
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="container mx-auto p-4 md:p-6">
         {children || <Outlet />}
       </main>

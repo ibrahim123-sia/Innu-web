@@ -14,7 +14,6 @@ import { getVideosByOrderId, getVideosByShop, selectVideos } from "../../redux/s
 import OrderDetailModal from "../../components/shop-manager/OrderDetailModal";
 import axios from 'axios';
 
-// Skeleton Loader Components
 const TableSkeleton = () => (
   <div className="bg-white rounded-lg shadow-md overflow-hidden">
     <div className="overflow-x-auto">
@@ -95,19 +94,15 @@ const Orders = () => {
   const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   
-  // Get userId from URL if present (for district manager viewing)
   const userId = searchParams.get('userId');
   const currentUser = useSelector((state) => state.user.currentUser);
   
-  // Determine which user to use
   const activeUserId = userId || currentUser?.id;
   const isImpersonating = !!userId;
   
-  // State for shop manager and shop data
   const [shopManager, setShopManager] = useState(null);
   const [shopId, setShopId] = useState(null);
   
-  // Redux state
   const orders = useSelector(selectOrdersByShop) || [];
   const myShop = useSelector(selectCurrentShop);
   const loading = useSelector(selectOrderLoading);
@@ -118,23 +113,20 @@ const Orders = () => {
   const [orderVideos, setOrderVideos] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [videoFilter, setVideoFilter] = useState("all"); // 'all', 'with-videos', 'without-videos'
+  const [videoFilter, setVideoFilter] = useState("all");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   const [loadingUser, setLoadingUser] = useState(false);
   const [videosByOrder, setVideosByOrder] = useState({});
   
-  // Add refresh trigger state
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const refreshIntervalRef = useRef(null);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
-  // Fetch shop manager data if userId is provided (district manager viewing)
   useEffect(() => {
     if (userId) {
       fetchShopManagerData();
     } else if (currentUser?.shop_id) {
-      // Normal shop manager login - use current user's shop_id directly
       setShopId(currentUser.shop_id);
       setLoadingUser(false);
     }
@@ -149,28 +141,21 @@ const Orders = () => {
       });
       const userData = response.data.data || response.data;
       setShopManager(userData);
-      if (userData?.shop_id) {
-        setShopId(userData.shop_id);
-      }
-    } catch (error) {
-      console.error('Error fetching shop manager:', error);
+      if (userData?.shop_id) setShopId(userData.shop_id);
+    } catch {
     } finally {
       setLoadingUser(false);
     }
   };
 
-  // Fetch shop data when shopId is available
   useEffect(() => {
     if (shopId) {
-      Promise.all([
-        dispatch(getShopById(shopId))
-      ]).then(() => {
+      Promise.all([dispatch(getShopById(shopId))]).then(() => {
         setTimeout(() => setIsInitialLoad(false), 300);
       });
     }
   }, [dispatch, shopId]);
 
-  // Fetch orders when shop is loaded
   useEffect(() => {
     if (myShop?.id) {
       dispatch(getOrdersByShop(myShop.id)).then(() => {
@@ -180,7 +165,6 @@ const Orders = () => {
     }
   }, [dispatch, myShop, refreshTrigger]);
 
-  // Fetch videos for all orders
   useEffect(() => {
     if (orders.length > 0) {
       fetchVideosForAllOrders();
@@ -190,18 +174,12 @@ const Orders = () => {
   const fetchVideosForAllOrders = async () => {
     const videosMap = {};
     
-    // Fetch videos for each order in parallel
     await Promise.all(
       orders.map(async (order) => {
         try {
           const result = await dispatch(getVideosByOrderId(order.id)).unwrap();
-          if (result.data) {
-            videosMap[order.id] = result.data;
-          } else {
-            videosMap[order.id] = [];
-          }
-        } catch (error) {
-          console.error(`Error fetching videos for order ${order.id}:`, error);
+          videosMap[order.id] = result.data || [];
+        } catch {
           videosMap[order.id] = [];
         }
       })
@@ -210,19 +188,15 @@ const Orders = () => {
     setVideosByOrder(videosMap);
   };
 
-  // Auto-refresh setup
   useEffect(() => {
     refreshIntervalRef.current = setInterval(() => {
       if (myShop?.id) {
-        console.log('Auto-refreshing orders...');
         setRefreshTrigger(prev => prev + 1);
       }
     }, 30000);
 
     return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-      }
+      if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
     };
   }, [myShop?.id]);
 
@@ -230,41 +204,27 @@ const Orders = () => {
     setSelectedOrder(order);
     try {
       const result = await dispatch(getVideosByOrderId(order.id)).unwrap();
-      if (result.data) {
-        setOrderVideos(result.data);
-      }
-    } catch (error) {
-      console.error("Error fetching videos:", error);
+      setOrderVideos(result.data || []);
+    } catch {
       setOrderVideos([]);
     }
     setShowOrderDetail(order.id);
   };
 
-  // Callback to refresh videos after upload/edit
   const handleRefreshVideos = useCallback(async (orderId) => {
     if (orderId) {
       try {
-        console.log('Refreshing videos for order:', orderId);
         const result = await dispatch(getVideosByOrderId(orderId)).unwrap();
         if (result.data) {
           setOrderVideos(result.data);
-          
-          // Also update the videosByOrder map
-          setVideosByOrder(prev => ({
-            ...prev,
-            [orderId]: result.data
-          }));
+          setVideosByOrder(prev => ({ ...prev, [orderId]: result.data }));
         }
-      } catch (error) {
-        console.error("Error refreshing videos:", error);
+      } catch {
       }
     }
   }, [dispatch]);
 
-  // Get video count for an order
-  const getVideoCountForOrder = (orderId) => {
-    return videosByOrder[orderId]?.length || 0;
-  };
+  const getVideoCountForOrder = (orderId) => videosByOrder[orderId]?.length || 0;
 
   const filteredOrders = orders?.filter((order) => {
     let matches = true;
@@ -273,15 +233,10 @@ const Orders = () => {
       const searchLower = searchTerm.toLowerCase();
       const customerName = order.customer_name?.toLowerCase() || "";
       const vehicleInfo = order.vehicle_info || {};
-      const vehicleDesc =
-        `${vehicleInfo.year || ""} ${vehicleInfo.make || ""} ${vehicleInfo.model || ""}`.toLowerCase();
+      const vehicleDesc = `${vehicleInfo.year || ""} ${vehicleInfo.make || ""} ${vehicleInfo.model || ""}`.toLowerCase();
       const roNumber = order.tekmetric_ro_id?.toLowerCase() || "";
 
-      if (
-        !customerName.includes(searchLower) &&
-        !vehicleDesc.includes(searchLower) &&
-        !roNumber.includes(searchLower)
-      ) {
+      if (!customerName.includes(searchLower) && !vehicleDesc.includes(searchLower) && !roNumber.includes(searchLower)) {
         matches = false;
       }
     }
@@ -291,40 +246,25 @@ const Orders = () => {
       const filter = statusFilter.toLowerCase();
 
       if (filter === "work-in-progress") {
-        if (!["in_progress", "work-in-progress", "processing"].includes(status)) {
-          matches = false;
-        }
+        if (!["in_progress", "work-in-progress", "processing"].includes(status)) matches = false;
       } else if (filter === "estimate") {
-        if (!["pending", "estimate"].includes(status)) {
-          matches = false;
-        }
+        if (!["pending", "estimate"].includes(status)) matches = false;
       } else if (filter === "posted") {
-        if (!["completed", "posted", "done"].includes(status)) {
-          matches = false;
-        }
+        if (!["completed", "posted", "done"].includes(status)) matches = false;
       } else if (filter === "cancelled") {
-        if (!["cancelled", "canceled"].includes(status)) {
-          matches = false;
-        }
-      } else if (status !== filter) {
-        matches = false;
-      }
+        if (!["cancelled", "canceled"].includes(status)) matches = false;
+      } else if (status !== filter) matches = false;
     }
 
-    // Video filter
     if (videoFilter !== "all") {
       const videoCount = getVideoCountForOrder(order.id);
-      if (videoFilter === "with-videos" && videoCount === 0) {
-        matches = false;
-      } else if (videoFilter === "without-videos" && videoCount > 0) {
-        matches = false;
-      }
+      if (videoFilter === "with-videos" && videoCount === 0) matches = false;
+      else if (videoFilter === "without-videos" && videoCount > 0) matches = false;
     }
 
     return matches;
   });
 
-  // Get order counts for stats
   const getOrderCounts = () => {
     if (!orders) return { total: 0, completed: 0, inProgress: 0, estimate: 0, withVideos: 0, withoutVideos: 0 };
 
@@ -332,34 +272,20 @@ const Orders = () => {
     
     return {
       total: orders.length,
-      completed: orders.filter((o) =>
-        ["completed", "posted", "done"].includes(o.status?.toLowerCase()),
-      ).length,
-      inProgress: orders.filter((o) =>
-        ["in_progress", "work-in-progress", "processing"].includes(
-          o.status?.toLowerCase(),
-        ),
-      ).length,
-      estimate: orders.filter((o) =>
-        ["pending", "estimate"].includes(o.status?.toLowerCase()),
-      ).length,
-      withVideos: withVideos,
+      completed: orders.filter((o) => ["completed", "posted", "done"].includes(o.status?.toLowerCase())).length,
+      inProgress: orders.filter((o) => ["in_progress", "work-in-progress", "processing"].includes(o.status?.toLowerCase())).length,
+      estimate: orders.filter((o) => ["pending", "estimate"].includes(o.status?.toLowerCase())).length,
+      withVideos,
       withoutVideos: orders.length - withVideos,
     };
   };
 
   const orderCounts = getOrderCounts();
 
-  // Format last refreshed time
-  const formatLastRefreshed = () => {
-    return lastRefreshed.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
+  const formatLastRefreshed = () => lastRefreshed.toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
 
-  // Show loading while fetching user data (for impersonation)
   if (loadingUser) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -371,7 +297,6 @@ const Orders = () => {
     );
   }
 
-  // Show message if no user ID found
   if (!activeUserId) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -386,7 +311,6 @@ const Orders = () => {
     );
   }
 
-  // Show message if shop manager has no shop assigned
   if (userId && shopManager && !shopManager.shop_id) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -401,7 +325,6 @@ const Orders = () => {
     );
   }
 
-  // Show skeleton during initial load
   if (isInitialLoad || (loading && !orders.length && !isDataReady)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
@@ -418,9 +341,6 @@ const Orders = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-    
-
-      {/* Auto-refresh indicator */}
       <div className="mb-4 flex justify-end items-center">
         <div className="flex items-center text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
@@ -437,7 +357,6 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
           <div className="flex items-center justify-between">
@@ -503,7 +422,6 @@ const Orders = () => {
           </div>
         </div>
 
-        {/* Video Stats Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-600">
           <div className="flex items-center justify-between">
             <div>
@@ -524,7 +442,6 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
@@ -589,34 +506,19 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* Orders Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {filteredOrders && filteredOrders.length > 0 ? (
+        {filteredOrders?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    RO Number
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vehicle
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Videos
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RO Number</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Videos</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -625,50 +527,31 @@ const Orders = () => {
                   const videoCount = getVideoCountForOrder(order.id);
                   
                   return (
-                    <tr 
-                      key={order.id} 
-                      className="hover:bg-gray-50 transition-colors duration-150"
-                    >
+                    <tr key={order.id} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">
-                          #{order.ro_number || "N/A"}
-                        </div>
+                        <div className="font-medium text-gray-900">#{order.ro_number || "N/A"}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">
-                          {order.customer_name || "N/A"}
-                        </div>
+                        <div className="font-medium text-gray-900">{order.customer_name || "N/A"}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="font-medium text-gray-900">
-                            {vehicleInfo.year
-                              ? `${vehicleInfo.year} ${vehicleInfo.make}`
-                              : "N/A"}
+                            {vehicleInfo.year ? `${vehicleInfo.year} ${vehicleInfo.make}` : "N/A"}
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {vehicleInfo.model || ""}
-                          </div>
+                          <div className="text-sm text-gray-500">{vehicleInfo.model || ""}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            ["completed", "posted", "done"].includes(
-                              order.status?.toLowerCase(),
-                            )
-                              ? "bg-green-100 text-green-800"
-                              : ["pending", "estimate"].includes(
-                                    order.status?.toLowerCase(),
-                                  )
-                                ? "bg-yellow-100 text-yellow-800"
-                                : ["cancelled", "canceled"].includes(
-                                      order.status?.toLowerCase(),
-                                    )
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
+                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          ["completed", "posted", "done"].includes(order.status?.toLowerCase())
+                            ? "bg-green-100 text-green-800"
+                            : ["pending", "estimate"].includes(order.status?.toLowerCase())
+                              ? "bg-yellow-100 text-yellow-800"
+                              : ["cancelled", "canceled"].includes(order.status?.toLowerCase())
+                                ? "bg-red-100 text-red-800"
+                                : "bg-blue-100 text-blue-800"
+                        }`}>
                           {order.status?.replace(/_/g, " ") || "Unknown"}
                         </span>
                       </td>
@@ -683,13 +566,9 @@ const Orders = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.created_at
-                          ? new Date(order.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })
-                          : "N/A"}
+                        {order.created_at ? new Date(order.created_at).toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric', year: 'numeric'
+                        }) : "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
@@ -707,22 +586,10 @@ const Orders = () => {
           </div>
         ) : (
           <div className="py-12 text-center transition-opacity duration-300">
-            <svg
-              className="w-16 h-16 text-gray-400 mx-auto mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-              />
+            <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No Orders Found
-            </h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Orders Found</h3>
             <p className="text-gray-500 mb-4">
               {searchTerm || statusFilter !== "all" || videoFilter !== "all"
                 ? "Try changing your search filters"
@@ -732,7 +599,6 @@ const Orders = () => {
         )}
       </div>
 
-      {/* Order Detail Modal */}
       {showOrderDetail && selectedOrder && (
         <OrderDetailModal
           order={selectedOrder}

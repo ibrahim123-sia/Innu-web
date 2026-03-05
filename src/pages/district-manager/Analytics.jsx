@@ -19,7 +19,6 @@ import {
 
 const DEFAULT_SHOP_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 
-// Skeleton Components
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -94,31 +93,22 @@ const TableSkeleton = () => (
 
 const Analytics = () => {
   const dispatch = useDispatch();
-  const { districtId } = useParams(); // For brand admin mode
+  const { districtId } = useParams();
   const [searchParams] = useSearchParams();
-  const userId = searchParams.get("userId"); // For district manager mode
+  const userId = searchParams.get("userId");
   
   const user = useSelector(state => state.user.currentUser);
   
-  // Determine which district ID to use
   const targetDistrictId = useMemo(() => {
-    if (districtId) {
-      return districtId; // Brand admin mode
-    }
-    if (userId) {
-      return user?.district_id; // District manager mode viewing another
-    }
-    return user?.district_id; // Regular district manager
+    if (districtId) return districtId;
+    if (userId) return user?.district_id;
+    return user?.district_id;
   }, [districtId, userId, user?.district_id]);
   
-  // Shop data - only shops in current district
   const shopsByDistrict = useSelector(selectShopsByDistrict);
-  
-  // Current district data from Redux
   const currentDistrict = useSelector(selectCurrentDistrict);
   const districtLoading = useSelector(selectDistrictLoading);
   
-  // Video and Edit data - for current district only
   const [videos, setVideos] = useState([]);
   const [edits, setEdits] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -126,10 +116,8 @@ const Analytics = () => {
   const [dataFetched, setDataFetched] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   
-  // View toggle state
   const [viewMode, setViewMode] = useState('shops');
   
-  // Modal states
   const [showDistrictAnalyticsModal, setShowDistrictAnalyticsModal] = useState(null);
   const [showShopAnalyticsModal, setShowShopAnalyticsModal] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -137,81 +125,43 @@ const Analytics = () => {
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
   const [selectedShopForFeedback, setSelectedShopForFeedback] = useState(null);
 
-  // Extract shops from the data object structure - memoized
   const filteredShops = useMemo(() => {
     if (!shopsByDistrict) return [];
-    
-    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) {
-      return shopsByDistrict.data;
-    }
-    
-    if (Array.isArray(shopsByDistrict)) {
-      return shopsByDistrict;
-    }
-    
-    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) {
-      return shopsByDistrict.shops;
-    }
-    
+    if (shopsByDistrict.data && Array.isArray(shopsByDistrict.data)) return shopsByDistrict.data;
+    if (Array.isArray(shopsByDistrict)) return shopsByDistrict;
+    if (shopsByDistrict.shops && Array.isArray(shopsByDistrict.shops)) return shopsByDistrict.shops;
     return [];
   }, [shopsByDistrict]);
 
-  // ============================================
-  // FETCH FUNCTIONS - MEMOIZED
-  // ============================================
   const fetchCurrentDistrict = useCallback(async () => {
     if (!targetDistrictId) return null;
-    
     try {
-      const result = await dispatch(getDistrictById(targetDistrictId)).unwrap();
-      return result;
-    } catch (error) {
-      console.error('Error fetching current district:', error);
+      return await dispatch(getDistrictById(targetDistrictId)).unwrap();
+    } catch {
       return null;
     }
   }, [dispatch, targetDistrictId]);
 
   const fetchVideosForDistrict = useCallback(async () => {
     if (!targetDistrictId) return [];
-    
     try {
       const result = await dispatch(getVideosByDistrict(targetDistrictId)).unwrap();
-      
-      let videosData = [];
-      if (result?.data && Array.isArray(result.data)) {
-        videosData = result.data;
-      } else if (Array.isArray(result)) {
-        videosData = result;
-      }
-      
-      return videosData;
-    } catch (error) {
-      console.error(`Error fetching videos:`, error);
+      return result?.data && Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
+    } catch {
       return [];
     }
   }, [dispatch, targetDistrictId]);
 
   const fetchEditsForDistrict = useCallback(async () => {
     if (!targetDistrictId) return [];
-    
     try {
       const result = await dispatch(getEditDetailsByDistrict(targetDistrictId)).unwrap();
-      
-      let editsData = [];
-      if (result?.data && Array.isArray(result.data)) {
-        editsData = result.data;
-      } else if (Array.isArray(result)) {
-        editsData = result;
-      }
-      
-      return editsData;
-    } catch (error) {
-      console.error(`Error fetching edits:`, error);
+      return result?.data && Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
+    } catch {
       return [];
     }
   }, [dispatch, targetDistrictId]);
 
-  // Initial fetch when targetDistrictId changes
   useEffect(() => {
     if (targetDistrictId) {
       fetchAllData();
@@ -225,11 +175,10 @@ const Analytics = () => {
     setFetchError(null);
     
     try {
-      // Fetch all data in parallel for better performance
-      const [districtResult, videosData, editsData] = await Promise.all([
-        fetchCurrentDistrict(),
+      const [videosData, editsData] = await Promise.all([
         fetchVideosForDistrict(),
         fetchEditsForDistrict(),
+        fetchCurrentDistrict(),
         dispatch(getShopsByDistrict(targetDistrictId)).unwrap()
       ]);
       
@@ -237,34 +186,25 @@ const Analytics = () => {
       setEdits(editsData);
       setDataFetched(true);
       
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch {
       setFetchError('Failed to load analytics data. Please try again.');
     } finally {
       setLoading(false);
       setIsInitialLoad(false);
     }
-  }, [targetDistrictId, dispatch, fetchCurrentDistrict, fetchVideosForDistrict, fetchEditsForDistrict]);
+  }, [targetDistrictId, dispatch, fetchVideosForDistrict, fetchEditsForDistrict, fetchCurrentDistrict]);
 
-  // ============================================
-  // MEMOIZED STATS CALCULATIONS
-  // ============================================
-  
-  // Get district stats - memoized
   const districtStats = useMemo(() => {
     const totalVideos = videos.length;
     const manualCorrections = edits.length;
     const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
     
-    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00";
-    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00";
-
     return {
       totalVideos,
       manualCorrections,
       successCount,
-      successRate,
-      errorRate,
+      successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00",
+      errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00",
       totalShops: filteredShops.length,
       activeShops: filteredShops.filter(shop => shop.is_active).length,
       completedVideos: videos.filter(v => v.status === 'completed').length,
@@ -274,7 +214,6 @@ const Analytics = () => {
     };
   }, [videos, edits, filteredShops]);
 
-  // Get shop stats function - memoized per shop
   const getShopStats = useCallback((shopId) => {
     const shop = filteredShops.find(s => String(s.id) === String(shopId));
     const shopName = shop?.name;
@@ -307,15 +246,12 @@ const Analytics = () => {
     const manualCorrections = shopEdits.length;
     const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
     
-    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00";
-    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00";
-
     return {
       totalVideos,
       manualCorrections,
       successCount,
-      successRate,
-      errorRate,
+      successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00",
+      errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00",
       completedVideos: shopVideos.filter(v => v.status === 'completed').length,
       processingVideos: shopVideos.filter(v => v.status === 'processing').length,
       pendingVideos: shopVideos.filter(v => v.status === 'pending').length,
@@ -324,36 +260,29 @@ const Analytics = () => {
     };
   }, [videos, edits, filteredShops]);
 
-  // Get shop logo - memoized
   const getShopLogo = useCallback((shopId) => {
-    if (!filteredShops || !Array.isArray(filteredShops)) return DEFAULT_SHOP_LOGO;
+    if (!filteredShops?.length) return DEFAULT_SHOP_LOGO;
     const shop = filteredShops.find(s => String(s.id) === String(shopId));
     return shop?.logo_url?.trim() ? shop.logo_url : DEFAULT_SHOP_LOGO;
   }, [filteredShops]);
 
-  // Get shop name - memoized
   const getShopName = useCallback((shopId) => {
-    if (!filteredShops || !Array.isArray(filteredShops)) return 'Unknown Shop';
+    if (!filteredShops?.length) return 'Unknown Shop';
     const shop = filteredShops.find(s => String(s.id) === String(shopId));
     return shop?.name || 'Unknown Shop';
   }, [filteredShops]);
 
-  // Get district name - memoized
   const getDistrictName = useCallback(() => {
     return currentDistrict?.name || 'Your District';
   }, [currentDistrict]);
 
-  // Get detailed district stats - memoized
-  const getDistrictDetailedStats = useCallback((districtId) => {
-    return {
-      ...districtStats,
-      districtVideos: videos,
-      districtEdits: edits,
-      districtShops: filteredShops,
-    };
-  }, [districtStats, videos, edits, filteredShops]);
+  const getDistrictDetailedStats = useCallback(() => ({
+    ...districtStats,
+    districtVideos: videos,
+    districtEdits: edits,
+    districtShops: filteredShops,
+  }), [districtStats, videos, edits, filteredShops]);
 
-  // Get detailed shop stats - memoized
   const getShopDetailedStats = useCallback((shopId) => {
     const shop = filteredShops.find(s => String(s.id) === String(shopId));
     const shopName = shop?.name;
@@ -389,15 +318,12 @@ const Analytics = () => {
     const manualCorrections = shopEditsData.length;
     const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
     
-    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00";
-    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00";
-    
     return {
       totalVideos,
       manualCorrections,
       successCount,
-      successRate,
-      errorRate,
+      successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00",
+      errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00",
       completedVideos: shopVideosData.filter(v => v.status === 'completed').length,
       processingVideos: shopVideosData.filter(v => v.status === 'processing').length,
       pendingVideos: shopVideosData.filter(v => v.status === 'pending').length,
@@ -409,19 +335,16 @@ const Analytics = () => {
     };
   }, [videos, edits, filteredShops, getDistrictName]);
 
-  // Handle view all feedback
   const handleViewAllFeedback = useCallback((shopId) => {
     setSelectedShopForFeedback(shopId);
     setShowAllFeedbackModal(true);
   }, []);
 
-  // Handle view feedback
   const handleViewFeedback = useCallback((edit) => {
     setSelectedFeedback(edit);
     setShowFeedbackModal(true);
   }, []);
 
-  // Show loading during initial load
   if (isInitialLoad && loading) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
@@ -431,7 +354,6 @@ const Analytics = () => {
     );
   }
 
-  // Show error state
   if (fetchError) {
     return (
       <div className="p-6 flex justify-center items-center min-h-[400px]">
@@ -452,7 +374,6 @@ const Analytics = () => {
     );
   }
 
-  // Show message if no district ID
   if (!targetDistrictId) {
     return (
       <div className="p-6 flex justify-center items-center min-h-[400px]">
@@ -469,9 +390,7 @@ const Analytics = () => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {/* Total AI Video Requests Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -491,7 +410,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* AI Success Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -511,7 +429,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* AI Error Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -531,7 +448,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* Manual Corrections Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -552,7 +468,6 @@ const Analytics = () => {
         </div>
       </div>
 
-      {/* View Toggle */}
       <div className="flex items-center space-x-4 mb-4">
         <button
           onClick={() => setViewMode('districts')}
@@ -576,7 +491,6 @@ const Analytics = () => {
         </button>
       </div>
 
-      {/* District Performance Table */}
       {viewMode === 'districts' && currentDistrict && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="p-6 border-b">
@@ -588,21 +502,11 @@ const Analytics = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    District Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    AI Video Requests
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Manual Corrections
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Performance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">District Details</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Video Requests</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual Corrections</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -663,7 +567,6 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* Shops Performance Table */}
       {viewMode === 'shops' && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="p-6 border-b">
@@ -671,26 +574,16 @@ const Analytics = () => {
             <p className="text-gray-600">AI video requests and manual corrections by shop</p>
           </div>
           
-          {filteredShops && filteredShops.length > 0 ? (
+          {filteredShops?.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Shop Details
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      AI Video Requests
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Manual Corrections
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Performance
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Details</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Video Requests</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual Corrections</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -706,9 +599,7 @@ const Analytics = () => {
                                 src={getShopLogo(shop.id)}
                                 alt={shop.name}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = DEFAULT_SHOP_LOGO;
-                                }}
+                                onError={(e) => { e.target.src = DEFAULT_SHOP_LOGO; }}
                               />
                             </div>
                             <div>
@@ -717,9 +608,7 @@ const Analytics = () => {
                                 {shop.city}{shop.state ? `, ${shop.state}` : ''}
                               </div>
                               <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${
-                                shop.is_active 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
+                                shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}>
                                 {shop.is_active ? 'Active' : 'Inactive'}
                               </span>
@@ -788,11 +677,10 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* District Analytics Modal */}
       {showDistrictAnalyticsModal && currentDistrict && (
         <DistrictAnalyticsModal
           district={currentDistrict}
-          stats={getDistrictDetailedStats(showDistrictAnalyticsModal)}
+          stats={getDistrictDetailedStats()}
           shops={filteredShops}
           videos={videos}
           edits={edits}
@@ -804,7 +692,6 @@ const Analytics = () => {
         />
       )}
 
-      {/* Shop Analytics Modal */}
       {showShopAnalyticsModal && (
         <ShopAnalyticsModal
           shopId={showShopAnalyticsModal}
@@ -817,7 +704,6 @@ const Analytics = () => {
         />
       )}
 
-      {/* All Feedback Modal */}
       {showAllFeedbackModal && selectedShopForFeedback && (
         <AllFeedbackModal
           shopId={selectedShopForFeedback}
@@ -832,7 +718,6 @@ const Analytics = () => {
         />
       )}
 
-      {/* Individual Feedback Detail Modal */}
       {showFeedbackModal && selectedFeedback && (
         <FeedbackModal
           feedback={selectedFeedback}
@@ -846,14 +731,9 @@ const Analytics = () => {
   );
 };
 
-// ============================================
-// MODAL COMPONENTS (Extracted for better performance)
-// ============================================
-
 const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShopLogo, getShopName, onClose, onViewAllFeedback, onViewFeedback }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-      {/* Modal Header */}
       <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 rounded-lg overflow-hidden border bg-blue-100 flex items-center justify-center">
@@ -866,19 +746,14 @@ const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShop
             <p className="text-gray-600">Complete district analytics</p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
-        >
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
 
-      {/* Modal Content */}
       <div className="p-6">
-        {/* Video Processing Stats */}
         <div className="mb-8">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -901,7 +776,6 @@ const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShop
           </div>
         </div>
 
-        {/* AI Performance Stats */}
         <div className="mb-8">
           <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -963,8 +837,7 @@ const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShop
           </div>
         </div>
 
-        {/* Shops List */}
-        {shops && shops.length > 0 ? (
+        {shops?.length > 0 ? (
           <div className="bg-white border rounded-lg p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Shops in this District</h3>
             <div className="space-y-4">
@@ -986,9 +859,7 @@ const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShop
                             src={getShopLogo(shop.id)}
                             alt={shop.name}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = DEFAULT_SHOP_LOGO;
-                            }}
+                            onError={(e) => { e.target.src = DEFAULT_SHOP_LOGO; }}
                           />
                         </div>
                         <div>
@@ -999,9 +870,7 @@ const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShop
                         </div>
                       </div>
                       <span className={`px-2 py-1 text-xs rounded-full ${
-                        shop.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+                        shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {shop.is_active ? 'Active' : 'Inactive'}
                       </span>
@@ -1049,12 +918,8 @@ const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShop
         )}
       </div>
 
-      {/* Modal Footer */}
       <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
-        <button
-          onClick={onClose}
-          className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-        >
+        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
           Close
         </button>
       </div>
@@ -1065,7 +930,6 @@ const DistrictAnalyticsModal = ({ district, stats, shops, videos, edits, getShop
 const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, onViewAllFeedback, onViewFeedback }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-      {/* Modal Header */}
       <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 rounded-lg overflow-hidden border bg-gray-100">
@@ -1073,9 +937,7 @@ const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, 
               src={getShopLogo(shopId)}
               alt={getShopName(shopId)}
               className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.src = DEFAULT_SHOP_LOGO;
-              }}
+              onError={(e) => { e.target.src = DEFAULT_SHOP_LOGO; }}
             />
           </div>
           <div>
@@ -1083,19 +945,14 @@ const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, 
             <p className="text-gray-600">Complete shop analytics</p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
-        >
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
 
-      {/* Modal Content */}
       <div className="p-6">
-        {/* Shop Info */}
         <div className="mb-8 bg-gray-50 p-4 rounded-lg">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -1125,7 +982,6 @@ const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, 
           </div>
         </div>
 
-        {/* Video Processing Stats */}
         <div className="mb-8">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1148,7 +1004,6 @@ const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, 
           </div>
         </div>
 
-        {/* AI Performance Stats */}
         <div className="mb-8">
           <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1210,8 +1065,7 @@ const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, 
           </div>
         </div>
 
-        {/* Manual Corrections List with Feedback */}
-        {stats.shopEdits && stats.shopEdits.length > 0 ? (
+        {stats.shopEdits?.length > 0 ? (
           <div className="bg-white border rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-800">Manual Correction Feedback</h3>
@@ -1280,12 +1134,8 @@ const ShopAnalyticsModal = ({ shopId, stats, getShopLogo, getShopName, onClose, 
         )}
       </div>
 
-      {/* Modal Footer */}
       <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
-        <button
-          onClick={onClose}
-          className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-        >
+        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
           Close
         </button>
       </div>
@@ -1310,10 +1160,7 @@ const AllFeedbackModal = ({ shopId, edits, shops, getShopName, onClose, onViewFe
             <h3 className="text-xl font-bold text-gray-800">Feedback - {getShopName(shopId)}</h3>
             <p className="text-sm text-gray-500 mt-1">Total {shopEdits.length} feedback items</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -1348,10 +1195,7 @@ const AllFeedbackModal = ({ shopId, edits, shops, getShopName, onClose, onViewFe
         </div>
 
         <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <button onClick={onClose} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             Close
           </button>
         </div>
@@ -1369,10 +1213,7 @@ const FeedbackModal = ({ feedback, onClose }) => (
             ? `Feedback - Segment ${feedback.segment_index + 1}` 
             : 'Feedback'}
         </h3>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
-        >
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -1391,10 +1232,7 @@ const FeedbackModal = ({ feedback, onClose }) => (
       </div>
 
       <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
-        <button
-          onClick={onClose}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
+        <button onClick={onClose} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
           Close
         </button>
       </div>

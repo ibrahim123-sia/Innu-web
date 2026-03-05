@@ -28,54 +28,31 @@ import {
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-// ========== FIXED SELECTORS FOR SHOP-SPECIFIC DATA ==========
-
-// FIXED: Get videos by shop - extract data array from response
 const selectVideosByShop = (state) => {
   const videos = state.video.videos;
-  // If videos is an array with a 'data' property (API response structure)
-  if (videos && videos.data && Array.isArray(videos.data)) {
-    return videos.data;
-  }
-  // If videos is already an array
-  if (Array.isArray(videos)) {
-    return videos;
-  }
+  if (videos?.data && Array.isArray(videos.data)) return videos.data;
+  if (Array.isArray(videos)) return videos;
   return [];
 };
 
-// FIXED: Get edit details by shop - extract data array from response
 const selectEditDetailsByShop = (state) => {
   const edits = state.videoEdit.shopEditDetails;
-  // If edits has a data property (API response structure)
-  if (edits && edits.data && Array.isArray(edits.data)) {
-    return edits.data;
-  }
-  // If edits is already an array
-  if (Array.isArray(edits)) {
-    return edits;
-  }
+  if (edits?.data && Array.isArray(edits.data)) return edits.data;
+  if (Array.isArray(edits)) return edits;
   return [];
 };
 
-// Local selector for videos by user - filter from shop videos
 const selectVideosByUser = (userId) => (state) => {
   if (!userId) return [];
-  
-  // Get all shop videos first
   const shopVideos = selectVideosByShop(state);
-  
-  // Filter videos where created_by matches the userId
   return shopVideos.filter(video => video.created_by === userId);
 };
 
-// Local selector for edit details by user ID - use the slice selector
 const selectEditDetailsByUserId = (userId) => (state) => {
   if (!userId) return [];
   return selectAllUserEdits(userId)(state);
 };
 
-// Skeleton Loader Components (keep as is)
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -158,19 +135,12 @@ const Analytics = () => {
   const currentUser = useSelector(state => state.user?.currentUser);
   const shopId = currentUser?.shop_id;
   
-  console.log('🔍 Current User:', currentUser);
-  console.log('🔍 Shop ID:', shopId);
-  
   const myShop = useSelector(selectCurrentShop);
   const orders = useSelector(selectOrdersByShop) || [];
   const shopUsers = useSelector(selectAllUsers) || [];
   
-  // Get shop-level data using our fixed selectors
   const allVideos = useSelector(selectVideosByShop) || [];
   const shopEdits = useSelector(selectEditDetailsByShop) || [];
-  
-  console.log('🔍 All Videos (shop-specific):', allVideos.length);
-  console.log('🔍 Shop Edits (shop-specific):', shopEdits.length);
   
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -181,7 +151,6 @@ const Analytics = () => {
   const [userPerformanceData, setUserPerformanceData] = useState([]);
   const [dataFetchComplete, setDataFetchComplete] = useState(false);
   
-  // Modal states
   const [showUserAnalyticsModal, setShowUserAnalyticsModal] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
@@ -193,108 +162,82 @@ const Analytics = () => {
     
     setLoading(true);
     try {
-      console.log('🚀 Fetching all data for shop:', shopId);
-      
-      // Clear previous user edit details to prevent stale data
       dispatch(clearUserEditDetails());
       
       await Promise.all([
         dispatch(getShopById(shopId)),
         dispatch(getOrdersByShop(shopId)),
         dispatch(getUsersByShopId(shopId)),
-        dispatch(getVideosByShop(shopId)),  // This will store in state.video.videos
-        dispatch(getEditDetailsByShop(shopId))  // This will store in state.videoEdit.shopEditDetails
+        dispatch(getVideosByShop(shopId)),
+        dispatch(getEditDetailsByShop(shopId))
       ]);
       
-      console.log('✅ All shop-level data fetched successfully');
-    } catch (error) {
-      console.error('❌ Error fetching data:', error);
+    } catch {
     } finally {
       setLoading(false);
       setIsDataReady(true);
     }
   }, [dispatch, shopId]);
 
-  // FIXED: Fetch ONLY edit details for a user, NOT videos
   const fetchUserEditDetails = useCallback(async (userId) => {
     setLoadingData(prev => ({ ...prev, [userId]: true }));
     try {
-      console.log(`🚀 Fetching edit details for user: ${userId}`);
-      
-      // Only fetch edit details, not videos (to avoid overwriting shop videos)
       await dispatch(getEditDetailsByUser(userId));
-      
-      console.log(`✅ User ${userId} edit details fetched successfully`);
       return true;
-    } catch (error) {
-      console.error(`❌ Error fetching edit details for user ${userId}:`, error);
+    } catch {
       return false;
     } finally {
       setLoadingData(prev => ({ ...prev, [userId]: false }));
     }
   }, [dispatch]);
 
-  // Fetch all users edit details sequentially
   const fetchAllUsersEditDetails = useCallback(async (users) => {
     if (!users.length) return;
     
-    console.log(`🚀 Fetching edit details for ${users.length} users one by one...`);
-    
-    // Fetch users one by one
     for (const user of users) {
       await fetchUserEditDetails(user.id);
     }
     
     setDataFetchComplete(true);
-    console.log('✅ All user edit details fetched successfully');
   }, [fetchUserEditDetails]);
 
-  // Fetch shop data
   useEffect(() => {
     if (shopId) {
-      console.log('🚀 Initial fetch for shop:', shopId);
       dispatch(getShopById(shopId)).then(() => {
         setTimeout(() => setIsInitialLoad(false), 300);
       });
     }
   }, [dispatch, shopId]);
 
-  // Fetch all other data when shop is available
   useEffect(() => {
     if (myShop?.id) {
       fetchData();
     }
   }, [myShop?.id, fetchData]);
 
-  // Filter shop users - EXCLUDE brand admin
   useEffect(() => {
-    if (shopUsers?.length > 0 && shopId) {
-      console.log('🔍 Filtering shop users...');
+    if (shopUsers?.length && shopId) {
       const filtered = shopUsers.filter(user => 
         user.shop_id === shopId && user.role !== 'brand_admin'
       );
-      console.log('🔍 Filtered Shop Users:', filtered);
       setFilteredShopUsers(filtered);
     }
   }, [shopUsers, shopId]);
 
-  // Fetch edit details for all filtered users when we have them
   useEffect(() => {
-    if (filteredShopUsers.length > 0 && !dataFetchComplete) {
+    if (filteredShopUsers.length && !dataFetchComplete) {
       fetchAllUsersEditDetails(filteredShopUsers);
     }
   }, [filteredShopUsers, dataFetchComplete, fetchAllUsersEditDetails]);
 
-  // Calculate video stats from shop-level data
   useEffect(() => {
-    if (allVideos?.length > 0) {
-      console.log('📊 Calculating video stats from', allVideos.length, 'videos');
+    if (allVideos?.length) {
       calculateVideoStats(allVideos);
     }
   }, [allVideos]);
 
   const calculateVideoStats = useCallback((videos) => {
-    if (!videos || videos.length === 0) return;
+    if (!videos?.length) return;
     
     const stats = {
       total: videos.length,
@@ -306,55 +249,32 @@ const Analytics = () => {
       },
     };
     
-    console.log('📊 Calculated Stats:', stats);
     setVideoStats(stats);
   }, []);
 
-  // Process user performance data
   useEffect(() => {
-    if (filteredShopUsers.length === 0) {
+    if (!filteredShopUsers.length) {
       setUserPerformanceData([]);
       return;
     }
 
-    // Get current Redux state
     const state = store.getState();
     
     const processedData = filteredShopUsers.map(user => {
-      // Get user videos by filtering from shop videos (this is safe and doesn't overwrite anything)
       const userVideos = allVideos.filter(video => video.created_by === user.id) || [];
-      
-      // Get user edits using selector
       const userEdits = selectEditDetailsByUserId(user.id)(state) || [];
-      
-      console.log(`👤 Processing ${user.first_name} ${user.last_name} (${user.id}):`, {
-        videos: userVideos.length,
-        edits: userEdits.length
-      });
       
       const totalVideos = userVideos.length;
       
-      // Count unique videos with edits
       const uniqueVideoIdsWithEdits = new Set();
       userEdits.forEach(edit => {
-        if (edit.video_id) {
-          uniqueVideoIdsWithEdits.add(edit.video_id);
-        }
+        if (edit.video_id) uniqueVideoIdsWithEdits.add(edit.video_id);
       });
       
       const manualCorrections = uniqueVideoIdsWithEdits.size;
       const successCount = totalVideos - manualCorrections;
-      
-      // Ensure we don't go negative
       const adjustedSuccessCount = Math.max(0, successCount);
       const adjustedManualCorrections = Math.min(manualCorrections, totalVideos);
-      
-      const successRate = totalVideos > 0 
-        ? ((adjustedSuccessCount / totalVideos) * 100).toFixed(1) 
-        : 0;
-      const errorRate = totalVideos > 0 
-        ? ((adjustedManualCorrections / totalVideos) * 100).toFixed(1) 
-        : 0;
       
       return {
         id: user.id,
@@ -366,8 +286,8 @@ const Analytics = () => {
         totalVideos,
         manualCorrections: adjustedManualCorrections,
         successCount: adjustedSuccessCount,
-        successRate,
-        errorRate,
+        successRate: totalVideos > 0 ? ((adjustedSuccessCount / totalVideos) * 100).toFixed(1) : 0,
+        errorRate: totalVideos > 0 ? ((adjustedManualCorrections / totalVideos) * 100).toFixed(1) : 0,
         completedVideos: userVideos.filter(v => v.status === 'completed').length,
         processingVideos: userVideos.filter(v => v.status === 'processing').length,
         pendingVideos: userVideos.filter(v => v.status === 'pending').length,
@@ -377,81 +297,58 @@ const Analytics = () => {
       };
     }).sort((a, b) => b.totalVideos - a.totalVideos);
     
-    console.log('📊 Processed User Data:', processedData.map(u => ({
-      name: u.name,
-      videos: u.totalVideos,
-      corrections: u.manualCorrections,
-      successRate: u.successRate
-    })));
-    
     setUserPerformanceData(processedData);
   }, [filteredShopUsers, loadingData, dataFetchComplete, allVideos]);
 
-  // Calculate overall stats from shop-level data
   const stats = useMemo(() => {
     const totalAIVideoRequests = allVideos?.length || 0;
     
-    // Count unique videos that have manual corrections
     const videosWithCorrections = new Set();
     shopEdits.forEach(edit => {
-      if (edit.video_id) {
-        videosWithCorrections.add(edit.video_id);
-      }
+      if (edit.video_id) videosWithCorrections.add(edit.video_id);
     });
     
     const totalManualCorrections = videosWithCorrections.size;
     const aiSuccess = totalAIVideoRequests - totalManualCorrections;
     const adjustedAiSuccess = Math.max(0, aiSuccess);
     
-    const aiSuccessRate = totalAIVideoRequests > 0 
-      ? ((adjustedAiSuccess / totalAIVideoRequests) * 100).toFixed(1) 
-      : 0;
-    
-    const aiErrorRate = totalAIVideoRequests > 0 
-      ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(1) 
-      : 0;
-
     return {
       totalAIVideoRequests,
       totalManualCorrections,
       aiSuccess: adjustedAiSuccess,
-      aiSuccessRate,
-      aiErrorRate,
+      aiSuccessRate: totalAIVideoRequests > 0 
+        ? ((adjustedAiSuccess / totalAIVideoRequests) * 100).toFixed(1) 
+        : 0,
+      aiErrorRate: totalAIVideoRequests > 0 
+        ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(1) 
+        : 0,
     };
   }, [allVideos, shopEdits]);
 
-  console.log('📊 Final Stats:', stats);
-
-  // FIXED: Handle view user analytics - only fetch edit details, not videos
   const handleViewUserAnalytics = useCallback(async (userId) => {
     setShowUserAnalyticsModal(userId);
     
-    // Only fetch edit details if needed (videos are already in allVideos)
     if (!loadingData[userId]) {
       await fetchUserEditDetails(userId);
     }
   }, [loadingData, fetchUserEditDetails]);
 
-  // Handle view all feedback for user
   const handleViewAllFeedback = useCallback((userId) => {
     setSelectedUserForFeedback(userId);
     setShowAllFeedbackModal(true);
   }, []);
 
-  // Handle view individual feedback
   const handleViewFeedback = useCallback((edit) => {
     setSelectedFeedback(edit);
     setShowFeedbackModal(true);
   }, []);
 
-  // Handle refresh data
   const handleRefreshData = useCallback(() => {
     setDataFetchComplete(false);
     setUserPerformanceData([]);
     fetchData();
   }, [fetchData]);
 
-  // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
@@ -468,9 +365,7 @@ const Analytics = () => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {/* Total AI Video Requests Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -486,7 +381,6 @@ const Analytics = () => {
           </div>
         </div>
         
-        {/* AI Success Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -502,7 +396,6 @@ const Analytics = () => {
           </div>
         </div>
         
-        {/* AI Error Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -518,7 +411,6 @@ const Analytics = () => {
           </div>
         </div>
         
-        {/* Total Users Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -535,8 +427,7 @@ const Analytics = () => {
         </div>
       </div>
 
-      {/* Video Statistics */}
-      {videoStats && videoStats.total > 0 ? (
+      {videoStats?.total > 0 ? (
         <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-800">AI Video Statistics</h2>
@@ -571,7 +462,6 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* User Performance Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="p-6 border-b flex justify-between items-center">
           <div>
@@ -594,27 +484,13 @@ const Analytics = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    AI Video Requests
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Manual Corrections
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Performance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Details</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Video Requests</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual Corrections</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -627,9 +503,7 @@ const Analytics = () => {
                             src={user.profilePic}
                             alt={user.name}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = DEFAULT_PROFILE_PIC;
-                            }}
+                            onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
                           />
                         </div>
                         <div>
@@ -688,9 +562,7 @@ const Analytics = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+                        user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
@@ -739,7 +611,6 @@ const Analytics = () => {
         )}
       </div>
 
-      {/* User Analytics Modal */}
       {showUserAnalyticsModal && (
         <UserAnalyticsModal
           userId={showUserAnalyticsModal}
@@ -749,11 +620,10 @@ const Analytics = () => {
           onClose={() => setShowUserAnalyticsModal(null)}
           onViewAllFeedback={handleViewAllFeedback}
           onViewFeedback={handleViewFeedback}
-          allVideos={allVideos} // Pass shop videos to modal
+          allVideos={allVideos}
         />
       )}
 
-      {/* All Feedback Modal */}
       {showAllFeedbackModal && selectedUserForFeedback && (
         <AllFeedbackModal
           userId={selectedUserForFeedback}
@@ -766,7 +636,6 @@ const Analytics = () => {
         />
       )}
 
-      {/* Individual Feedback Detail Modal */}
       {showFeedbackModal && selectedFeedback && (
         <FeedbackDetailModal
           feedback={selectedFeedback}
@@ -780,25 +649,14 @@ const Analytics = () => {
   );
 };
 
-// ========== MODAL COMPONENTS ==========
-
 const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAllFeedback, onViewFeedback, allVideos }) => {
   const state = useSelector(state => state);
-  // For user videos, filter from the passed allVideos prop (shop videos)
   const userVideos = allVideos?.filter(video => video.created_by === userId) || [];
   const userEdits = selectEditDetailsByUserId(userId)(state) || [];
   
-  console.log(`📊 Modal for user ${userId}:`, {
-    videos: userVideos.length,
-    edits: userEdits.length
-  });
-  
-  // Count unique videos with edits
   const uniqueVideoIdsWithEdits = new Set();
   userEdits.forEach(edit => {
-    if (edit.video_id) {
-      uniqueVideoIdsWithEdits.add(edit.video_id);
-    }
+    if (edit.video_id) uniqueVideoIdsWithEdits.add(edit.video_id);
   });
   
   const totalVideos = userVideos.length;
@@ -807,12 +665,8 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
   const adjustedSuccessCount = Math.max(0, successCount);
   const adjustedManualCorrections = Math.min(manualCorrections, totalVideos);
   
-  const successRate = totalVideos > 0 
-    ? ((adjustedSuccessCount / totalVideos) * 100).toFixed(1) 
-    : 0;
-  const errorRate = totalVideos > 0 
-    ? ((adjustedManualCorrections / totalVideos) * 100).toFixed(1) 
-    : 0;
+  const successRate = totalVideos > 0 ? ((adjustedSuccessCount / totalVideos) * 100).toFixed(1) : 0;
+  const errorRate = totalVideos > 0 ? ((adjustedManualCorrections / totalVideos) * 100).toFixed(1) : 0;
   
   const completedVideos = userVideos.filter(v => v.status === 'completed').length;
   const processingVideos = userVideos.filter(v => v.status === 'processing').length;
@@ -834,7 +688,6 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
         <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 rounded-full overflow-hidden border bg-gray-100">
@@ -842,31 +695,22 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
                 src={user?.profile_pic_url || DEFAULT_PROFILE_PIC}
                 alt={user?.first_name}
                 className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.src = DEFAULT_PROFILE_PIC;
-                }}
+                onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
               />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">
-                {user?.first_name} {user?.last_name}
-              </h2>
+              <h2 className="text-2xl font-bold text-gray-800">{user?.first_name} {user?.last_name}</h2>
               <p className="text-gray-600">Complete user analytics</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Modal Content */}
         <div className="p-6">
-          {/* User Info */}
           <div className="mb-8 bg-gray-50 p-4 rounded-lg">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -890,7 +734,6 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
             </div>
           </div>
 
-          {/* Video Processing Stats */}
           <div className="mb-8">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -913,7 +756,6 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
             </div>
           </div>
 
-          {/* AI Performance Stats */}
           <div className="mb-8">
             <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -976,8 +818,7 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
             </div>
           </div>
 
-          {/* Manual Corrections List with Feedback */}
-          {userEdits && userEdits.length > 0 ? (
+          {userEdits?.length > 0 ? (
             <div className="bg-white border rounded-lg p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-gray-800">Manual Correction Feedback</h3>
@@ -1043,12 +884,8 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
           )}
         </div>
 
-        {/* Modal Footer */}
         <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-          >
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
             Close
           </button>
         </div>
@@ -1066,17 +903,10 @@ const AllFeedbackModal = ({ userId, user, onClose, onViewFeedback }) => {
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
         <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
           <div>
-            <h3 className="text-xl font-bold text-gray-800">
-              Feedback - {user?.first_name} {user?.last_name}
-            </h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Total {userEdits.length} feedback items
-            </p>
+            <h3 className="text-xl font-bold text-gray-800">Feedback - {user?.first_name} {user?.last_name}</h3>
+            <p className="text-sm text-gray-500 mt-1">Total {userEdits.length} feedback items</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -1112,10 +942,7 @@ const AllFeedbackModal = ({ userId, user, onClose, onViewFeedback }) => {
         </div>
 
         <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <button onClick={onClose} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             Close
           </button>
         </div>
@@ -1124,61 +951,51 @@ const AllFeedbackModal = ({ userId, user, onClose, onViewFeedback }) => {
   );
 };
 
-const FeedbackDetailModal = ({ feedback, onClose }) => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-        <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-800">
-            {feedback.segment_index !== undefined 
-              ? `Feedback - Segment ${feedback.segment_index + 1}` 
-              : 'Feedback'}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+const FeedbackDetailModal = ({ feedback, onClose }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
+    <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+      <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
+        <h3 className="text-xl font-bold text-gray-800">
+          {feedback.segment_index !== undefined 
+            ? `Feedback - Segment ${feedback.segment_index + 1}` 
+            : 'Feedback'}
+        </h3>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <div className="p-6">
+        <div className="mb-4">
+          <p className="text-sm text-gray-500">Video ID</p>
+          <p className="text-sm font-mono bg-gray-50 p-2 rounded">{feedback.video_id}</p>
         </div>
-        
-        <div className="p-6">
+        {feedback.segment_index !== undefined && (
           <div className="mb-4">
-            <p className="text-sm text-gray-500">Video ID</p>
-            <p className="text-sm font-mono bg-gray-50 p-2 rounded">{feedback.video_id}</p>
+            <p className="text-sm text-gray-500">Segment</p>
+            <p className="font-medium">{feedback.segment_index + 1}</p>
           </div>
-          {feedback.segment_index !== undefined && (
-            <div className="mb-4">
-              <p className="text-sm text-gray-500">Segment</p>
-              <p className="font-medium">{feedback.segment_index + 1}</p>
-            </div>
-          )}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-500 mb-1">Feedback</p>
-            <p className="text-gray-800">
-              {feedback.feedback_reason || 'No feedback provided'}
-            </p>
-          </div>
-          {feedback.created_at && (
-            <p className="text-xs text-gray-500 mt-4">
-              Submitted: {new Date(feedback.created_at).toLocaleString()}
-            </p>
-          )}
+        )}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <p className="text-sm text-gray-500 mb-1">Feedback</p>
+          <p className="text-gray-800">{feedback.feedback_reason || 'No feedback provided'}</p>
         </div>
+        {feedback.created_at && (
+          <p className="text-xs text-gray-500 mt-4">
+            Submitted: {new Date(feedback.created_at).toLocaleString()}
+          </p>
+        )}
+      </div>
 
-        <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Close
-          </button>
-        </div>
+      <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
+        <button onClick={onClose} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          Close
+        </button>
       </div>
     </div>
-  );
-};
+  </div>
+);
 
 export default Analytics;
