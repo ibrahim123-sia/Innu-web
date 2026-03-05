@@ -345,20 +345,11 @@ const Overview = () => {
   const activeShops = shops.filter((shop) => shop.is_active).length;
 
   const handleOpenShop = (shop) => {
-    localStorage.removeItem('selectedDistrict');
-    localStorage.setItem('selectedShop', JSON.stringify(shop));
-    
-    if (isBrandAdminMode) {
-      navigate(`/brand-admin/shops/${shop.id}`);
-    } else {
-      const shopManager = shopManagers.find(m => m.shop_id === shop.id);
-      if (shopManager) {
-        navigate(`/shop-manager?userId=${shopManager.id}`);
-      } else {
-        navigate(`/shop-manager?shopId=${shop.id}`);
-      }
-    }
-  };
+  // Save the shop to localStorage
+  localStorage.setItem('selectedShop', JSON.stringify(shop));
+  // Navigate to the shop
+  navigate(`/district-manager/shops/${shop.id}`);
+};
 
   const getProfilePicUrl = (profilePicData) => {
     if (!profilePicData) return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
