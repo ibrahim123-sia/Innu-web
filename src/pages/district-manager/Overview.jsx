@@ -545,9 +545,7 @@ const Overview = () => {
                 <div key={shop.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xl">
-                        {shop.name?.charAt(0).toUpperCase() || 'S'}
-                      </div>
+                    
                       <div>
                         <h3 className="font-medium text-gray-800">{shop.name}</h3>
                         <p className="text-xs text-gray-500">
