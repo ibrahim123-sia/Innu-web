@@ -731,10 +731,6 @@ const Overview = () => {
                       <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
                         {districtShops.length ? (
                           districtShops.map((shop) => {
-                            const shopVideos = shopVideosMap[shop.id] || [];
-                            const aiRequests = shopVideos.filter(v => 
-                              ["completed", "processing"].includes(v?.status)
-                            ).length;
 
                             return (
                               <div
@@ -753,11 +749,7 @@ const Overview = () => {
                                       <span className="truncate max-w-[100px]">
                                         {shop.city || 'No city'}
                                       </span>
-                                      {aiRequests > 0 && (
-                                        <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full text-xs">
-                                          {aiRequests} videos
-                                        </span>
-                                      )}
+                                     
                                     </div>
                                   </div>
                                 </div>
