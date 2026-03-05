@@ -12,53 +12,31 @@ const BrandAdminLayout = ({ children }) => {
   const [selectedShop, setSelectedShop] = useState(null);
   const [activeContext, setActiveContext] = useState('brand');
 
- useEffect(() => {
-  if (districtId) {
-    const district = localStorage.getItem('selectedDistrict');
-    if (district) {
-      setSelectedDistrict(JSON.parse(district));
-      setSelectedShop(null);
-      setActiveContext('district');
-    }
-  } else if (shopId) {
-    const shop = localStorage.getItem('selectedShop');
-    const from = localStorage.getItem('navigationFrom');
-    const fromDistrict = localStorage.getItem('fromDistrict');
-    
-    if (shop) {
-      setSelectedShop(JSON.parse(shop));
+  useEffect(() => {
+    if (districtId) {
+      const district = localStorage.getItem('selectedDistrict');
+      if (district) {
+        setSelectedDistrict(JSON.parse(district));
+        setSelectedShop(null);
+        setActiveContext('district');
+      }
+    } else if (shopId) {
+      const shop = localStorage.getItem('selectedShop');
+      if (shop) {
+        setSelectedShop(JSON.parse(shop));
+        setSelectedDistrict(null);
+        setActiveContext('shop');
+      }
+    } else {
       setSelectedDistrict(null);
-      setActiveContext('shop');
+      setSelectedShop(null);
+      setActiveContext('brand');
+      localStorage.removeItem('selectedDistrict');
+      localStorage.removeItem('selectedShop');
     }
-    
-    // If coming from a district, set that context
-    if (fromDistrict) {
-      localStorage.setItem('fromDistrict', 'true');
-    }
-  } else {
-    setSelectedDistrict(null);
-    setSelectedShop(null);
-    setActiveContext('brand');
-    localStorage.removeItem('selectedDistrict');
-    localStorage.removeItem('selectedShop');
-    localStorage.removeItem('navigationFrom');
-    localStorage.removeItem('fromDistrict');
-  }
-}, [districtId, shopId]);
+  }, [districtId, shopId]);
 
-const handleBack = () => {
-  const from = localStorage.getItem('navigationFrom');
-  
-  if (from === 'district-list') {
-    localStorage.removeItem('navigationFrom');
-    localStorage.removeItem('selectedDistrict');
-    navigate('/brand-admin/districts');
-  } else if (from === 'shop-list') {
-    localStorage.removeItem('navigationFrom');
-    localStorage.removeItem('selectedShop');
-    navigate('/brand-admin/shops');
-  } else {
-    // Default behavior
+  const handleBack = () => {
     if (activeContext === 'district') {
       localStorage.removeItem('selectedDistrict');
       navigate('/brand-admin/districts');
@@ -66,8 +44,7 @@ const handleBack = () => {
       localStorage.removeItem('selectedShop');
       navigate('/brand-admin/shops');
     }
-  }
-};
+  };
 
   const getHeaderTitle = () => {
     if (activeContext === 'district' && selectedDistrict) {

@@ -15,21 +15,16 @@ const DistrictManagerLayout = ({ children }) => {
   
   const [selectedShop, setSelectedShop] = useState(null);
 
- useEffect(() => {
-  if (shopId) {
-    const shop = localStorage.getItem('selectedShop');
-    const from = localStorage.getItem('navigationFrom');
-    
-    if (shop) {
-      setSelectedShop(JSON.parse(shop));
+  useEffect(() => {
+    if (shopId) {
+      const shop = localStorage.getItem('selectedShop');
+      if (shop) {
+        setSelectedShop(JSON.parse(shop));
+      }
+    } else {
+      setSelectedShop(null);
     }
-  } else {
-    setSelectedShop(null);
-    // Clear navigation tracking when leaving shop view
-    localStorage.removeItem('navigationFrom');
-  }
-}, [shopId]);
-
+  }, [shopId]);
 
   const getHeaderTitle = () => {
     if (selectedShop) {
@@ -67,23 +62,12 @@ const DistrictManagerLayout = ({ children }) => {
     ];
   };
 
-const handleBack = () => {
-  const from = localStorage.getItem('navigationFrom');
-  
-  if (from === 'shop-list') {
-    localStorage.removeItem('navigationFrom');
-    localStorage.removeItem('selectedShop');
-    navigate('/district-manager/shops');
-  } else if (from === 'district-overview') {
-    localStorage.removeItem('navigationFrom');
-    localStorage.removeItem('selectedShop');
-    navigate('/district-manager');
-  } else {
-    // Default behavior
-    localStorage.removeItem('selectedShop');
-    navigate('/district-manager');
-  }
-};
+  const handleBack = () => {
+    if (selectedShop) {
+      localStorage.removeItem('selectedShop');
+      navigate('/district-manager');
+    }
+  };
 
   const navItems = getNavItems();
 
