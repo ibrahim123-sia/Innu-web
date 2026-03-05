@@ -680,7 +680,7 @@ const Overview = () => {
                           {district.city}
                           {district.state ? `, ${district.state}` : ''}
                         </p>
-                        <p className="text-xs text-purple-600 mt-1">
+                        <p className="text-xs text-blue-600 mt-1">
                           {districtShops.length} {districtShops.length === 1 ? 'shop' : 'shops'}
                         </p>
                       </div>
@@ -688,7 +688,7 @@ const Overview = () => {
                     
                     <button
                       onClick={() => openDistrictPage(district)}
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
                       title="Open District Overview"
                     >
                       <svg
