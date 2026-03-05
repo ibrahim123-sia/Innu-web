@@ -350,8 +350,12 @@ const Overview = () => {
   const activeShops = shops.filter((shop) => shop.is_active).length;
 
 const handleOpenShop = (shop) => {
- localStorage.setItem('selectedShop', JSON.stringify(shop));
-    navigate(`/district-manager/shops/${shop.id}`);
+  // Keep district info in localStorage for header
+  if (selectedDistrict) {
+    localStorage.setItem('selectedDistrict', JSON.stringify(selectedDistrict));
+  }
+  localStorage.setItem('selectedShop', JSON.stringify(shop));
+  navigate(`/district-manager/shops/${shop.id}`);
 };
 
   const getProfilePicUrl = (profilePicData) => {

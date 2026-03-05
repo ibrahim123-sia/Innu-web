@@ -96,6 +96,9 @@ const ShopManagerLayout = ({ children }) => {
               )}
               <div>
                 <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
+                <p className="text-sm text-primary-blue-100">
+                  {getHeaderSubtitle()}
+                </p>
               </div>
             </div>
           </div>
