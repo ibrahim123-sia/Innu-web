@@ -10,6 +10,7 @@ const ShopManagerLayout = ({ children }) => {
   
   const [selectedShop, setSelectedShop] = useState(null);
   const [viewMode, setViewMode] = useState('shop_manager'); // 'shop_manager', 'brand_admin', 'district_manager'
+  const [activeContext, setActiveContext] = useState('shop'); // Track the context
 
   useEffect(() => {
     if (shopId) {
@@ -21,21 +22,24 @@ const ShopManagerLayout = ({ children }) => {
         }
       }
       
-      // Determine view mode based on user role and context
-      if (user) {
-        if (user.role === 'brand_admin') {
-          setViewMode('brand_admin');
-        } else if (user.role === 'district_manager') {
-          setViewMode('district_manager');
-        } else {
-          setViewMode('shop_manager');
-        }
+      // Determine view mode based on the URL path
+      const path = window.location.pathname;
+      if (path.includes('/brand-admin/')) {
+        setViewMode('brand_admin');
+        setActiveContext('brand');
+      } else if (path.includes('/district-manager/')) {
+        setViewMode('district_manager');
+        setActiveContext('district');
+      } else {
+        setViewMode('shop_manager');
+        setActiveContext('shop');
       }
     } else {
       setSelectedShop(null);
       setViewMode('shop_manager');
+      setActiveContext('shop');
     }
-  }, [shopId, user]);
+  }, [shopId]);
 
   const getHeaderTitle = () => {
     if (selectedShop) {
@@ -115,19 +119,19 @@ const ShopManagerLayout = ({ children }) => {
     ];
   };
 
-const handleBack = () => {
-  localStorage.removeItem('selectedShop');
-  
-  if (viewMode === 'brand_admin') {
-    navigate('/brand-admin/shops');
-  } else if (viewMode === 'district_manager') {
-    // When going back to district manager, we need to keep the district info
-    // The district is still in localStorage from when we opened the shop
-    navigate('/district-manager');
-  } else {
-    navigate('/shop-manager');
-  }
-};
+  const handleBack = () => {
+    localStorage.removeItem('selectedShop');
+    
+    if (viewMode === 'brand_admin') {
+      navigate('/brand-admin/shops');
+    } else if (viewMode === 'district_manager') {
+      // When going back to district manager, we need to go to the district overview
+      // The district info is still in localStorage
+      navigate('/district-manager');
+    } else {
+      navigate('/shop-manager');
+    }
+  };
 
   const navItems = getNavItems();
 
@@ -141,7 +145,7 @@ const handleBack = () => {
                 <button
                   onClick={handleBack}
                   className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
-                  title="Back to Dashboard"
+                  title={`Back to ${viewMode === 'brand_admin' ? 'Brand Admin' : viewMode === 'district_manager' ? 'District' : 'Dashboard'}`}
                 >
                   <svg
                     className="w-5 h-5"
