@@ -111,7 +111,7 @@ const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderVideos, setOrderVideos] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("active"); // Default to "active" for WIP + Estimates
+  const [statusFilter, setStatusFilter] = useState("active");
   const [videoFilter, setVideoFilter] = useState("all");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
@@ -228,6 +228,7 @@ const Orders = () => {
 
   const getVideoCountForOrder = (orderId) => videosByOrder[orderId]?.length || 0;
 
+  // Filter orders based on current filters
   const filteredOrders = orders?.filter((order) => {
     let matches = true;
 
@@ -266,7 +267,7 @@ const Orders = () => {
         if (!["completed", "posted", "done"].includes(status)) matches = false;
       } else if (filter === "cancelled") {
         if (!["cancelled", "canceled"].includes(status)) matches = false;
-      } else if (status !== filter) matches = false;
+      }
     }
 
     // Video filter
@@ -552,7 +553,12 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* Orders Cards */}
+      {/* Results count */}
+      <div className="mb-4 text-sm text-gray-600">
+        Showing {filteredOrders.length} of {orders.length} orders
+      </div>
+
+      {/* Orders Cards - Redesigned */}
       {filteredOrders?.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredOrders.map((order) => {
@@ -563,59 +569,70 @@ const Orders = () => {
             return (
               <div 
                 key={order.id} 
-                className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-200 hover:border-blue-300 group"
+                className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-200 hover:border-blue-300 group"
               >
-                <div className="p-5">
-                  {/* Header with RO and Status */}
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-medium text-gray-500">RO #</span>
-                        <span className="font-bold text-lg text-gray-900">#{order.ro_number || "N/A"}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">{order.customer_name || "N/A"}</p>
+                {/* Vehicle Info Section - Prominent at top */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b border-gray-200">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg text-gray-800">
+                        {vehicleInfo.year ? `${vehicleInfo.year} ${vehicleInfo.make}` : "Vehicle Information"}
+                      </h3>
+                      <p className="text-gray-600 font-medium">
+                        {vehicleInfo.model || "Model not specified"}
+                      </p>
                     </div>
-                    <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusBadgeColor}`}>
+                    <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusBadgeColor} ml-2`}>
                       {order.status?.replace(/_/g, " ") || "Unknown"}
                     </span>
                   </div>
+                </div>
 
-                  {/* Vehicle Info */}
-                  <div className="mb-4 bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                {/* Customer and Plate Info */}
+                <div className="p-4 bg-white">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="text-gray-800 font-medium">{order.customer_name || "Customer not specified"}</span>
+                  </div>
+                  
+                  {/* Plate Number - if available */}
+                  {vehicleInfo.license_plate && (
+                    <div className="flex items-center space-x-2 mb-3">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4m2 0a2 2 0 100-4 2 2 0 000 4z" />
                       </svg>
-                      <span className="text-xs font-medium">Vehicle</span>
+                      <span className="text-gray-700 font-mono">{vehicleInfo.license_plate}</span>
                     </div>
-                    <p className="font-medium text-gray-800">
-                      {vehicleInfo.year ? `${vehicleInfo.year} ${vehicleInfo.make}` : "N/A"}
-                    </p>
-                    <p className="text-sm text-gray-600">{vehicleInfo.model || ""}</p>
+                  )}
+
+                  {/* RO Number */}
+                  <div className="flex items-center space-x-2 mb-4">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-gray-800 font-medium">RO #{order.ro_number || "N/A"}</span>
                   </div>
 
-                  {/* Footer with Date, Videos and Action */}
-                  <div className="flex justify-between items-center pt-3 border-t">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-1">
-                        <svg className={`w-5 h-5 ${videoCount > 0 ? 'text-indigo-600' : 'text-gray-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        <span className={`text-sm font-medium ${videoCount > 0 ? 'text-indigo-600' : 'text-gray-400'}`}>
-                          {videoCount}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {order.created_at ? new Date(order.created_at).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric'
-                        }) : "N/A"}
-                      </div>
+                  {/* Footer with Video Count and Open Button */}
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-100">
+                    <div className="flex items-center space-x-2">
+                      <svg className={`w-5 h-5 ${videoCount > 0 ? 'text-indigo-600' : 'text-gray-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <span className={`text-sm font-medium ${videoCount > 0 ? 'text-indigo-600' : 'text-gray-400'}`}>
+                        {videoCount} {videoCount === 1 ? 'Video' : 'Videos'}
+                      </span>
                     </div>
                     <button
                       onClick={() => handleViewOrder(order)}
-                      className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm font-medium transition-all duration-200 transform group-hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm font-medium transition-all duration-200 transform group-hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center space-x-1"
                     >
-                      View Details
+                      <span>Open</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
                     </button>
                   </div>
                 </div>
