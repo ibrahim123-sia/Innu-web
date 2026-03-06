@@ -52,6 +52,18 @@ export const getAllVideos = createAsyncThunk(
   },
 );
 
+export const getAllEduVideos = createAsyncThunk(
+  "video/getAllEduVideos",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await API.get("/edu-videos/all");
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { error: error.message });
+    }
+  },
+);
+
 export const getVideoById = createAsyncThunk(
   "video/getVideoById",
   async (videoId, { rejectWithValue }) => {
@@ -198,6 +210,7 @@ export const deleteVideo = createAsyncThunk(
 
 const initialState = {
   videos: [],
+  eduVideos: [], // Added for educational videos
   currentVideo: null,
   categories: [],
   categoryVideos: [],
@@ -214,6 +227,7 @@ const initialState = {
     deleting: false,
     fetchingCategories: false,
     fetchingCount: false,
+    fetchingEduVideos: false, // Added for educational videos
   },
   filters: {
     status: null,
@@ -254,6 +268,9 @@ const videoSlice = createSlice({
     clearVideos: (state) => {
       state.videos = [];
     },
+    clearEduVideos: (state) => { // Added for educational videos
+      state.eduVideos = [];
+    },
     setFilters: (state, action) => {
       state.filters = { ...state.filters, ...action.payload };
     },
@@ -289,6 +306,7 @@ const videoSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Upload URL
       .addCase(getUploadUrl.pending, (state) => {
         state.operations.uploading = true;
         state.error = null;
@@ -310,6 +328,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to generate upload URL";
       })
 
+      // Confirm Upload
       .addCase(confirmUpload.pending, (state) => {
         state.operations.confirming = true;
         state.error = null;
@@ -330,6 +349,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to confirm upload";
       })
 
+      // Get All Videos
       .addCase(getAllVideos.pending, (state) => {
         state.operations.fetching = true;
         state.error = null;
@@ -356,6 +376,35 @@ const videoSlice = createSlice({
         state.videos = [];
       })
 
+      // Get All Educational Videos
+      .addCase(getAllEduVideos.pending, (state) => {
+        state.operations.fetchingEduVideos = true;
+        state.error = null;
+        state.loading = true;
+      })
+      .addCase(getAllEduVideos.fulfilled, (state, action) => {
+        state.operations.fetchingEduVideos = false;
+        state.loading = false;
+        
+        if (action.payload.data) {
+          state.eduVideos = action.payload.data;
+          state.pagination.total = action.payload.count || action.payload.data.length;
+        } else if (Array.isArray(action.payload)) {
+          state.eduVideos = action.payload;
+          state.pagination.total = action.payload.length;
+        } else {
+          state.eduVideos = [];
+          state.pagination.total = 0;
+        }
+      })
+      .addCase(getAllEduVideos.rejected, (state, action) => {
+        state.operations.fetchingEduVideos = false;
+        state.loading = false;
+        state.error = action.payload?.error || "Failed to fetch educational videos";
+        state.eduVideos = [];
+      })
+
+      // Get Video By Id
       .addCase(getVideoById.pending, (state) => {
         state.operations.fetching = true;
         state.error = null;
@@ -369,6 +418,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch video";
       })
 
+      // Get Videos By Order Id
       .addCase(getVideosByOrderId.pending, (state) => {
         state.operations.fetching = true;
         state.error = null;
@@ -383,6 +433,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch videos by order";
       })
 
+      // Get Videos By Shop
       .addCase(getVideosByShop.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -396,18 +447,21 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch shop videos";
       })
 
+      // Get Videos By Brand
       .addCase(getVideosByBrand.pending, (state) => {
         state.operations.fetching = true;
         state.error = null;
       })
-      .addCase(getVideosByBrand.fulfilled, (state) => {
+      .addCase(getVideosByBrand.fulfilled, (state, action) => {
         state.operations.fetching = false;
+        state.videos = action.payload || [];
       })
       .addCase(getVideosByBrand.rejected, (state, action) => {
         state.operations.fetching = false;
         state.error = action.payload?.error || "Failed to fetch videos by brand";
       })
 
+      // Get Videos By District
       .addCase(getVideosByDistrict.pending, (state) => {
         state.operations.fetching = true;
         state.error = null;
@@ -422,6 +476,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch videos by district";
       })
 
+      // Get Videos By User
       .addCase(getVideosByUser.pending, (state) => {
         state.operations.fetching = true;
         state.error = null;
@@ -436,6 +491,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch videos by user";
       })
 
+      // Get Categories
       .addCase(getCategories.pending, (state) => {
         state.operations.fetchingCategories = true;
         state.error = null;
@@ -449,6 +505,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch categories";
       })
 
+      // Get Categories Videos
       .addCase(getCategoriesVideos.pending, (state) => {
         state.operations.fetching = true;
         state.error = null;
@@ -462,6 +519,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch category videos";
       })
 
+      // Get Video Count By Order
       .addCase(getVideoCountByOrder.pending, (state) => {
         state.operations.fetchingCount = true;
         state.error = null;
@@ -475,6 +533,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch video count";
       })
 
+      // Update Video
       .addCase(updateVideo.pending, (state) => {
         state.operations.updating = true;
         state.error = null;
@@ -495,6 +554,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to update video";
       })
 
+      // Update Video Status
       .addCase(updateVideoStatus.pending, (state) => {
         state.operations.updating = true;
         state.error = null;
@@ -515,6 +575,7 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to update video status";
       })
 
+      // Delete Video
       .addCase(deleteVideo.pending, (state) => {
         state.operations.deleting = true;
         state.error = null;
@@ -526,6 +587,7 @@ const videoSlice = createSlice({
         state.message = action.payload.message || "Video deleted successfully";
 
         state.videos = state.videos.filter((video) => video.id !== action.payload.videoId);
+        state.eduVideos = state.eduVideos.filter((video) => video.id !== action.payload.videoId);
         if (state.currentVideo?.id === action.payload.videoId) state.currentVideo = null;
       })
       .addCase(deleteVideo.rejected, (state, action) => {
@@ -540,6 +602,7 @@ export const {
   clearCurrentVideo,
   clearUploadData,
   clearVideos,
+  clearEduVideos,
   setFilters,
   clearFilters,
   setPagination,
@@ -549,7 +612,9 @@ export const {
   clearVideoCount,
 } = videoSlice.actions;
 
+// Base Selectors
 export const selectVideos = (state) => state.video.videos;
+export const selectEduVideos = (state) => state.video.eduVideos;
 export const selectCurrentVideo = (state) => state.video.currentVideo;
 export const selectCategories = (state) => state.video.categories;
 export const selectCategoryVideos = (state) => state.video.categoryVideos;
@@ -563,9 +628,26 @@ export const selectVideoFilters = (state) => state.video.filters;
 export const selectVideoPagination = (state) => state.video.pagination;
 export const selectUploadData = (state) => state.video.uploadData;
 
+// Operation-specific selectors
+export const selectIsUploading = (state) => state.video.operations.uploading;
+export const selectIsConfirming = (state) => state.video.operations.confirming;
+export const selectIsFetching = (state) => state.video.operations.fetching;
+export const selectIsUpdating = (state) => state.video.operations.updating;
+export const selectIsDeleting = (state) => state.video.operations.deleting;
+export const selectIsFetchingCategories = (state) =>
+  state.video.operations.fetchingCategories;
+export const selectIsFetchingCount = (state) =>
+  state.video.operations.fetchingCount;
+export const selectIsFetchingEduVideos = (state) => // Added for educational videos
+  state.video.operations.fetchingEduVideos;
+
+// ID-based selectors
 export const selectVideoById = (videoId) => (state) =>
   state.video.videos.find((video) => video.id === videoId) ||
   state.video.currentVideo;
+
+export const selectEduVideoById = (videoId) => (state) => // Added for educational videos
+  state.video.eduVideos.find((video) => video.id === videoId);
 
 export const selectVideosByShop = (shopId) => (state) =>
   state.video.videos.filter((video) => video.shop_id === shopId);
@@ -579,16 +661,7 @@ export const selectVideosByOrder = (orderId) => (state) =>
 export const selectVideosByUser = (userId) => (state) =>
   state.video.videos.filter((video) => video.created_by === userId);
 
-export const selectIsUploading = (state) => state.video.operations.uploading;
-export const selectIsConfirming = (state) => state.video.operations.confirming;
-export const selectIsFetching = (state) => state.video.operations.fetching;
-export const selectIsUpdating = (state) => state.video.operations.updating;
-export const selectIsDeleting = (state) => state.video.operations.deleting;
-export const selectIsFetchingCategories = (state) =>
-  state.video.operations.fetchingCategories;
-export const selectIsFetchingCount = (state) =>
-  state.video.operations.fetchingCount;
-
+// Filtered Videos Selector
 export const selectFilteredVideos = createSelector(
   [(state) => state.video.videos, (state) => state.video.filters],
   (videos, filters) => {
@@ -630,6 +703,42 @@ export const selectFilteredVideos = createSelector(
   },
 );
 
+// Filtered Educational Videos Selector
+export const selectFilteredEduVideos = createSelector( // Added for educational videos
+  [(state) => state.video.eduVideos, (state) => state.video.filters],
+  (eduVideos, filters) => {
+    if (!eduVideos.length) return [];
+
+    return eduVideos.filter((video) => {
+      if (filters.status && video.status !== filters.status) return false;
+      
+      if (filters.date_from) {
+        const videoDate = new Date(video.created_at);
+        const filterFrom = new Date(filters.date_from);
+        if (videoDate < filterFrom) return false;
+      }
+
+      if (filters.date_to) {
+        const videoDate = new Date(video.created_at);
+        const filterTo = new Date(filters.date_to);
+        filterTo.setHours(23, 59, 59, 999);
+        if (videoDate > filterTo) return false;
+      }
+
+      if (filters.keywords && video.title) {
+        const keywords = filters.keywords.toLowerCase().split(",").map((k) => k.trim());
+        return keywords.some((keyword) => 
+          video.title.toLowerCase().includes(keyword) || 
+          (video.description && video.description.toLowerCase().includes(keyword))
+        );
+      }
+
+      return true;
+    });
+  },
+);
+
+// Dashboard Summary Selector
 export const selectDashboardSummary = createSelector(
   [(state) => state.video.videos],
   (videos) => {
@@ -659,6 +768,36 @@ export const selectDashboardSummary = createSelector(
   },
 );
 
+// Educational Videos Dashboard Summary
+export const selectEduDashboardSummary = createSelector( // Added for educational videos
+  [(state) => state.video.eduVideos],
+  (eduVideos) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+
+    const isToday = (date) => new Date(date).toDateString() === today.toDateString();
+    const isYesterday = (date) => new Date(date).toDateString() === yesterday.toDateString();
+    const isLastWeek = (date) => {
+      const videoDate = new Date(date);
+      return videoDate >= lastWeek && videoDate < today;
+    };
+
+    return {
+      total: eduVideos.length,
+      published: eduVideos.filter((v) => v.status === "published").length,
+      draft: eduVideos.filter((v) => v.status === "draft").length,
+      archived: eduVideos.filter((v) => v.status === "archived").length,
+      today: eduVideos.filter((v) => isToday(v.created_at)).length,
+      yesterday: eduVideos.filter((v) => isYesterday(v.created_at)).length,
+      lastWeek: eduVideos.filter((v) => isLastWeek(v.created_at)).length,
+    };
+  },
+);
+
+// Status Distribution Selector
 export const selectStatusDistribution = createSelector(
   [(state) => state.video.videos],
   (videos) => {
@@ -674,6 +813,27 @@ export const selectStatusDistribution = createSelector(
         status,
         count,
         percentage: videos.length > 0 ? Math.round((count / videos.length) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+  },
+);
+
+// Educational Videos Status Distribution
+export const selectEduStatusDistribution = createSelector( // Added for educational videos
+  [(state) => state.video.eduVideos],
+  (eduVideos) => {
+    const distribution = {};
+
+    eduVideos.forEach((video) => {
+      const status = video.status || "unknown";
+      distribution[status] = (distribution[status] || 0) + 1;
+    });
+
+    return Object.entries(distribution)
+      .map(([status, count]) => ({
+        status,
+        count,
+        percentage: eduVideos.length > 0 ? Math.round((count / eduVideos.length) * 100) : 0,
       }))
       .sort((a, b) => b.count - a.count);
   },

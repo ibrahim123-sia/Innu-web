@@ -13,7 +13,10 @@ import {
   selectCategories,
   selectCategoryVideos,
   selectIsFetchingCategories,
-  selectIsFetching
+  selectIsFetching,
+  getAllEduVideos,
+  selectEduVideos,
+  selectIsFetchingEduVideos
 } from '../../redux/slice/videoSlice';
 import {
   createEditVideo,
@@ -56,22 +59,96 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [selectedProblem, setSelectedProblem] = useState('general_diagnosis');
   
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef(null);
+  
   const categories = useSelector(selectCategories);
   const categoryVideos = useSelector(selectCategoryVideos);
+  const eduVideos = useSelector(selectEduVideos);
   const isFetchingCategories = useSelector(selectIsFetchingCategories);
   const isFetchingCategoryVideos = useSelector(selectIsFetching);
+  const isFetchingEduVideos = useSelector(selectIsFetchingEduVideos);
   
   const isUploading = useSelector(selectIsUploading);
   const uploadData = useSelector(selectUploadData);
   const fileInputRef = useRef(null);
   const uploadTimeoutRef = useRef(null);
   const editSuccessTimeoutRef = useRef(null);
+  const searchInputRef = useRef(null);
 
+  // Load educational videos when edit popup opens
   useEffect(() => {
     if (showEditPopup) {
       dispatch(getCategories());
+      dispatch(getAllEduVideos());
     }
   }, [showEditPopup, dispatch]);
+
+  // Search functionality
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      // Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      
+      // Set new timeout for debounced search
+      searchTimeoutRef.current = setTimeout(() => {
+        performSearch(searchQuery);
+      }, 300);
+    } else {
+      setSearchResults([]);
+      setShowSearchResults(false);
+    }
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, eduVideos]);
+
+  const performSearch = (query) => {
+    setIsSearching(true);
+    
+    const searchTerm = query.toLowerCase().trim();
+    
+    // Search in eduVideos
+    const results = eduVideos.filter(video => {
+      const title = video.title?.toLowerCase() || '';
+      const description = video.description?.toLowerCase() || '';
+      const keywords = video.keywords ? video.keywords.map(k => k.toLowerCase()).join(' ') : '';
+      
+      return title.includes(searchTerm) || 
+             description.includes(searchTerm) || 
+             keywords.includes(searchTerm);
+    });
+    
+    setSearchResults(results);
+    setShowSearchResults(true);
+    setIsSearching(false);
+  };
+
+  const handleSearchSelect = (video) => {
+    setSelectedReplacementVideo(video);
+    setSearchQuery('');
+    setShowSearchResults(false);
+    setEditStep('feedback');
+  };
+
+  const handleSearchInputChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const handleSearchFocus = () => {
+    if (searchQuery.trim().length >= 2 && searchResults.length > 0) {
+      setShowSearchResults(true);
+    }
+  };
 
   useEffect(() => {
     if (uploadSuccess) {
@@ -172,7 +249,17 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     setEditError(null);
     setEditSuccess(false);
     setEditLoading(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
     setShowEditPopup(true);
+    
+    // Focus search input after popup opens
+    setTimeout(() => {
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    }, 100);
   };
 
   const handleCategorySelect = (category) => {
@@ -253,6 +340,9 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     setEditError(null);
     setEditSuccess(false);
     setEditLoading(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
   };
 
   const handleDownloadVideo = async (video) => {
@@ -934,7 +1024,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-sm text-gray-500">
-                    {editStep === 'categories' && 'Choose a category to find replacement videos'}
+                    {editStep === 'categories' && 'Choose a category or search for a video'}
                     {editStep === 'videos' && 'Select a video to replace the current one'}
                     {editStep === 'feedback' && 'Tell us why you\'re replacing this video'}
                   </span>
@@ -1034,9 +1124,140 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 </div>
               )}
 
-              {/* Step 1: Categories Grid */}
+              {/* Step 1: Categories with Search Bar */}
               {editStep === 'categories' && !editLoading && !editSuccess && (
                 <div>
+                  {/* Search Bar */}
+                  <div className="mb-6 relative">
+                    <div className="relative">
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={handleSearchInputChange}
+                        onFocus={handleSearchFocus}
+                        placeholder="Search videos by title, description, or keywords..."
+                        className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-lg"
+                      />
+                      <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                        {isSearching || isFetchingEduVideos ? (
+                          <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        )}
+                      </div>
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {showSearchResults && searchResults.length > 0 && (
+                      <div className="absolute z-10 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-96 overflow-y-auto">
+                        {searchResults.map((video) => {
+                          const thumbnailUrl = getThumbnailUrl(video);
+                          
+                          return (
+                            <button
+                              key={video.id}
+                              onClick={() => handleSearchSelect(video)}
+                              className="w-full flex items-start gap-4 p-4 hover:bg-indigo-50 transition-colors border-b border-gray-100 last:border-0 text-left"
+                            >
+                              {/* Thumbnail */}
+                              <div className="relative w-20 h-14 bg-gray-900 rounded-lg overflow-hidden flex-shrink-0">
+                                {thumbnailUrl ? (
+                                  <img 
+                                    src={thumbnailUrl} 
+                                    alt={video.title || "Video thumbnail"}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/80x56?text=Video'; }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M4 4a2 2 0 012-2h12a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Video Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 mb-1 line-clamp-2">
+                                  {video.title || `Video #${video.id}`}
+                                </p>
+                                {video.description && (
+                                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                    {video.description}
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                                  {video.duration_seconds && (
+                                    <span className="flex items-center gap-1">
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      {Math.round(video.duration_seconds)}s
+                                    </span>
+                                  )}
+                                  {video.category && (
+                                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs">
+                                      {video.category}
+                                    </span>
+                                  )}
+                                </div>
+                                {video.keywords?.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    {video.keywords.slice(0, 2).map((keyword, idx) => (
+                                      <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                        {keyword}
+                                      </span>
+                                    ))}
+                                    {video.keywords.length > 2 && (
+                                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                        +{video.keywords.length - 2}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {showSearchResults && searchQuery.trim().length >= 2 && searchResults.length === 0 && !isSearching && (
+                      <div className="absolute z-10 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl p-8 text-center">
+                        <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <p className="text-gray-600">No videos found matching "<span className="font-medium">{searchQuery}</span>"</p>
+                        <p className="text-sm text-gray-500 mt-2">Try different keywords or browse categories below</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="flex-1 h-px bg-gray-200"></div>
+                    <span className="text-sm text-gray-500 font-medium">or browse by category</span>
+                    <div className="flex-1 h-px bg-gray-200"></div>
+                  </div>
+
+                  {/* Categories Grid */}
                   {isFetchingCategories ? (
                     <div className="flex justify-center py-12">
                       <svg className="animate-spin w-8 h-8 text-indigo-600" fill="none" viewBox="0 0 24 24">
