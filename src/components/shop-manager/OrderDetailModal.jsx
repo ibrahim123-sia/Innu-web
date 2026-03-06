@@ -64,36 +64,70 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [allVideos, setAllVideos] = useState([]);
+  const [loadingAllVideos, setLoadingAllVideos] = useState(false);
   const searchTimeoutRef = useRef(null);
-  const searchInputRef = useRef(null);
   
   const categories = useSelector(selectCategories);
   const categoryVideos = useSelector(selectCategoryVideos);
   const isFetchingCategories = useSelector(selectIsFetchingCategories);
   const isFetchingCategoryVideos = useSelector(selectIsFetching);
   
-  // Get edu videos from Redux store
-  const eduVideosResponse = useSelector(selectEduVideos);
-  const isFetchingEduVideos = useSelector(selectIsFetchingEduVideos);
-  
-  // Extract the actual videos array from the response
-  const eduVideos = eduVideosResponse?.data || eduVideosResponse || [];
-  
   const isUploading = useSelector(selectIsUploading);
   const uploadData = useSelector(selectUploadData);
   const fileInputRef = useRef(null);
   const uploadTimeoutRef = useRef(null);
   const editSuccessTimeoutRef = useRef(null);
+  const searchInputRef = useRef(null);
 
-  // Load educational videos when edit popup opens
+  // Load all videos when edit popup opens
   useEffect(() => {
     if (showEditPopup) {
+      // Load categories
       dispatch(getCategories());
-      dispatch(getAllEduVideos());
+      
+      // Load all videos by fetching each category
+      loadAllVideos();
     }
   }, [showEditPopup, dispatch]);
 
-  // Search functionality - Search ONLY by title as requested
+  const loadAllVideos = async () => {
+    setLoadingAllVideos(true);
+    
+    // First get all categories
+    const categoriesResult = await dispatch(getCategories()).unwrap();
+    const categoriesList = categoriesResult?.data || categoriesResult || [];
+    
+    // Then fetch videos for each category
+    const allVideosPromises = categoriesList.map(category => {
+      const categoryName = category.name || category;
+      return dispatch(getCategoriesVideos(categoryName)).unwrap();
+    });
+    
+    try {
+      const results = await Promise.all(allVideosPromises);
+      
+      // Combine all videos from all categories
+      const combinedVideos = results.reduce((acc, result) => {
+        const videos = result?.data || result || [];
+        return [...acc, ...videos];
+      }, []);
+      
+      // Remove duplicates by id
+      const uniqueVideos = combinedVideos.filter((video, index, self) => 
+        index === self.findIndex(v => v.id === video.id)
+      );
+      
+      setAllVideos(uniqueVideos);
+      console.log('Loaded all videos:', uniqueVideos.length);
+    } catch (error) {
+      console.error('Error loading all videos:', error);
+    } finally {
+      setLoadingAllVideos(false);
+    }
+  };
+
+  // Search functionality
   useEffect(() => {
     if (searchQuery.trim().length >= 2) {
       // Clear previous timeout
@@ -115,37 +149,42 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery, eduVideos]);
+  }, [searchQuery, allVideos]);
 
   const performSearch = (query) => {
     setIsSearching(true);
     
     const searchTerm = query.toLowerCase().trim();
     
-    // Check if eduVideos is an array and has items
-    if (!Array.isArray(eduVideos) || eduVideos.length === 0) {
-      console.log('No educational videos available');
+    // Search in allVideos
+    if (!Array.isArray(allVideos) || allVideos.length === 0) {
+      console.log('No videos available to search');
       setSearchResults([]);
       setIsSearching(false);
       return;
     }
     
-    console.log(`Searching "${searchTerm}" in ${eduVideos.length} educational videos`);
-    
-    // Search ONLY by video title as requested
-    const results = eduVideos.filter(video => {
+    const results = allVideos.filter(video => {
       const title = video.title?.toLowerCase() || '';
-      return title.includes(searchTerm);
+      const description = video.description?.toLowerCase() || '';
+      const keywords = Array.isArray(video.keywords) 
+        ? video.keywords.map(k => k.toLowerCase()).join(' ') 
+        : '';
+      const category = video.category?.toLowerCase() || '';
+      
+      return title.includes(searchTerm) || 
+             description.includes(searchTerm) || 
+             keywords.includes(searchTerm) ||
+             category.includes(searchTerm);
     });
     
-    console.log(`Found ${results.length} results for "${query}"`);
+    console.log(`Search for "${query}" found ${results.length} results`);
     setSearchResults(results);
     setShowSearchResults(true);
     setIsSearching(false);
   };
 
   const handleSearchSelect = (video) => {
-    console.log('Selected video:', video);
     setSelectedReplacementVideo(video);
     setSearchQuery('');
     setShowSearchResults(false);
@@ -355,6 +394,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     setSearchQuery('');
     setSearchResults([]);
     setShowSearchResults(false);
+    setAllVideos([]);
   };
 
   const handleDownloadVideo = async (video) => {
@@ -1036,7 +1076,7 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-sm text-gray-500">
-                    {editStep === 'categories' && 'Choose a category or search for a video by title'}
+                    {editStep === 'categories' && 'Choose a category or search for a video'}
                     {editStep === 'videos' && 'Select a video to replace the current one'}
                     {editStep === 'feedback' && 'Tell us why you\'re replacing this video'}
                   </span>
@@ -1136,10 +1176,10 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                 </div>
               )}
 
-              {/* Step 1: Categories with Search Bar - Search ONLY by title */}
+              {/* Step 1: Categories with Search Bar - MEDIUM SIZE */}
               {editStep === 'categories' && !editLoading && !editSuccess && (
                 <div>
-                  {/* Search Bar - Medium Size - Search by Title Only */}
+                  {/* Search Bar - Medium Size */}
                   <div className="mb-6 relative max-w-2xl mx-auto">
                     <div className="relative">
                       <input
@@ -1148,14 +1188,14 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                         value={searchQuery}
                         onChange={handleSearchInputChange}
                         onFocus={handleSearchFocus}
-                        placeholder={isFetchingEduVideos ? "Loading educational videos..." : "Search videos by title..."}
-                        disabled={isFetchingEduVideos}
+                        placeholder={loadingAllVideos ? "Loading videos..." : "Search videos by title, description, or keywords..."}
+                        disabled={loadingAllVideos}
                         className={`w-full pl-10 pr-10 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-base ${
-                          isFetchingEduVideos ? 'bg-gray-100 cursor-not-allowed' : ''
+                          loadingAllVideos ? 'bg-gray-100 cursor-not-allowed' : ''
                         }`}
                       />
                       <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                        {isSearching || isFetchingEduVideos ? (
+                        {isSearching || loadingAllVideos ? (
                           <svg className="animate-spin w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -1240,12 +1280,12 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
                       </div>
                     )}
 
-                    {showSearchResults && searchQuery.trim().length >= 2 && searchResults.length === 0 && !isSearching && !isFetchingEduVideos && (
+                    {showSearchResults && searchQuery.trim().length >= 2 && searchResults.length === 0 && !isSearching && !loadingAllVideos && (
                       <div className="absolute z-10 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl p-6 text-center">
                         <svg className="w-10 h-10 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <p className="text-gray-600">No videos found with title matching "<span className="font-medium">{searchQuery}</span>"</p>
+                        <p className="text-gray-600">No videos found matching "<span className="font-medium">{searchQuery}</span>"</p>
                         <p className="text-xs text-gray-500 mt-2">Try different keywords or browse categories below</p>
                       </div>
                     )}
