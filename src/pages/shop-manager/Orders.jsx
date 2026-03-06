@@ -551,7 +551,7 @@ const Orders = () => {
 
                 {/* Customer and Plate Info */}
                 <div className="p-4 bg-white">
-                  <div className="flex items-center space-x-4 mb-3">
+                  <div className="flex items-end space-x-4 mb-3">
                     {/* Customer */}
                     <div className="flex items-center space-x-2">
                       <svg
@@ -569,13 +569,13 @@ const Orders = () => {
                       </svg>
 
                       <span className="text-gray-800 font-medium">
-                        {order.customer_name || "Customer not specified"}
+                        {order.customer_name}
                       </span>
                     </div>
 
                     {/* Plate Number */}
                     {vehicleInfo.license_plate && (
-                      <span className="text-gray-700 font-mono border-l pl-4">
+                      <span className="text-gray-800 font-medium">
                         {vehicleInfo.license_plate}
                       </span>
                     )}
