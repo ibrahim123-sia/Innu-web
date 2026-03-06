@@ -266,16 +266,17 @@ const Analytics = () => {
     }
   }, [myShop?.id, fetchData]);
 
-  // Filter shop users - EXCLUDE brand admin
-// Filter shop users - INCLUDE ALL USERS (no filtering by role)
+// Filter shop users - EXCLUDE brand admin and district manager
 useEffect(() => {
   if (shopUsers?.length > 0 && shopId) {
-    console.log('🔍 Getting all shop users (including brand admins)...');
-    const allUsers = shopUsers.filter(user => 
-      user.shop_id === shopId  // Only filter by shop_id, not by role
+    console.log('🔍 Filtering shop users...');
+    const filtered = shopUsers.filter(user => 
+      user.shop_id === shopId && 
+      user.role !== 'brand_admin' && 
+      user.role !== 'district_manager'
     );
-    console.log('🔍 All Shop Users:', allUsers);
-    setFilteredShopUsers(allUsers);
+    console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
+    setFilteredShopUsers(filtered);
   }
 }, [shopUsers, shopId]);
 
@@ -536,41 +537,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Video Statistics */}
-      {videoStats && videoStats.total > 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">AI Video Statistics</h2>
-            <span className="text-sm text-gray-500">Video processing status</span>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{videoStats.byStatus.uploading}</div>
-              <div className="text-sm text-blue-500">Uploading</div>
-            </div>
-            
-            <div className="text-center p-4 bg-yellow-50 rounded-lg">
-              <div className="text-2xl font-bold text-yellow-600">{videoStats.byStatus.processing}</div>
-              <div className="text-sm text-yellow-500">Processing</div>
-            </div>
-            
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{videoStats.byStatus.completed}</div>
-              <div className="text-sm text-green-500">Completed</div>
-            </div>
-            
-            <div className="text-center p-4 bg-red-50 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">{videoStats.byStatus.failed}</div>
-              <div className="text-sm text-red-500">Failed</div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <p className="text-center text-gray-500">No video statistics available</p>
-        </div>
-      )}
+
 
       {/* User Performance Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
