@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Outlet, NavLink, useNavigate, useParams } from "react-router-dom";
+import { Outlet, NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import LogoutButton from "../../components/common/LogoutButton";
 
 const ShopManagerLayout = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { shopId } = useParams();
   const user = useSelector((state) => state.user.currentUser);
   
@@ -13,10 +14,14 @@ const ShopManagerLayout = ({ children }) => {
 
   useEffect(() => {
     if (shopId) {
+      // Check if this is an impersonated access (coming from brand-admin or district-manager)
+      const isImpersonated = location.pathname.includes('/brand-admin/shops/') || 
+                             location.pathname.includes('/district-manager/shops/');
+      
       // Try to get shop from localStorage (set by brand-admin or district-manager)
       const storedShop = localStorage.getItem('selectedShop');
       
-      if (storedShop) {
+      if (storedShop && isImpersonated) {
         const parsedShop = JSON.parse(storedShop);
         if (parsedShop.id === shopId) {
           setSelectedShop(parsedShop);
@@ -25,7 +30,7 @@ const ShopManagerLayout = ({ children }) => {
         }
       }
       
-      // If not in localStorage, try to get from user data (for shop manager)
+      // If not in localStorage or not impersonated, try to get from user data (for shop manager)
       if (user?.shop_id === shopId) {
         setSelectedShop({ 
           id: shopId, 
@@ -35,15 +40,15 @@ const ShopManagerLayout = ({ children }) => {
         });
         setAccessMode('direct');
       } else {
-        // Fallback - just use the ID
+        // Fallback - just use the ID (this should rarely happen)
         setSelectedShop({ id: shopId, name: "Shop" });
-        setAccessMode('impersonated');
+        setAccessMode(user?.role === 'shop_manager' ? 'direct' : 'impersonated');
       }
     } else {
       setSelectedShop(null);
       setAccessMode('direct');
     }
-  }, [shopId, user]);
+  }, [shopId, user, location.pathname]);
 
   // Auto-redirect if user is shop manager with shop_id but no shopId in URL
   useEffect(() => {
@@ -159,7 +164,7 @@ const ShopManagerLayout = ({ children }) => {
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <div className="flex items-center">
-              {/* Show back button for impersonated access */}
+              {/* Show back button ONLY for impersonated access */}
               {accessMode === 'impersonated' && (
                 <button
                   onClick={handleBack}
