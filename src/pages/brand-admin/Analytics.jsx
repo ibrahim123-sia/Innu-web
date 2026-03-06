@@ -508,7 +508,7 @@ const Analytics = () => {
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
           <div className="p-6 border-b">
             <h2 className="text-xl font-bold text-gray-800">Districts Performance</h2>
-            <p className="text-gray-600">AI video requests and manual corrections by district</p>
+           
           </div>
           
           {districtsByBrand?.length > 0 ? (
@@ -523,7 +523,7 @@ const Analytics = () => {
                       AI Video Requests
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Videos w/ Corrections
+                      Manual Corrections
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Performance
