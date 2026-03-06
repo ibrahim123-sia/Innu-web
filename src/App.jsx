@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { useSelector } from 'react-redux';
 import store from './redux/store';
@@ -56,6 +56,54 @@ const RoleRoute = ({ role, children }) => {
   
   return children;
 };
+
+// Shop Manager Redirect Component
+const ShopManagerRedirect = () => {
+  const user = useSelector(selectCurrentUser);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (user?.shop_id) {
+      navigate(`/shop-manager/shops/${user.shop_id}`, { replace: true });
+    } else {
+      // If no shop_id, show error state in layout
+      navigate('/shop-manager/shops/no-shop', { replace: true });
+    }
+  }, [user, navigate]);
+  
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <p className="mt-2 text-gray-600">Redirecting to your shop...</p>
+      </div>
+    </div>
+  );
+};
+
+// Component to redirect users based on their role after login
+function RoleRedirect() {
+  const user = useSelector(selectCurrentUser);
+  
+  if (!user) return <Navigate to="/login" />;
+  
+  switch (user.role) {
+    case 'super_admin':
+      return <Navigate to="/super-admin" />;
+    case 'brand_admin':
+      return <Navigate to="/brand-admin" />;
+    case 'district_manager':
+      return <Navigate to="/district-manager" />;
+    case 'shop_manager':
+      // Redirect to shop-specific URL with shopId
+      if (user.shop_id) {
+        return <Navigate to={`/shop-manager/shops/${user.shop_id}`} />;
+      }
+      return <Navigate to="/shop-manager/shops/no-shop" />;
+    default:
+      return <Navigate to="/login" />;
+  }
+}
 
 function AppContent() {
   return (
@@ -156,7 +204,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* Brand Admin District Detail Routes - Using reused components with BrandAdminLayout */}
+        {/* Brand Admin District Detail Routes */}
         <Route path="/brand-admin/districts/:districtId" element={
           <ProtectedRoute>
             <RoleRoute role="brand_admin">
@@ -197,7 +245,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* Brand Admin Shop Detail Routes - Using reused components with BrandAdminLayout */}
+        {/* Brand Admin Shop Detail Routes */}
         <Route path="/brand-admin/shops/:shopId" element={
           <ProtectedRoute>
             <RoleRoute role="brand_admin">
@@ -238,7 +286,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* District Manager Routes - Using DistrictManagerLayout */}
+        {/* District Manager Routes */}
         <Route path="/district-manager" element={
           <ProtectedRoute>
             <RoleRoute role={['district_manager', 'brand_admin']}>
@@ -259,7 +307,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* ADDED: District Manager Shop Detail Routes */}
+        {/* District Manager Shop Detail Routes */}
         <Route path="/district-manager/shops/:shopId" element={
           <ProtectedRoute>
             <RoleRoute role={['district_manager', 'brand_admin']}>
@@ -320,8 +368,8 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        {/* Shop Manager Routes - Using ShopManagerLayout */}
-        <Route path="/shop-manager" element={
+        {/* Shop Manager Routes - WITH shopId parameter */}
+        <Route path="/shop-manager/shops/:shopId" element={
           <ProtectedRoute>
             <RoleRoute role={['shop_manager', 'district_manager', 'brand_admin']}>
               <ShopManagerLayout>
@@ -331,7 +379,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        <Route path="/shop-manager/orders" element={
+        <Route path="/shop-manager/shops/:shopId/orders" element={
           <ProtectedRoute>
             <RoleRoute role={['shop_manager', 'district_manager', 'brand_admin']}>
               <ShopManagerLayout>
@@ -341,9 +389,9 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        <Route path="/shop-manager/analytics" element={
+        <Route path="/shop-manager/shops/:shopId/analytics" element={
           <ProtectedRoute>
-            <RoleRoute role={['shop_manager', 'district_manager','brand_admin']}>
+            <RoleRoute role={['shop_manager', 'district_manager', 'brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerAnalytics />
               </ShopManagerLayout>
@@ -351,12 +399,21 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
-        <Route path="/shop-manager/users" element={
+        <Route path="/shop-manager/shops/:shopId/users" element={
           <ProtectedRoute>
-            <RoleRoute role={['shop_manager', 'district_manager','brand_admin']}>
+            <RoleRoute role={['shop_manager', 'district_manager', 'brand_admin']}>
               <ShopManagerLayout>
                 <ShopManagerUsers />
               </ShopManagerLayout>
+            </RoleRoute>
+          </ProtectedRoute>
+        } />
+        
+        {/* Shop Manager Redirect Route - catches /shop-manager and redirects to shop-specific URL */}
+        <Route path="/shop-manager" element={
+          <ProtectedRoute>
+            <RoleRoute role={['shop_manager', 'district_manager', 'brand_admin']}>
+              <ShopManagerRedirect />
             </RoleRoute>
           </ProtectedRoute>
         } />
@@ -374,26 +431,6 @@ function AppContent() {
       </Routes>
     </BrowserRouter>
   );
-}
-
-// Component to redirect users based on their role after login
-function RoleRedirect() {
-  const user = useSelector(selectCurrentUser);
-  
-  if (!user) return <Navigate to="/login" />;
-  
-  switch (user.role) {
-    case 'super_admin':
-      return <Navigate to="/super-admin" />;
-    case 'brand_admin':
-      return <Navigate to="/brand-admin" />;
-    case 'district_manager':
-      return <Navigate to="/district-manager" />;
-    case 'shop_manager':
-      return <Navigate to="/shop-manager" />;
-    default:
-      return <Navigate to="/login" />;
-  }
 }
 
 function App() {
