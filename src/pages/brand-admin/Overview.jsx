@@ -38,6 +38,50 @@ import {
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
+// Loading components for dynamic values
+const StatValueSkeleton = () => (
+  <div className="h-8 bg-gray-200 rounded animate-pulse w-16 inline-block"></div>
+);
+
+const StatSubtextSkeleton = () => (
+  <div className="h-3 bg-gray-200 rounded animate-pulse w-20 mt-1"></div>
+);
+
+const ShopCardSkeleton = () => (
+  <div className="border rounded-lg p-4">
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center space-x-3">
+        <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-1"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+        </div>
+      </div>
+      <div className="w-16 h-8 bg-gray-200 rounded-lg animate-pulse"></div>
+    </div>
+    <div className="grid grid-cols-2 gap-2 mt-3">
+      <div className="bg-gray-100 p-2 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
+          <div className="w-3 h-3 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+        <div className="h-6 bg-gray-200 rounded animate-pulse w-8 mt-1"></div>
+      </div>
+      <div className="bg-gray-100 p-2 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
+          <div className="w-3 h-3 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+        <div className="h-6 bg-gray-200 rounded animate-pulse w-8 mt-1"></div>
+      </div>
+    </div>
+    <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
+      <div className="h-3 bg-gray-200 rounded animate-pulse w-12"></div>
+      <div className="h-5 w-16 bg-gray-200 rounded-full animate-pulse"></div>
+    </div>
+  </div>
+);
+
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -518,16 +562,17 @@ const Overview = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
+      {/* Stats Cards - Static layout with dynamic values loading */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Shops</h3>
               <p className="text-3xl font-bold text-blue-600 mt-2">
-                {totalShops}
+                {shopsLoading ? <StatValueSkeleton /> : totalShops}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {activeShops} active ({activeShopsPercentage}%)
+                {shopsLoading ? <StatSubtextSkeleton /> : `${activeShops} active (${activeShopsPercentage}%)`}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -551,7 +596,7 @@ const Overview = () => {
             <div>
               <h3 className="text-sm text-gray-500">Total Districts</h3>
               <p className="text-3xl font-bold text-purple-600 mt-2">
-                {totalDistricts}
+                {districtsLoading ? <StatValueSkeleton /> : totalDistricts}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -577,11 +622,10 @@ const Overview = () => {
             <div>
               <h3 className="text-sm text-gray-500">AI Video Requests</h3>
               <p className="text-3xl font-bold text-red-600 mt-2">
-                {brandVideoRequestsCount}
+                {videosLoading ? <StatValueSkeleton /> : brandVideoRequestsCount}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {shopsWithAIRequests}{" "}
-                {shopsWithAIRequests === 1 ? "shop" : "shops"} with videos
+                {videosLoading ? <StatSubtextSkeleton /> : `${shopsWithAIRequests} ${shopsWithAIRequests === 1 ? "shop" : "shops"} with videos`}
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -607,10 +651,10 @@ const Overview = () => {
             <div>
               <h3 className="text-sm text-gray-500">Total Repair Orders</h3>
               <p className="text-3xl font-bold text-green-600 mt-2">
-                {totalOrders}
+                {ordersLoading ? <StatValueSkeleton /> : totalOrders}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {completedOrders} completed • {inProgressOrders} in progress
+                {ordersLoading ? <StatSubtextSkeleton /> : `${completedOrders} completed • ${inProgressOrders} in progress`}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -630,9 +674,232 @@ const Overview = () => {
         </div>
       </div>
 
+      {/* Shops Section - Matching Reference File Style with loading states for dynamic values */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">Shops</h2>
+          <Link
+            to="/brand-admin/shops"
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
+          >
+            View All Shops
+            <svg
+              className="w-4 h-4 ml-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </Link>
+        </div>
+
+        {shopsLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <ShopCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : shops?.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {shops.slice(0, 6).map((shop) => {
+              const shopVideos = shopVideosMap[shop.id] || [];
+              const aiRequests = shopVideos.filter((v) =>
+                ["completed", "processing"].includes(v?.status)
+              ).length;
+
+              return (
+                <div
+                  key={shop.id}
+                  className="border rounded-lg p-4 hover:shadow-md transition-all hover:border-blue-200"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                        {shop.name?.charAt(0).toUpperCase() || "S"}
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-800">{shop.name}</h3>
+                        <p className="text-xs text-gray-500">
+                          {shop.city}
+                          {shop.state ? `, ${shop.state}` : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => openShopPage(shop)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors shadow-sm"
+                      title="Open Shop Overview"
+                    >
+                      <svg
+                        className="w-4 h-4 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                      Open
+                    </button>
+                  </div>
+
+                  {/* Metrics Grid - Matching Reference File */}
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    <div className="bg-blue-50 p-2 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600">AI Requests</span>
+                        <svg
+                          className="w-3 h-3 text-blue-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-lg font-bold text-blue-600 mt-1">
+                        {videosLoading ? (
+                          <div className="h-6 w-8 bg-blue-200 rounded animate-pulse"></div>
+                        ) : (
+                          aiRequests
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="bg-purple-50 p-2 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600">Total Videos</span>
+                        <svg
+                          className="w-3 h-3 text-purple-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-lg font-bold text-purple-600 mt-1">
+                        {videosLoading ? (
+                          <div className="h-6 w-8 bg-purple-200 rounded animate-pulse"></div>
+                        ) : (
+                          shopVideos.length
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
+                    <span className="text-xs text-gray-500">Status</span>
+                    <span
+                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        shop.is_active
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full mr-1 ${
+                          shop.is_active ? "bg-green-500" : "bg-gray-500"
+                        }`}
+                      ></span>
+                      {shop.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+            <svg
+              className="w-16 h-16 text-gray-300 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1}
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+              />
+            </svg>
+            <p className="text-gray-500 text-lg">No shops found</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Add your first shop to get started
+            </p>
+            <Link
+              to="/brand-admin/shops/add"
+              className="mt-4 inline-flex items-center text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <svg
+                className="w-4 h-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              Add Shop
+            </Link>
+          </div>
+        )}
+
+        {shops?.length > 6 && (
+          <div className="mt-6 text-center">
+            <Link
+              to="/brand-admin/shops"
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center"
+            >
+              View all {shops.length} shops
+              <svg
+                className="w-4 h-4 ml-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* Districts Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800">Districts</h2>
           <Link
             to="/brand-admin/districts"
             className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
@@ -655,10 +922,7 @@ const Overview = () => {
         </div>
 
         {districtsLoading ? (
-          <div className="py-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading districts...</p>
-          </div>
+          <DistrictsSkeleton />
         ) : districts?.length ? (
           <div className="space-y-6">
             {districts.map((district) => {
