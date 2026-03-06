@@ -139,7 +139,7 @@ const Overview = () => {
 
     setLoading(true);
     setIsInitialLoad(true);
-    
+
     try {
       await dispatch(getShopsByBrand(brandId));
       await dispatch(getOrdersByBrand(brandId));
@@ -180,7 +180,8 @@ const Overview = () => {
     for (const shop of shopsList) {
       try {
         const result = await dispatch(getVideosByShop(shop.id)).unwrap();
-        const shopVideos = result?.data || (Array.isArray(result) ? result : []);
+        const shopVideos =
+          result?.data || (Array.isArray(result) ? result : []);
         videosByShop[shop.id] = shopVideos;
       } catch {
         videosByShop[shop.id] = [];
@@ -198,17 +199,17 @@ const Overview = () => {
 
   const organizeShopsByDistrict = useCallback(() => {
     const shopsByDistrictMap = {};
-    
-    districts.forEach(district => {
+
+    districts.forEach((district) => {
       shopsByDistrictMap[district.id] = [];
     });
-    
-    shops.forEach(shop => {
+
+    shops.forEach((shop) => {
       if (shop.district_id && shopsByDistrictMap[shop.district_id]) {
         shopsByDistrictMap[shop.district_id].push(shop);
       }
     });
-    
+
     setShopsByDistrict(shopsByDistrictMap);
   }, [districts, shops]);
 
@@ -242,11 +243,12 @@ const Overview = () => {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const todayOrders = brandOrders?.filter((order) => {
-      if (!order?.created_at) return false;
-      const orderDate = new Date(order.created_at);
-      return orderDate >= yesterday;
-    }).length || 0;
+    const todayOrders =
+      brandOrders?.filter((order) => {
+        if (!order?.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        return orderDate >= yesterday;
+      }).length || 0;
 
     setDailyOrders(todayOrders);
 
@@ -284,8 +286,10 @@ const Overview = () => {
   const brandEditStats = useMemo(() => {
     if (!brandId) return null;
 
-    const brandEdits = allEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
-    const brandSpecificEdits = brandEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
+    const brandEdits =
+      allEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
+    const brandSpecificEdits =
+      brandEditDetails?.filter((edit) => edit.brand_id === brandId) || [];
     const totalBrandEdits = brandEdits.length + brandSpecificEdits.length;
 
     const aiCorrect = brandEdits.filter(
@@ -299,8 +303,14 @@ const Overview = () => {
       totalEdits: totalBrandEdits,
       aiCorrect,
       aiErrors,
-      aiSuccessRate: totalBrandEdits > 0 ? ((aiCorrect / totalBrandEdits) * 100).toFixed(1) : "0.00",
-      aiErrorRate: totalBrandEdits > 0 ? ((aiErrors / totalBrandEdits) * 100).toFixed(1) : "0.00",
+      aiSuccessRate:
+        totalBrandEdits > 0
+          ? ((aiCorrect / totalBrandEdits) * 100).toFixed(1)
+          : "0.00",
+      aiErrorRate:
+        totalBrandEdits > 0
+          ? ((aiErrors / totalBrandEdits) * 100).toFixed(1)
+          : "0.00",
       totalSegments: brandEdits.length + brandSpecificEdits.length,
     };
   }, [brandId, allEditDetails, brandEditDetails]);
@@ -324,7 +334,9 @@ const Overview = () => {
 
     const byStatusPercentage = {};
     Object.entries(byStatus).forEach(([status, count]) => {
-      byStatusPercentage[status] = ((count / brandVideos.length) * 100).toFixed(1);
+      byStatusPercentage[status] = ((count / brandVideos.length) * 100).toFixed(
+        1,
+      );
     });
 
     const sevenDaysAgo = new Date();
@@ -336,9 +348,10 @@ const Overview = () => {
       return createdDate >= sevenDaysAgo;
     }).length;
 
-    const recentUploadsPercentage = brandVideos.length > 0
-      ? ((recentUploads / brandVideos.length) * 100).toFixed(1)
-      : 0;
+    const recentUploadsPercentage =
+      brandVideos.length > 0
+        ? ((recentUploads / brandVideos.length) * 100).toFixed(1)
+        : 0;
 
     return {
       total: brandVideos.length,
@@ -420,36 +433,45 @@ const Overview = () => {
   }, [shopVideosMap]);
 
   const activeShopsPercentage = useMemo(
-    () => (totalShops > 0 ? ((activeShops / totalShops) * 100).toFixed(1) : "0.0"),
+    () =>
+      totalShops > 0 ? ((activeShops / totalShops) * 100).toFixed(1) : "0.0",
     [activeShops, totalShops],
   );
 
   const totalOrders = brandOrders?.length || 0;
 
   const completedOrders = useMemo(
-    () => brandOrders?.filter((order) => {
-      if (!order?.status) return false;
-      const status = order.status.toLowerCase();
-      return ["posted", "completed", "done"].includes(status);
-    }).length || 0,
+    () =>
+      brandOrders?.filter((order) => {
+        if (!order?.status) return false;
+        const status = order.status.toLowerCase();
+        return ["posted", "completed", "done"].includes(status);
+      }).length || 0,
     [brandOrders],
   );
 
   const pendingOrders = useMemo(
-    () => brandOrders?.filter((order) => {
-      if (!order?.status) return false;
-      const status = order.status.toLowerCase();
-      return ["estimate", "pending"].includes(status);
-    }).length || 0,
+    () =>
+      brandOrders?.filter((order) => {
+        if (!order?.status) return false;
+        const status = order.status.toLowerCase();
+        return ["estimate", "pending"].includes(status);
+      }).length || 0,
     [brandOrders],
   );
 
   const inProgressOrders = useMemo(
-    () => brandOrders?.filter((order) => {
-      if (!order?.status) return false;
-      const status = order.status.toLowerCase();
-      return ["work-in-progress", "in_progress", "processing", "in progress"].includes(status);
-    }).length || 0,
+    () =>
+      brandOrders?.filter((order) => {
+        if (!order?.status) return false;
+        const status = order.status.toLowerCase();
+        return [
+          "work-in-progress",
+          "in_progress",
+          "processing",
+          "in progress",
+        ].includes(status);
+      }).length || 0,
     [brandOrders],
   );
 
@@ -460,7 +482,12 @@ const Overview = () => {
       if (profilePicData.startsWith("{")) {
         try {
           const parsed = JSON.parse(profilePicData);
-          return parsed.publicUrl || parsed.signedUrl || parsed.filePath || DEFAULT_PROFILE_PIC;
+          return (
+            parsed.publicUrl ||
+            parsed.signedUrl ||
+            parsed.filePath ||
+            DEFAULT_PROFILE_PIC
+          );
         } catch {
           return profilePicData;
         }
@@ -472,7 +499,7 @@ const Overview = () => {
   };
 
   const openShopPage = (shop) => {
-    localStorage.setItem('selectedShop', JSON.stringify(shop));
+    localStorage.setItem("selectedShop", JSON.stringify(shop));
     navigate(`/brand-admin/shops/${shop.id}`);
   };
 
@@ -526,9 +553,6 @@ const Overview = () => {
               <p className="text-3xl font-bold text-purple-600 mt-2">
                 {totalDistricts}
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Organized shop locations
-              </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
               <svg
@@ -556,7 +580,8 @@ const Overview = () => {
                 {brandVideoRequestsCount}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {shopsWithAIRequests} {shopsWithAIRequests === 1 ? "shop" : "shops"} with videos
+                {shopsWithAIRequests}{" "}
+                {shopsWithAIRequests === 1 ? "shop" : "shops"} with videos
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -606,8 +631,8 @@ const Overview = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 hover:shadow-lg transition-shadow duration-200">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Districts & Shops</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800">Shops</h2>
           <Link
             to="/brand-admin/districts"
             className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
@@ -635,104 +660,137 @@ const Overview = () => {
             <p className="mt-2 text-gray-600">Loading districts...</p>
           </div>
         ) : districts?.length ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-6">
             {districts.map((district) => {
               const districtShops = shopsByDistrict[district.id] || [];
 
               return (
                 <div
                   key={district.id}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                  className="border rounded-lg overflow-hidden bg-white"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="font-medium text-gray-800">
-                        {district.name}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        {district.city}
-                        {district.state ? `, ${district.state}` : ''}
-                      </p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        {districtShops.length} {districtShops.length === 1 ? 'shop' : 'shops'}
-                      </p>
+                  {/* District Header */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-800 text-lg">
+                          {district.name}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {district.city}
+                          {district.state ? `, ${district.state}` : ""}
+                        </p>
+                      </div>
+                      <div className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
+                        {districtShops.length}{" "}
+                        {districtShops.length === 1 ? "Shop" : "Shops"}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 border-t pt-3">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Shops in this district:</p>
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {districtShops.length ? (
-                        districtShops.map((shop) => (
+                  {/* Shops List */}
+                  <div className="p-4">
+                    {districtShops.length ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {districtShops.map((shop) => (
                           <div
                             key={shop.id}
-                            className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100"
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
                           >
-                            <div className="flex items-center space-x-2 flex-1">
-                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold text-sm">
-                                {shop.name?.charAt(0).toUpperCase() || 'S'}
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                                {shop.name?.charAt(0).toUpperCase() || "S"}
                               </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-800">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">
                                   {shop.name}
                                 </p>
-                                <div className="flex items-center text-xs text-gray-500">
-                                  <span className="truncate max-w-[100px]">
-                                    {shop.city || 'No city'}
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-gray-500 truncate">
+                                    {shop.city || "No city"}
                                   </span>
+                                  <span
+                                    className={`inline-block w-2 h-2 rounded-full ${
+                                      shop.is_active
+                                        ? "bg-green-500"
+                                        : "bg-gray-400"
+                                    }`}
+                                  />
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center space-x-2">
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  shop.is_active
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
+                            <button
+                              onClick={() => openShopPage(shop)}
+                              className="ml-2 bg-white hover:bg-blue-600 text-gray-700 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 hover:border-blue-600 transition-all flex items-center shadow-sm"
+                              title="Open Shop Overview"
+                            >
+                              <svg
+                                className="w-3 h-3 mr-1"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
                               >
-                                {shop.is_active ? "Active" : "Inactive"}
-                              </span>
-                              
-                              <button
-                                onClick={() => openShopPage(shop)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-lg text-xs flex items-center transition-colors"
-                                title="Open Shop Overview"
-                              >
-                                <svg
-                                  className="w-3 h-3 mr-1"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                  />
-                                </svg>
-                                Open
-                              </button>
-                            </div>
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                />
+                              </svg>
+                              Open
+                            </button>
                           </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-500 italic text-center py-2">
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                        <svg
+                          className="w-10 h-10 text-gray-300 mx-auto mb-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1}
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                          />
+                        </svg>
+                        <p className="text-sm text-gray-500">
                           No shops in this district
                         </p>
-                      )}
-                    </div>
+                        <Link
+                          to="/brand-admin/shops/add"
+                          className="mt-2 inline-flex items-center text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          <svg
+                            className="w-3 h-3 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                            />
+                          </svg>
+                          Add a shop
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
         ) : (
-          <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+          <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
             <svg
-              className="w-12 h-12 text-gray-300 mx-auto mb-3"
+              className="w-16 h-16 text-gray-300 mx-auto mb-3"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -744,13 +802,16 @@ const Overview = () => {
                 d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
               />
             </svg>
-            <p className="text-gray-500">No districts found</p>
+            <p className="text-gray-500 text-lg">No districts found</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Create a district to start adding shops
+            </p>
             <Link
               to="/brand-admin/districts/add"
-              className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+              className="mt-4 inline-flex items-center text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               <svg
-                className="w-4 h-4 mr-1"
+                className="w-4 h-4 mr-2"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -768,12 +829,25 @@ const Overview = () => {
         )}
 
         {districts?.length > 6 && (
-          <div className="mt-4 text-center">
+          <div className="mt-6 text-center">
             <Link
               to="/brand-admin/districts"
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center"
             >
-              View all {districts.length} districts →
+              View all {districts.length} districts
+              <svg
+                className="w-4 h-4 ml-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
             </Link>
           </div>
         )}
