@@ -65,8 +65,9 @@ const Overview = () => {
   const [searchParams] = useSearchParams();
   const { shopId } = useParams();
   const dispatch = useDispatch();
+  const currentUser = useSelector((state) => state.user.currentUser);
   
-  const userId = searchParams.get('userId');
+  const userId = searchParams.get('userId') || currentUser?.id;
   
   const [selectedShop, setSelectedShop] = useState(null);
   const [isBrandAdminMode, setIsBrandAdminMode] = useState(false);
@@ -85,6 +86,7 @@ const Overview = () => {
   const [dailyOrders, setDailyOrders] = useState(0);
   const [shopStats, setShopStats] = useState(null);
   
+  // Determine if this is brand admin viewing a shop
   useEffect(() => {
     if (shopId && !userId) {
       setIsBrandAdminMode(true);
@@ -100,10 +102,16 @@ const Overview = () => {
     } else if (userId) {
       setIsBrandAdminMode(false);
       fetchShopManagerData();
+    } else if (currentUser?.shop_id) {
+      // If current user is shop manager with shop_id, use that
+      setIsBrandAdminMode(false);
+      setShopManager(currentUser);
+      setLoadingUser(false);
+      fetchShopData(currentUser.shop_id);
     } else {
       setLoadingUser(false);
     }
-  }, [shopId, userId]);
+  }, [shopId, userId, currentUser]);
 
   const fetchShopManagerData = async () => {
     setLoadingUser(true);
@@ -117,7 +125,8 @@ const Overview = () => {
       const userData = response.data.data || response.data;
       setShopManager(userData);
       setLoadingUser(false);
-    } catch {
+    } catch (error) {
+      console.error('Error fetching shop manager:', error);
       setLoadingUser(false);
     }
   };
@@ -174,7 +183,8 @@ const Overview = () => {
       
       setIsDataReady(true);
       
-    } catch {
+    } catch (error) {
+      console.error('Error fetching shop data:', error);
     } finally {
       setLoading(false);
       setTimeout(() => setIsInitialLoad(false), 300);
@@ -225,6 +235,9 @@ const Overview = () => {
     (user) => user.role === "technician" && user.is_active,
   ).length || 0;
 
+  // Get the effective shop ID to display
+  const effectiveShopId = shopId || currentUser?.shop_id || shopManager?.shop_id;
+
   if (loadingUser) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -238,7 +251,7 @@ const Overview = () => {
     );
   }
 
-  if (!userId && !shopId) {
+  if (!effectiveShopId) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
         <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
@@ -246,13 +259,13 @@ const Overview = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <h3 className="text-lg font-medium text-yellow-800 mb-2">No Shop Selected</h3>
-          <p className="text-yellow-700">Please select a shop to view.</p>
+          <p className="text-yellow-700">Please select a shop to view or contact an administrator.</p>
         </div>
       </div>
     );
   }
 
-  if (!isBrandAdminMode && shopManager && !shopManager.shop_id) {
+  if (!isBrandAdminMode && shopManager && !shopManager.shop_id && !currentUser?.shop_id) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
         <div className="text-center bg-orange-50 p-6 rounded-lg border border-orange-200">
@@ -360,7 +373,7 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Shop Information Card - Only Quick Actions removed */}
+      {/* Shop Information Card */}
       <div className="grid grid-cols-1 gap-8">
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200">
           <div className="flex justify-between items-center mb-4">
