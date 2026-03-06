@@ -88,7 +88,7 @@ const Overview = () => {
 
   useEffect(() => {
     if (userId) {
-      // Impersonation mode
+      // Impersonation mode - fetch the user being impersonated
       fetchShopManagerData();
     } else if (effectiveShopId) {
       // Normal mode - fetch shop data directly
@@ -97,7 +97,7 @@ const Overview = () => {
       setLoading(false);
       setIsInitialLoad(false);
     }
-  }, [userId, effectiveShopId]);
+  }, [userId, effectiveShopId]); // Added proper dependencies
 
   const fetchShopManagerData = async () => {
     setLoadingUser(true);
@@ -125,52 +125,67 @@ const Overview = () => {
     }
   };
 
-  const fetchShopData = async (shopId) => {
-    if (!shopId) return;
+  const fetchShopData = async (shopIdToFetch) => {
+    if (!shopIdToFetch) return;
     
     setLoading(true);
     setIsInitialLoad(true);
     setDataFetched(false);
     
     try {
-      const [shopResult, ordersResult, usersResult, videosResult] = await Promise.all([
-        dispatch(getShopById(shopId)).unwrap(),
-        dispatch(getOrdersByShop(shopId)).unwrap(),
-        dispatch(getUsersByShopId(shopId)).unwrap(),
-        dispatch(getVideosByShop(shopId)).unwrap()
+      const [shopResult, ordersResult, usersResult, videosResult] = await Promise.allSettled([
+        dispatch(getShopById(shopIdToFetch)).unwrap(),
+        dispatch(getOrdersByShop(shopIdToFetch)).unwrap(),
+        dispatch(getUsersByShopId(shopIdToFetch)).unwrap(),
+        dispatch(getVideosByShop(shopIdToFetch)).unwrap()
       ]);
       
-      const shopData = shopResult?.data || shopResult;
-      setMyShop(shopData);
-      
-      // Store shop in localStorage for layout
-      if (shopData) {
-        localStorage.setItem('selectedShop', JSON.stringify(shopData));
+      // Handle shop data
+      if (shopResult.status === 'fulfilled') {
+        const shopData = shopResult.value?.data || shopResult.value;
+        setMyShop(shopData);
+        
+        // Store shop in localStorage for layout (only if not impersonating or if it's the correct context)
+        if (shopData && !userId) {
+          localStorage.setItem('selectedShop', JSON.stringify(shopData));
+        }
       }
       
-      let ordersData = [];
-      if (ordersResult?.data && Array.isArray(ordersResult.data)) {
-        ordersData = ordersResult.data;
-      } else if (Array.isArray(ordersResult)) {
-        ordersData = ordersResult;
+      // Handle orders data
+      if (ordersResult.status === 'fulfilled') {
+        let ordersData = [];
+        const ordersValue = ordersResult.value;
+        if (ordersValue?.data && Array.isArray(ordersValue.data)) {
+          ordersData = ordersValue.data;
+        } else if (Array.isArray(ordersValue)) {
+          ordersData = ordersValue;
+        }
+        setShopOrders(ordersData);
       }
-      setShopOrders(ordersData);
       
-      let usersData = [];
-      if (usersResult?.data && Array.isArray(usersResult.data)) {
-        usersData = usersResult.data;
-      } else if (Array.isArray(usersResult)) {
-        usersData = usersResult;
+      // Handle users data
+      if (usersResult.status === 'fulfilled') {
+        let usersData = [];
+        const usersValue = usersResult.value;
+        if (usersValue?.data && Array.isArray(usersValue.data)) {
+          usersData = usersValue.data;
+        } else if (Array.isArray(usersValue)) {
+          usersData = usersValue;
+        }
+        setShopUsers(usersData);
       }
-      setShopUsers(usersData);
       
-      let videosData = [];
-      if (videosResult?.data && Array.isArray(videosResult.data)) {
-        videosData = videosResult.data;
-      } else if (Array.isArray(videosResult)) {
-        videosData = videosResult;
+      // Handle videos data
+      if (videosResult.status === 'fulfilled') {
+        let videosData = [];
+        const videosValue = videosResult.value;
+        if (videosValue?.data && Array.isArray(videosValue.data)) {
+          videosData = videosValue.data;
+        } else if (Array.isArray(videosValue)) {
+          videosData = videosValue;
+        }
+        setShopVideos(videosData);
       }
-      setShopVideos(videosData);
       
       setDataFetched(true);
       
@@ -226,6 +241,7 @@ const Overview = () => {
     (user) => user.role === "technician" && user.is_active,
   ).length || 0;
 
+  // Show loading state for user data
   if (loadingUser) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -237,6 +253,7 @@ const Overview = () => {
     );
   }
 
+  // Show error if no shop ID available
   if (!effectiveShopId) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -244,13 +261,14 @@ const Overview = () => {
           <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
-          <h3 className="text-lg font-medium text-yellow-800 mb-2">No Shop Assigned</h3>
-          <p className="text-yellow-700">You don't have a shop assigned to your account. Please contact an administrator.</p>
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">No Shop Selected</h3>
+          <p className="text-yellow-700">Unable to load shop data. Please try again or contact support.</p>
         </div>
       </div>
     );
   }
 
+  // Show skeleton loading
   if (isInitialLoad || (loading && !dataFetched)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
@@ -266,6 +284,26 @@ const Overview = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
+      {/* Impersonation Banner - Show when viewing as different user */}
+      {isImpersonating && shopManager && (
+        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                <span className="font-bold">Impersonation Mode:</span> You are viewing the shop as{' '}
+                {shopManager.first_name} {shopManager.last_name} ({shopManager.email})
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
@@ -294,7 +332,7 @@ const Overview = () => {
                 {getTotalOrders()}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {getCompletedOrders()} Posted
+                {getCompletedOrders()} Completed
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -455,7 +493,7 @@ const Overview = () => {
               <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              <p className="text-gray-500">Loading shop information...</p>
+              <p className="text-gray-500">No shop information available</p>
             </div>
           )}
         </div>
