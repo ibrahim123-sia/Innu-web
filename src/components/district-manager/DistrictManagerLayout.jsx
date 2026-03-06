@@ -33,17 +33,7 @@ const DistrictManagerLayout = ({ children }) => {
     return "District Manager Dashboard";
   };
 
-  const getHeaderSubtitle = () => {
-    if (selectedShop) {
-      const city = selectedShop.city || '';
-      const state = selectedShop.state || '';
-      
-      if (city && state) return `Viewing Shop: ${city}, ${state}`;
-      if (city) return `Viewing Shop: ${city}`;
-      return "Viewing Shop";
-    }
-    return user?.district_name ? `Managing: ${user.district_name}` : "District Management";
-  };
+
 
   const getNavItems = () => {
     if (selectedShop) {
@@ -91,15 +81,13 @@ const DistrictManagerLayout = ({ children }) => {
               )}
               <div>
                 <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-                <p className="text-sm text-primary-blue-100">
-                  {getHeaderSubtitle()}
-                </p>
+              
               </div>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
-              {selectedShop ? "District Manager • Shop View" : "District Manager"}
+              {selectedShop ? "District Manager" : "District Manager"}
             </div>
             <span className="hidden md:inline text-white">{user?.email}</span>
             <LogoutButton />

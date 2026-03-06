@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useParams, useSearchParams } from 'react-router-dom';
 import store from '../../redux/store';
 import { 
   getShopById,
@@ -25,6 +26,7 @@ import {
   selectAllUserEdits,
   clearUserEditDetails,
 } from '../../redux/slice/videoEditSlice';
+import axios from 'axios';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
@@ -75,7 +77,7 @@ const selectEditDetailsByUserId = (userId) => (state) => {
   return selectAllUserEdits(userId)(state);
 };
 
-// Skeleton Loader Components (keep as is)
+// Skeleton Loader Components
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -155,11 +157,24 @@ const TableSkeleton = () => (
 
 const Analytics = () => {
   const dispatch = useDispatch();
-  const currentUser = useSelector(state => state.user?.currentUser);
-  const shopId = currentUser?.shop_id;
+  const { shopId } = useParams(); // Get shopId from URL params
+  const [searchParams] = useSearchParams(); // Get userId from query params for impersonation
+  const userId = searchParams.get('userId');
   
-  console.log('🔍 Current User:', currentUser);
-  console.log('🔍 Shop ID:', shopId);
+  const currentUser = useSelector(state => state.user?.currentUser);
+  const isImpersonating = !!userId;
+  
+  const [shopManager, setShopManager] = useState(null);
+  const [targetShopId, setTargetShopId] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(false);
+  
+  // Use shopId from URL if available, otherwise fallback to user's shop_id
+  const effectiveShopId = shopId || currentUser?.shop_id;
+  
+  console.log('🔍 Analytics - URL Shop ID:', shopId);
+  console.log('🔍 Analytics - Current User:', currentUser);
+  console.log('🔍 Analytics - Impersonating User ID:', userId);
+  console.log('🔍 Analytics - Effective Shop ID:', effectiveShopId);
   
   const myShop = useSelector(selectCurrentShop);
   const orders = useSelector(selectOrdersByShop) || [];
@@ -188,22 +203,54 @@ const Analytics = () => {
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
   const [selectedUserForFeedback, setSelectedUserForFeedback] = useState(null);
 
+  // Handle impersonation - fetch shop manager data if userId is provided
+  useEffect(() => {
+    if (userId) {
+      fetchShopManagerData();
+    } else if (shopId) {
+      setTargetShopId(shopId);
+      setLoadingUser(false);
+    } else if (currentUser?.shop_id) {
+      setTargetShopId(currentUser.shop_id);
+      setLoadingUser(false);
+    }
+  }, [userId, shopId, currentUser]);
+
+  const fetchShopManagerData = async () => {
+    setLoadingUser(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`http://localhost:5000/api/users/getUsers/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const userData = response.data.data || response.data;
+      setShopManager(userData);
+      if (userData?.shop_id) {
+        setTargetShopId(userData.shop_id);
+      }
+    } catch (error) {
+      console.error('Error fetching shop manager:', error);
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
   const fetchData = useCallback(async () => {
-    if (!shopId) return;
+    if (!targetShopId) return;
     
     setLoading(true);
     try {
-      console.log('🚀 Fetching all data for shop:', shopId);
+      console.log('🚀 Fetching all data for shop:', targetShopId);
       
       // Clear previous user edit details to prevent stale data
       dispatch(clearUserEditDetails());
       
       await Promise.all([
-        dispatch(getShopById(shopId)),
-        dispatch(getOrdersByShop(shopId)),
-        dispatch(getUsersByShopId(shopId)),
-        dispatch(getVideosByShop(shopId)),  // This will store in state.video.videos
-        dispatch(getEditDetailsByShop(shopId))  // This will store in state.videoEdit.shopEditDetails
+        dispatch(getShopById(targetShopId)),
+        dispatch(getOrdersByShop(targetShopId)),
+        dispatch(getUsersByShopId(targetShopId)),
+        dispatch(getVideosByShop(targetShopId)),  // This will store in state.video.videos
+        dispatch(getEditDetailsByShop(targetShopId))  // This will store in state.videoEdit.shopEditDetails
       ]);
       
       console.log('✅ All shop-level data fetched successfully');
@@ -213,7 +260,7 @@ const Analytics = () => {
       setLoading(false);
       setIsDataReady(true);
     }
-  }, [dispatch, shopId]);
+  }, [dispatch, targetShopId]);
 
   // FIXED: Fetch ONLY edit details for a user, NOT videos
   const fetchUserEditDetails = useCallback(async (userId) => {
@@ -249,15 +296,15 @@ const Analytics = () => {
     console.log('✅ All user edit details fetched successfully');
   }, [fetchUserEditDetails]);
 
-  // Fetch shop data
+  // Fetch initial shop data
   useEffect(() => {
-    if (shopId) {
-      console.log('🚀 Initial fetch for shop:', shopId);
-      dispatch(getShopById(shopId)).then(() => {
+    if (targetShopId) {
+      console.log('🚀 Initial fetch for shop:', targetShopId);
+      dispatch(getShopById(targetShopId)).then(() => {
         setTimeout(() => setIsInitialLoad(false), 300);
       });
     }
-  }, [dispatch, shopId]);
+  }, [dispatch, targetShopId]);
 
   // Fetch all other data when shop is available
   useEffect(() => {
@@ -266,19 +313,19 @@ const Analytics = () => {
     }
   }, [myShop?.id, fetchData]);
 
-// Filter shop users - EXCLUDE brand admin and district manager
-useEffect(() => {
-  if (shopUsers?.length > 0 && shopId) {
-    console.log('🔍 Filtering shop users...');
-    const filtered = shopUsers.filter(user => 
-      user.shop_id === shopId && 
-      user.role !== 'brand_admin' && 
-      user.role !== 'district_manager'
-    );
-    console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
-    setFilteredShopUsers(filtered);
-  }
-}, [shopUsers, shopId]);
+  // Filter shop users - EXCLUDE brand admin and district manager
+  useEffect(() => {
+    if (shopUsers?.length > 0 && targetShopId) {
+      console.log('🔍 Filtering shop users...');
+      const filtered = shopUsers.filter(user => 
+        user.shop_id === targetShopId && 
+        user.role !== 'brand_admin' && 
+        user.role !== 'district_manager'
+      );
+      console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
+      setFilteredShopUsers(filtered);
+    }
+  }, [shopUsers, targetShopId]);
 
   // Fetch edit details for all filtered users when we have them
   useEffect(() => {
@@ -453,6 +500,33 @@ useEffect(() => {
     fetchData();
   }, [fetchData]);
 
+  // Show loading if user data is being fetched (impersonation)
+  if (loadingUser) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading if no target shop ID
+  if (!targetShopId) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-center bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+          <svg className="w-12 h-12 text-yellow-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">No Shop Selected</h3>
+          <p className="text-yellow-700">Unable to load analytics. No shop ID found.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
@@ -470,6 +544,43 @@ useEffect(() => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
+      {/* Impersonation Banner - Show when viewing as different user */}
+      {isImpersonating && shopManager && (
+        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <p className="text-sm text-yellow-700">
+                <span className="font-bold">Impersonation Mode:</span> You are viewing analytics as{' '}
+                {shopManager.first_name} {shopManager.last_name} ({shopManager.email})
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shop Info Banner - Show which shop we're viewing */}
+      {myShop && (
+        <div className="mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 01-1 1h-2a1 1 0 01-1-1v-2a1 1 0 00-1-1H7a1 1 0 00-1 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <p className="text-sm text-blue-700">
+                <span className="font-bold">Shop:</span> {myShop.name} - Analytics Dashboard
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         {/* Total AI Video Requests Card */}
@@ -536,7 +647,6 @@ useEffect(() => {
           </div>
         </div>
       </div>
-
 
       {/* User Performance Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
@@ -716,7 +826,7 @@ useEffect(() => {
           onClose={() => setShowUserAnalyticsModal(null)}
           onViewAllFeedback={handleViewAllFeedback}
           onViewFeedback={handleViewFeedback}
-          allVideos={allVideos} // Pass shop videos to modal
+          allVideos={allVideos}
         />
       )}
 
