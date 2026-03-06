@@ -267,16 +267,17 @@ const Analytics = () => {
   }, [myShop?.id, fetchData]);
 
   // Filter shop users - EXCLUDE brand admin
-  useEffect(() => {
-    if (shopUsers?.length > 0 && shopId) {
-      console.log('🔍 Filtering shop users...');
-      const filtered = shopUsers.filter(user => 
-        user.shop_id === shopId && user.role !== 'brand_admin'
-      );
-      console.log('🔍 Filtered Shop Users:', filtered);
-      setFilteredShopUsers(filtered);
-    }
-  }, [shopUsers, shopId]);
+// Filter shop users - INCLUDE ALL USERS (no filtering by role)
+useEffect(() => {
+  if (shopUsers?.length > 0 && shopId) {
+    console.log('🔍 Getting all shop users (including brand admins)...');
+    const allUsers = shopUsers.filter(user => 
+      user.shop_id === shopId  // Only filter by shop_id, not by role
+    );
+    console.log('🔍 All Shop Users:', allUsers);
+    setFilteredShopUsers(allUsers);
+  }
+}, [shopUsers, shopId]);
 
   // Fetch edit details for all filtered users when we have them
   useEffect(() => {
