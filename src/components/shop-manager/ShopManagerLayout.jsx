@@ -5,15 +5,12 @@ import LogoutButton from "../../components/common/LogoutButton";
 
 const ShopManagerLayout = ({ children }) => {
   const navigate = useNavigate();
-  const user = useSelector((state) => state.user.currentUser);
   const { shopId } = useParams();
+  const user = useSelector((state) => state.user.currentUser);
   
   const [selectedShop, setSelectedShop] = useState(null);
-  const [viewMode, setViewMode] = useState('shop_manager'); // 'shop_manager', 'brand_admin', 'district_manager'
-  const [activeContext, setActiveContext] = useState('shop'); // Track the context
 
   useEffect(() => {
-    // If we have a shopId in the URL, try to get shop details
     if (shopId) {
       const shop = localStorage.getItem('selectedShop');
       if (shop) {
@@ -21,36 +18,26 @@ const ShopManagerLayout = ({ children }) => {
         if (parsedShop.id === shopId) {
           setSelectedShop(parsedShop);
         } else {
-          // If the stored shop doesn't match the URL shopId, create a basic shop object
+          // If stored shop doesn't match URL, create basic shop object
           setSelectedShop({ id: shopId, name: "Shop" });
         }
       } else {
-        // If no shop in localStorage, create a basic shop object from the ID
-        setSelectedShop({ id: shopId, name: "Shop" });
-      }
-      
-      // Determine view mode based on the URL path
-      const path = window.location.pathname;
-      if (path.includes('/brand-admin/')) {
-        setViewMode('brand_admin');
-        setActiveContext('brand');
-      } else if (path.includes('/district-manager/')) {
-        setViewMode('district_manager');
-        setActiveContext('district');
-      } else {
-        setViewMode('shop_manager');
-        setActiveContext('shop');
+        // Try to get shop from user data
+        if (user?.shop_id === shopId) {
+          setSelectedShop({ id: shopId, name: user.shop_name || "Your Shop" });
+        } else {
+          setSelectedShop({ id: shopId, name: "Shop" });
+        }
       }
     } else {
-      // If no shopId in URL, check if user has a shop_id from their profile
-      if (user?.shop_id) {
-        // Redirect to the correct URL with shopId
-        navigate(`/shop-manager/shops/${user.shop_id}`, { replace: true });
-      } else {
-        setSelectedShop(null);
-        setViewMode('shop_manager');
-        setActiveContext('shop');
-      }
+      setSelectedShop(null);
+    }
+  }, [shopId, user]);
+
+  // Auto-redirect if user has shop_id but no shopId in URL
+  useEffect(() => {
+    if (!shopId && user?.shop_id) {
+      navigate(`/shop-manager/shops/${user.shop_id}`, { replace: true });
     }
   }, [shopId, user, navigate]);
 
@@ -68,80 +55,27 @@ const ShopManagerLayout = ({ children }) => {
       
       if (city && state) return `Managing: ${city}, ${state}`;
       if (city) return `Managing: ${city}`;
-      return "Managing Shop";
+      return "Managing your shop";
     }
-    
-    if (user?.shops?.length > 1) return `You have access to ${user.shops.length} shops`;
-    if (user?.shops?.length === 1) return "Managing your shop";
-    return "Manage your shop operations";
-  };
-
-  const getRoleBadge = () => {
-    if (viewMode === 'brand_admin') {
-      return "Brand Admin • Shop View";
-    }
-    if (viewMode === 'district_manager') {
-      return "District Manager • Shop View";
-    }
-    return "Shop Manager";
+    return user?.email ? `Welcome, ${user.email}` : "Shop Management";
   };
 
   const getNavItems = () => {
     if (selectedShop && selectedShop.id) {
-      // Base path depends on who is viewing
-      let basePath = '';
-      if (viewMode === 'brand_admin') {
-        basePath = `/brand-admin/shops/${selectedShop.id}`;
-      } else if (viewMode === 'district_manager') {
-        basePath = `/district-manager/shops/${selectedShop.id}`;
-      } else {
-        basePath = `/shop-manager/shops/${selectedShop.id}`;
-      }
-
       return [
-        { name: "Overview", path: basePath },
-        { name: "Orders", path: `${basePath}/orders` },
-        { name: "Analytics", path: `${basePath}/analytics` },
-        { name: "Users", path: `${basePath}/users` },
+        { name: "Overview", path: `/shop-manager/shops/${selectedShop.id}` },
+        { name: "Orders", path: `/shop-manager/shops/${selectedShop.id}/orders` },
+        { name: "Analytics", path: `/shop-manager/shops/${selectedShop.id}/analytics` },
+        { name: "Users", path: `/shop-manager/shops/${selectedShop.id}/users` },
       ];
     }
-    
-    // Main dashboard paths (should not happen for shop manager)
-    if (viewMode === 'brand_admin') {
-      return [
-        { name: "Overview", path: "/brand-admin" },
-        { name: "Shops", path: "/brand-admin/shops" },
-        { name: "Districts", path: "/brand-admin/districts" },
-        { name: "Users", path: "/brand-admin/users" },
-        { name: "Analytics", path: "/brand-admin/analytics" },
-      ];
-    }
-    if (viewMode === 'district_manager') {
-      return [
-        { name: "Overview", path: "/district-manager" },
-        { name: "Shops", path: "/district-manager/shops" },
-        { name: "Users", path: "/district-manager/users" },
-        { name: "Analytics", path: "/district-manager/analytics" },
-      ];
-    }
+    // Fallback for when no shop is selected (should rarely happen)
     return [
       { name: "Overview", path: "/shop-manager" },
       { name: "Orders", path: "/shop-manager/orders" },
       { name: "Analytics", path: "/shop-manager/analytics" },
       { name: "Users", path: "/shop-manager/users" },
     ];
-  };
-
-  const handleBack = () => {
-    localStorage.removeItem('selectedShop');
-    
-    if (viewMode === 'brand_admin') {
-      navigate('/brand-admin/shops');
-    } else if (viewMode === 'district_manager') {
-      navigate('/district-manager');
-    } else {
-      navigate('/shop-manager');
-    }
   };
 
   const navItems = getNavItems();
@@ -175,36 +109,17 @@ const ShopManagerLayout = ({ children }) => {
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <div className="flex items-center">
-              {selectedShop && viewMode !== 'shop_manager' && (
-                <button
-                  onClick={handleBack}
-                  className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
-                  title={`Back to ${viewMode === 'brand_admin' ? 'Brand Admin' : 'District'} Dashboard`}
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                    />
-                  </svg>
-                </button>
-              )}
               <div>
                 <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-                <p className="text-sm text-primary-blue-100">{getHeaderSubtitle()}</p>
+                <p className="text-sm text-primary-blue-100">
+                  {getHeaderSubtitle()}
+                </p>
               </div>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
-              {getRoleBadge()}
+              Shop Manager
             </div>
             <span className="hidden md:inline text-white">{user?.email}</span>
             <LogoutButton />
