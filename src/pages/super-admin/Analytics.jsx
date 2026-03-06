@@ -446,7 +446,7 @@ const Analytics = () => {
                     AI Video Requests
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Videos w/ Corrections
+                    Manual Corrections
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Performance
@@ -483,13 +483,8 @@ const Analytics = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-lg font-bold text-blue-600">{stats.totalVideos}</div>
-                      </td>
-                      <td className="px-6 py-4">
                         <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
-                        {stats.totalEdits > stats.manualCorrections && (
-                          <div className="text-xs text-gray-500">({stats.totalEdits} total edits)</div>
-                        )}
+                       
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
