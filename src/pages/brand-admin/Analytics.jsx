@@ -549,11 +549,7 @@ const Analytics = () => {
                             <div>
                               <div className="font-medium text-gray-900">{district.name}</div>
                               <div className="text-sm text-gray-500">{stats.totalShops} shops, {stats.activeShops} active</div>
-                              {stats.totalEdits > stats.manualCorrections && (
-                                <div className="text-xs text-gray-400 mt-1">
-                                  {stats.totalEdits} total edits
-                                </div>
-                              )}
+                             
                             </div>
                           </div>
                         </td>
@@ -562,9 +558,7 @@ const Analytics = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
-                          {stats.totalEdits > stats.manualCorrections && (
-                            <div className="text-xs text-gray-500">({stats.totalEdits} edits)</div>
-                          )}
+                          
                         </td>
                         <td className="px-6 py-4">
                           <div className="space-y-2">
