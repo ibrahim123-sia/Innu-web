@@ -551,7 +551,7 @@ const Orders = () => {
 
                 {/* Customer and Plate Info */}
                 <div className="p-4 bg-white">
-                  <div className="flex items-end space-x-4 mb-3">
+                  <div className="flex items-center justify-between mb-3">
                     {/* Customer */}
                     <div className="flex items-center space-x-2">
                       <svg
