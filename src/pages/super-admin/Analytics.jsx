@@ -483,8 +483,11 @@ const Analytics = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
+                        <div className="text-lg font-bold text-blue-600">{stats.totalVideos}</div>
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
-                       
+                      
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
