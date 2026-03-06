@@ -15,7 +15,7 @@ import {
 import OrderDetailModal from "../../components/shop-manager/OrderDetailModal";
 import axios from "axios";
 
-// Skeleton Components
+// Skeleton Components (keep exactly as is)
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
     {[1, 2, 3, 4, 5].map((i) => (
@@ -109,7 +109,8 @@ const Orders = () => {
   const [shopManager, setShopManager] = useState(null);
   const [targetShopId, setTargetShopId] = useState(null);
 
-  const orders = useSelector(selectOrdersByShop) || [];
+  // Get all orders from Redux
+  const allOrders = useSelector(selectOrdersByShop) || [];
   const myShop = useSelector(selectCurrentShop);
   const loading = useSelector(selectOrderLoading);
   const allVideos = useSelector(selectVideos) || [];
@@ -168,8 +169,10 @@ const Orders = () => {
     }
   }, [dispatch, targetShopId]);
 
+  // Fetch ALL orders when shop is available or refresh is triggered
   useEffect(() => {
     if (myShop?.id) {
+      console.log("Fetching all orders for shop:", myShop.id);
       dispatch(getOrdersByShop(myShop.id)).then(() => {
         setIsDataReady(true);
         setLastRefreshed(new Date());
@@ -177,17 +180,19 @@ const Orders = () => {
     }
   }, [dispatch, myShop, refreshTrigger]);
 
+  // Fetch videos for all orders when orders change
   useEffect(() => {
-    if (orders.length > 0) {
+    if (allOrders.length > 0) {
+      console.log("Fetching videos for", allOrders.length, "orders");
       fetchVideosForAllOrders();
     }
-  }, [orders]);
+  }, [allOrders]);
 
   const fetchVideosForAllOrders = async () => {
     const videosMap = {};
 
     await Promise.all(
-      orders.map(async (order) => {
+      allOrders.map(async (order) => {
         try {
           const result = await dispatch(getVideosByOrderId(order.id)).unwrap();
           videosMap[order.id] = result.data || [];
@@ -203,6 +208,7 @@ const Orders = () => {
   useEffect(() => {
     refreshIntervalRef.current = setInterval(() => {
       if (myShop?.id) {
+        console.log("Auto-refreshing orders...");
         setRefreshTrigger((prev) => prev + 1);
       }
     }, 30000);
@@ -241,8 +247,8 @@ const Orders = () => {
   const getVideoCountForOrder = (orderId) =>
     videosByOrder[orderId]?.length || 0;
 
-  // Filter orders based on current filters
-  const filteredOrders = orders?.filter((order) => {
+  // Filter orders based on current filters - using allOrders
+  const filteredOrders = allOrders?.filter((order) => {
     let matches = true;
 
     // Search filter (customer, vehicle, RO number)
@@ -265,32 +271,31 @@ const Orders = () => {
       }
     }
 
-    // Status filter - "active" shows work-in-progress and estimate
-    if (statusFilter === "active") {
+    // Status filter
+    if (statusFilter !== "all") {
       const status = order.status?.toLowerCase() || "";
-      if (
-        ![
-          "in_progress",
-          "work-in-progress",
-          "processing",
-          "pending",
-          "estimate",
-        ].includes(status)
-      ) {
-        matches = false;
-      }
-    } else if (statusFilter !== "all") {
-      const status = order.status?.toLowerCase() || "";
-      const filter = statusFilter.toLowerCase();
-
-      if (filter === "work-in-progress") {
+      
+      if (statusFilter === "active") {
+        // Active shows WIP and Estimate
+        if (
+          ![
+            "in_progress",
+            "work-in-progress",
+            "processing",
+            "pending",
+            "estimate",
+          ].includes(status)
+        ) {
+          matches = false;
+        }
+      } else if (statusFilter === "work-in-progress") {
         if (!["in_progress", "work-in-progress", "processing"].includes(status))
           matches = false;
-      } else if (filter === "estimate") {
+      } else if (statusFilter === "estimate") {
         if (!["pending", "estimate"].includes(status)) matches = false;
-      } else if (filter === "posted") {
+      } else if (statusFilter === "posted") {
         if (!["completed", "posted", "done"].includes(status)) matches = false;
-      } else if (filter === "cancelled") {
+      } else if (statusFilter === "cancelled") {
         if (!["cancelled", "canceled"].includes(status)) matches = false;
       }
     }
@@ -307,7 +312,7 @@ const Orders = () => {
   });
 
   const getOrderCounts = () => {
-    if (!orders)
+    if (!allOrders)
       return {
         total: 0,
         completed: 0,
@@ -318,10 +323,10 @@ const Orders = () => {
         active: 0,
       };
 
-    const withVideos = orders.filter(
+    const withVideos = allOrders.filter(
       (o) => getVideoCountForOrder(o.id) > 0,
     ).length;
-    const active = orders.filter((o) =>
+    const active = allOrders.filter((o) =>
       [
         "in_progress",
         "work-in-progress",
@@ -332,21 +337,21 @@ const Orders = () => {
     ).length;
 
     return {
-      total: orders.length,
-      completed: orders.filter((o) =>
+      total: allOrders.length,
+      completed: allOrders.filter((o) =>
         ["completed", "posted", "done"].includes(o.status?.toLowerCase()),
       ).length,
-      inProgress: orders.filter((o) =>
+      inProgress: allOrders.filter((o) =>
         ["in_progress", "work-in-progress", "processing"].includes(
           o.status?.toLowerCase(),
         ),
       ).length,
-      estimate: orders.filter((o) =>
+      estimate: allOrders.filter((o) =>
         ["pending", "estimate"].includes(o.status?.toLowerCase()),
       ).length,
       active,
       withVideos,
-      withoutVideos: orders.length - withVideos,
+      withoutVideos: allOrders.length - withVideos,
     };
   };
 
@@ -443,7 +448,7 @@ const Orders = () => {
     );
   }
 
-  if (isInitialLoad || (loading && !orders.length && !isDataReady)) {
+  if (isInitialLoad || (loading && !allOrders.length && !isDataReady)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
         <div className="mb-8">
@@ -512,10 +517,10 @@ const Orders = () => {
 
       {/* Results count */}
       <div className="mb-4 text-sm text-gray-600">
-        Showing {filteredOrders.length} of {orders.length} orders
+        Showing {filteredOrders.length} of {allOrders.length} orders
       </div>
 
-      {/* Orders Cards - Redesigned */}
+      {/* Orders Cards - EXACT same design */}
       {filteredOrders?.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredOrders.map((order) => {
