@@ -93,6 +93,15 @@ const TableSkeleton = () => (
   </div>
 );
 
+// Helper function to count unique videos with edits
+const getUniqueVideoCount = (edits) => {
+  const uniqueVideoIds = new Set();
+  edits.forEach(edit => {
+    if (edit.video_id) uniqueVideoIds.add(edit.video_id);
+  });
+  return uniqueVideoIds.size;
+};
+
 const Analytics = () => {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.currentUser);
@@ -248,11 +257,13 @@ const Analytics = () => {
     );
     
     const totalVideos = districtVideos.length;
-    const manualCorrections = districtEdits.length;
-    const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
+    const videosWithCorrections = getUniqueVideoCount(districtEdits);
     
-    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0;
-    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0;
+    const manualCorrections = videosWithCorrections;
+    const successCount = Math.max(0, totalVideos - manualCorrections);
+    
+    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00";
+    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00";
 
     return {
       totalVideos,
@@ -260,6 +271,7 @@ const Analytics = () => {
       successCount,
       successRate,
       errorRate,
+      totalEdits: districtEdits.length,
       totalShops: districtShops.length,
       activeShops: districtShops.filter(shop => shop.is_active).length,
       completedVideos: districtVideos.filter(v => v.status === 'completed').length,
@@ -274,11 +286,13 @@ const Analytics = () => {
     const shopEdits = brandEdits.filter(e => e.shop_id === shopId);
     
     const totalVideos = shopVideos.length;
-    const manualCorrections = shopEdits.length;
-    const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
+    const videosWithCorrections = getUniqueVideoCount(shopEdits);
     
-    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0;
-    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0;
+    const manualCorrections = videosWithCorrections;
+    const successCount = Math.max(0, totalVideos - manualCorrections);
+    
+    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00";
+    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00";
 
     return {
       totalVideos,
@@ -286,6 +300,7 @@ const Analytics = () => {
       successCount,
       successRate,
       errorRate,
+      totalEdits: shopEdits.length,
       completedVideos: shopVideos.filter(v => v.status === 'completed').length,
       processingVideos: shopVideos.filter(v => v.status === 'processing').length,
       pendingVideos: shopVideos.filter(v => v.status === 'pending').length,
@@ -307,11 +322,13 @@ const Analytics = () => {
     );
     
     const totalVideos = districtVideos.length;
-    const manualCorrections = districtEdits.length;
-    const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
+    const videosWithCorrections = getUniqueVideoCount(districtEdits);
     
-    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0;
-    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0;
+    const manualCorrections = videosWithCorrections;
+    const successCount = Math.max(0, totalVideos - manualCorrections);
+    
+    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00";
+    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00";
     
     return {
       totalVideos,
@@ -319,6 +336,7 @@ const Analytics = () => {
       successCount,
       successRate,
       errorRate,
+      totalEdits: districtEdits.length,
       completedVideos: districtVideos.filter(v => v.status === 'completed').length,
       processingVideos: districtVideos.filter(v => v.status === 'processing').length,
       pendingVideos: districtVideos.filter(v => v.status === 'pending').length,
@@ -335,11 +353,13 @@ const Analytics = () => {
     const shop = shops.find(s => s.id === shopId);
     
     const totalVideos = shopVideos.length;
-    const manualCorrections = shopEdits.length;
-    const successCount = totalVideos > manualCorrections ? totalVideos - manualCorrections : 0;
+    const videosWithCorrections = getUniqueVideoCount(shopEdits);
     
-    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0;
-    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0;
+    const manualCorrections = videosWithCorrections;
+    const successCount = Math.max(0, totalVideos - manualCorrections);
+    
+    const successRate = totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : "0.00";
+    const errorRate = totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : "0.00";
     
     return {
       totalVideos,
@@ -347,6 +367,7 @@ const Analytics = () => {
       successCount,
       successRate,
       errorRate,
+      totalEdits: shopEdits.length,
       completedVideos: shopVideos.filter(v => v.status === 'completed').length,
       processingVideos: shopVideos.filter(v => v.status === 'processing').length,
       pendingVideos: shopVideos.filter(v => v.status === 'pending').length,
@@ -359,19 +380,17 @@ const Analytics = () => {
   };
 
   const totalAIVideoRequests = brandVideos?.length || 0;
-  const totalManualCorrections = brandEdits?.length || 0;
+  const uniqueVideosWithCorrections = getUniqueVideoCount(brandEdits);
   
-  const aiSuccess = totalAIVideoRequests > totalManualCorrections 
-    ? totalAIVideoRequests - totalManualCorrections 
-    : 0;
+  const aiSuccess = Math.max(0, totalAIVideoRequests - uniqueVideosWithCorrections);
   
   const aiSuccessRate = totalAIVideoRequests > 0 
     ? ((aiSuccess / totalAIVideoRequests) * 100).toFixed(2) 
-    : 0;
+    : "0.00";
   
   const aiErrorRate = totalAIVideoRequests > 0 
-    ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(2) 
-    : 0;
+    ? ((uniqueVideosWithCorrections / totalAIVideoRequests) * 100).toFixed(2) 
+    : "0.00";
 
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
@@ -431,7 +450,7 @@ const Analytics = () => {
                 {aiErrorRate}%
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {totalManualCorrections} videos with corrections
+                {uniqueVideosWithCorrections} videos with corrections
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -447,10 +466,10 @@ const Analytics = () => {
             <div>
               <h3 className="text-sm text-gray-500">Manual Corrections</h3>
               <p className="text-3xl font-bold text-purple-600 mt-2">
-                {totalManualCorrections}
+                {uniqueVideosWithCorrections}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                Total edits with feedback
+                {brandEdits.length} total edits on {uniqueVideosWithCorrections} videos
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -504,7 +523,7 @@ const Analytics = () => {
                       AI Video Requests
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Manual Corrections
+                      Videos w/ Corrections
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Performance
@@ -530,6 +549,11 @@ const Analytics = () => {
                             <div>
                               <div className="font-medium text-gray-900">{district.name}</div>
                               <div className="text-sm text-gray-500">{stats.totalShops} shops, {stats.activeShops} active</div>
+                              {stats.totalEdits > stats.manualCorrections && (
+                                <div className="text-xs text-gray-400 mt-1">
+                                  {stats.totalEdits} total edits
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -538,6 +562,9 @@ const Analytics = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
+                          {stats.totalEdits > stats.manualCorrections && (
+                            <div className="text-xs text-gray-500">({stats.totalEdits} edits)</div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <div className="space-y-2">
@@ -625,7 +652,7 @@ const Analytics = () => {
                       AI Video Requests
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Manual Corrections
+                      Videos w/ Corrections
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Performance
@@ -673,6 +700,9 @@ const Analytics = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
+                          {stats.totalEdits > stats.manualCorrections && (
+                            <div className="text-xs text-gray-500">({stats.totalEdits} edits)</div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <div className="space-y-2">
@@ -866,6 +896,7 @@ const Analytics = () => {
                                 <p className="text-2xl font-bold text-purple-700 mt-1">
                                   {stats.manualCorrections}
                                 </p>
+                                <p className="text-xs text-purple-500">({stats.totalEdits} total edits)</p>
                               </div>
                               <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
                                 <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -884,6 +915,7 @@ const Analytics = () => {
                             {stats.districtShops.map((shop) => {
                               const shopVideos = stats.districtVideos.filter(v => v.shop_id === shop.id);
                               const shopEdits = stats.districtEdits.filter(e => e.shop_id === shop.id);
+                              const uniqueVideoCount = getUniqueVideoCount(shopEdits);
                               
                               return (
                                 <div key={shop.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
@@ -917,14 +949,12 @@ const Analytics = () => {
                                       <div className="text-xs text-gray-500">Videos</div>
                                     </div>
                                     <div className="text-center p-2 bg-purple-50 rounded">
-                                      <div className="font-bold text-purple-600">{shopEdits.length}</div>
-                                      <div className="text-xs text-gray-500">Edits</div>
+                                      <div className="font-bold text-purple-600">{uniqueVideoCount}</div>
+                                      <div className="text-xs text-gray-500">Corrected</div>
                                     </div>
                                     <div className="text-center p-2 bg-green-50 rounded">
-                                      <div className="font-bold text-green-600">
-                                        {shopEdits.filter(e => e.feedback_reason === 'correct').length}
-                                      </div>
-                                      <div className="text-xs text-gray-500">Correct</div>
+                                      <div className="font-bold text-green-600">{shopEdits.length}</div>
+                                      <div className="text-xs text-gray-500">Total Edits</div>
                                     </div>
                                   </div>
 
@@ -1127,6 +1157,7 @@ const Analytics = () => {
                                 <p className="text-2xl font-bold text-purple-700 mt-1">
                                   {stats.manualCorrections}
                                 </p>
+                                <p className="text-xs text-purple-500">({stats.totalEdits} total edits)</p>
                               </div>
                               <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
                                 <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1266,6 +1297,7 @@ const Analytics = () => {
                         {edit.segment_index !== undefined && (
                           <p className="text-xs text-gray-500 mb-1">Segment {edit.segment_index + 1}</p>
                         )}
+                        <p className="text-xs text-gray-400 mb-2">Video ID: {edit.video_id?.substring(0, 8)}...</p>
                         {edit.feedback_reason ? (
                           <p className="text-gray-700">{edit.feedback_reason}</p>
                         ) : (
@@ -1320,7 +1352,12 @@ const Analytics = () => {
             </div>
             
             <div className="p-6">
+              <div className="mb-4">
+                <p className="text-sm text-gray-500">Video ID</p>
+                <p className="text-sm font-mono bg-gray-50 p-2 rounded">{selectedFeedback.video_id}</p>
+              </div>
               <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500 mb-1">Feedback</p>
                 <p className="text-gray-800">
                   {selectedFeedback.feedback_reason || 'No feedback provided'}
                 </p>
