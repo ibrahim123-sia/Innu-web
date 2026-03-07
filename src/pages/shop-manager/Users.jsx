@@ -269,7 +269,7 @@ const Users = () => {
     }
   }, [dispatch, targetShopId, myShop]);
 
-  const filteredShopUsers = shopUsers.filter(user => user.role === 'technician');
+  const filteredShopUsers = shopUsers.filter(user => user.role === 'technician' || user.role === 'shop_manager');
 
   useEffect(() => {
     if (success && lastOperation) {

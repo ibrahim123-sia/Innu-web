@@ -9,118 +9,12 @@ import {
 import { getShopById, selectCurrentShop } from "../../redux/slice/shopSlice";
 import {
   getVideosByOrderId,
-  getVideosByShop,
   selectVideos,
 } from "../../redux/slice/videoSlice";
 import OrderDetailModal from "../../components/shop-manager/OrderDetailModal";
 import axios from "axios";
 
-// Stats Cards - Static UI (only numbers will be dynamic)
-const StatsCards = ({ orderCounts }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
-    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md border-l-4 border-blue-600">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xs md:text-sm text-gray-500">Total RO's</h3>
-          <p className="text-xl md:text-3xl font-bold text-blue-600 mt-1 md:mt-2">
-            {orderCounts.total}
-          </p>
-        </div>
-        <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center">
-          <svg className="w-4 h-4 md:w-6 md:h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
-          </svg>
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md border-l-4 border-green-600">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xs md:text-sm text-gray-500">Posted</h3>
-          <p className="text-xl md:text-3xl font-bold text-green-600 mt-1 md:mt-2">
-            {orderCounts.completed}
-          </p>
-        </div>
-        <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center">
-          <svg className="w-4 h-4 md:w-6 md:h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md border-l-4 border-yellow-600">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xs md:text-sm text-gray-500">WIP</h3>
-          <p className="text-xl md:text-3xl font-bold text-yellow-600 mt-1 md:mt-2">
-            {orderCounts.inProgress}
-          </p>
-        </div>
-        <div className="w-8 h-8 md:w-12 md:h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-          <svg className="w-4 h-4 md:w-6 md:h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-          </svg>
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md border-l-4 border-purple-600">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xs md:text-sm text-gray-500">Estimates</h3>
-          <p className="text-xl md:text-3xl font-bold text-purple-600 mt-1 md:mt-2">
-            {orderCounts.estimate || 0}
-          </p>
-        </div>
-        <div className="w-8 h-8 md:w-12 md:h-12 bg-purple-100 rounded-full flex items-center justify-center">
-          <svg className="w-4 h-4 md:w-6 md:h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-          </svg>
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md border-l-4 border-indigo-600">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xs md:text-sm text-gray-500">With Videos</h3>
-          <p className="text-xl md:text-3xl font-bold text-indigo-600 mt-1 md:mt-2">
-            {orderCounts.withVideos}
-          </p>
-        </div>
-        <div className="w-8 h-8 md:w-12 md:h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-          <svg className="w-4 h-4 md:w-6 md:h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// Skeleton for Stats Cards (only numbers skeleton)
-const StatsSkeleton = () => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
-    {[1, 2, 3, 4, 5].map((i) => (
-      <div
-        key={i}
-        className="bg-white p-4 md:p-6 rounded-lg shadow-md border-l-4 border-gray-200"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="h-3 md:h-4 bg-gray-200 rounded w-16 md:w-24 mb-1 md:mb-2"></div>
-            <div className="h-6 md:h-8 bg-gray-300 rounded w-12 md:w-16"></div>
-          </div>
-          <div className="w-8 h-8 md:w-12 md:h-12 bg-gray-200 rounded-full"></div>
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
-// Filter Section - Static UI (no skeleton needed as it's always visible)
+// Filter Section
 const FilterSection = ({ searchTerm, setSearchTerm, statusFilter, setStatusFilter, videoFilter, setVideoFilter }) => (
   <div className="bg-white rounded-lg shadow-md p-3 md:p-4 mb-6">
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -180,7 +74,7 @@ const FilterSection = ({ searchTerm, setSearchTerm, statusFilter, setStatusFilte
   </div>
 );
 
-// Card Skeleton (only for cards)
+// Card Skeleton
 const CardSkeleton = () => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
     {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -235,7 +129,6 @@ const Orders = () => {
   const [shopManager, setShopManager] = useState(null);
   const [targetShopId, setTargetShopId] = useState(null);
 
-  // Get all orders from Redux
   const allOrders = useSelector(selectOrdersByShop) || [];
   const myShop = useSelector(selectCurrentShop);
   const loading = useSelector(selectOrderLoading);
@@ -253,7 +146,6 @@ const Orders = () => {
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const refreshIntervalRef = useRef(null);
-  const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
   useEffect(() => {
     if (shopId) {
@@ -280,7 +172,6 @@ const Orders = () => {
       const userData = response.data.data || response.data;
       setShopManager(userData);
       if (userData?.shop_id) setTargetShopId(userData.shop_id);
-    } catch {
     } finally {
       setLoadingUser(false);
     }
@@ -288,7 +179,7 @@ const Orders = () => {
 
   useEffect(() => {
     if (targetShopId) {
-      Promise.all([dispatch(getShopById(targetShopId))]).then(() => {
+      dispatch(getShopById(targetShopId)).then(() => {
         setTimeout(() => setIsInitialLoad(false), 300);
       });
     }
@@ -298,7 +189,6 @@ const Orders = () => {
     if (myShop?.id) {
       dispatch(getOrdersByShop(myShop.id)).then(() => {
         setIsDataReady(true);
-        setLastRefreshed(new Date());
       });
     }
   }, [dispatch, myShop, refreshTrigger]);
@@ -367,41 +257,33 @@ const Orders = () => {
   const getVideoCountForOrder = (orderId) =>
     videosByOrder[orderId]?.length || 0;
 
-  // First, get all orders that match the search term (across all statuses)
+  // First filter by search term across ALL orders (ignoring status filter)
   const searchFilteredOrders = allOrders?.filter((order) => {
-    if (!searchTerm) return true; // If no search term, include all orders
+    if (!searchTerm) return true;
     
     const searchLower = searchTerm.toLowerCase().trim();
-    
-    // Combine all searchable fields
     const customerName = order.customer_name?.toLowerCase() || "";
     const vehicleInfo = order.vehicle_info || {};
     const vehicleDesc =
       `${vehicleInfo.year || ""} ${vehicleInfo.make || ""} ${vehicleInfo.model || ""}`.toLowerCase();
-    
-    // Handle RO number search properly - check both fields
     const roNumber = (order.ro_number || order.tekmetric_ro_id || "").toLowerCase();
-    
-    // Add license plate to search
     const licensePlate = vehicleInfo.license_plate?.toLowerCase() || "";
     
     const searchableText = `${customerName} ${vehicleDesc} ${roNumber} ${licensePlate}`;
-    
     return searchableText.includes(searchLower);
   });
 
-  // Then apply status and video filters to the search results
+  // Then apply status and video filters
   const filteredOrders = searchFilteredOrders?.filter((order) => {
     let matches = true;
 
-    // Apply status filter - when searching, ignore the "active" filter to show all results
+    // Apply status filter - when searching, ignore the "active" filter
     if (statusFilter !== "all") {
       const status = order.status?.toLowerCase() || "";
       
-      // If we're searching and filter is "active", don't filter by status
+      // When searching with "active" filter, don't filter by status
       if (statusFilter === "active" && searchTerm) {
-        // Skip status filtering when searching with active filter
-        // This allows showing all matching orders regardless of status
+        // Skip status filtering when searching
       } else if (statusFilter === "active") {
         if (
           ![
@@ -427,51 +309,14 @@ const Orders = () => {
     }
 
     // Apply video filter
-    if (videoFilter !== "all") {
+    if (matches && videoFilter !== "all") {
       const videoCount = getVideoCountForOrder(order.id);
       if (videoFilter === "with-videos" && videoCount === 0) matches = false;
-      else if (videoFilter === "without-videos" && videoCount > 0)
-        matches = false;
+      else if (videoFilter === "without-videos" && videoCount > 0) matches = false;
     }
 
     return matches;
   });
-
-  const getOrderCounts = () => {
-    if (!allOrders)
-      return {
-        total: 0,
-        completed: 0,
-        inProgress: 0,
-        estimate: 0,
-        withVideos: 0,
-        withoutVideos: 0,
-        active: 0,
-      };
-
-    const withVideos = allOrders.filter(
-      (o) => getVideoCountForOrder(o.id) > 0,
-    ).length;
-
-    return {
-      total: allOrders.length,
-      completed: allOrders.filter((o) =>
-        ["completed", "posted", "done"].includes(o.status?.toLowerCase()),
-      ).length,
-      inProgress: allOrders.filter((o) =>
-        ["in_progress", "work-in-progress", "processing"].includes(
-          o.status?.toLowerCase(),
-        ),
-      ).length,
-      estimate: allOrders.filter((o) =>
-        ["pending", "estimate"].includes(o.status?.toLowerCase()),
-      ).length,
-      withVideos,
-      withoutVideos: allOrders.length - withVideos,
-    };
-  };
-
-  const orderCounts = getOrderCounts();
 
   const getStatusBadge = (status) => {
     const statusLower = status?.toLowerCase() || "";
@@ -491,7 +336,6 @@ const Orders = () => {
     }
   };
 
-  // Loading states
   if (loadingUser) {
     return (
       <div className="p-4 md:p-6 flex justify-center items-center h-64">
@@ -557,14 +401,10 @@ const Orders = () => {
     );
   }
 
-  // Main render with static UI + dynamic data
   return (
     <div className="p-3 md:p-4 lg:p-6 transition-opacity duration-300 ease-in-out">
       
-      {/* Stats Cards - Only numbers are dynamic */}
-      {isInitialLoad ? <StatsSkeleton /> : <StatsCards orderCounts={orderCounts} />}
-
-      {/* Filter Section - Always visible */}
+      {/* Filter Section */}
       <FilterSection
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -598,7 +438,6 @@ const Orders = () => {
                 key={order.id}
                 className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-all duration-200 hover:border-blue-300 group"
               >
-                {/* Vehicle Info Section */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 border-b border-gray-200">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -619,7 +458,6 @@ const Orders = () => {
                   </div>
                 </div>
 
-                {/* Customer and Order Info */}
                 <div className="p-2 bg-white">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center space-x-1 min-w-0">
@@ -648,7 +486,6 @@ const Orders = () => {
                     )}
                   </div>
 
-                  {/* RO Number */}
                   <div className="flex items-center space-x-1 mb-2">
                     <svg
                       className="w-3 h-3 md:w-4 md:h-4 text-gray-400 flex-shrink-0"
@@ -668,7 +505,6 @@ const Orders = () => {
                     </span>
                   </div>
 
-                  {/* Footer */}
                   <div className="flex justify-between items-center pt-1.5 border-t border-gray-100">
                     <div className="flex items-center space-x-1">
                       <svg
