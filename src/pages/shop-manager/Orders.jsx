@@ -366,30 +366,32 @@ const Orders = () => {
   const getVideoCountForOrder = (orderId) =>
     videosByOrder[orderId]?.length || 0;
 
-  // Fixed search to properly handle RO numbers
-  const filteredOrders = allOrders?.filter((order) => {
+  // First, get all orders that match the search term (across all statuses)
+  const searchFilteredOrders = allOrders?.filter((order) => {
+    if (!searchTerm) return true; // If no search term, include all orders
+    
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    // Combine all searchable fields
+    const customerName = order.customer_name?.toLowerCase() || "";
+    const vehicleInfo = order.vehicle_info || {};
+    const vehicleDesc =
+      `${vehicleInfo.year || ""} ${vehicleInfo.make || ""} ${vehicleInfo.model || ""}`.toLowerCase();
+    
+    // Handle RO number search properly - check both fields
+    const roNumber = (order.ro_number || order.tekmetric_ro_id || "").toLowerCase();
+    
+    // Also check if search term matches any part of the RO number
+    const searchableText = `${customerName} ${vehicleDesc} ${roNumber}`;
+    
+    return searchableText.includes(searchLower);
+  });
+
+  // Then apply status and video filters to the search results
+  const filteredOrders = searchFilteredOrders?.filter((order) => {
     let matches = true;
 
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase().trim();
-      
-      // Combine all searchable fields
-      const customerName = order.customer_name?.toLowerCase() || "";
-      const vehicleInfo = order.vehicle_info || {};
-      const vehicleDesc =
-        `${vehicleInfo.year || ""} ${vehicleInfo.make || ""} ${vehicleInfo.model || ""}`.toLowerCase();
-      
-      // Handle RO number search properly - check both fields
-      const roNumber = (order.ro_number || order.tekmetric_ro_id || "").toLowerCase();
-      
-      // Also check if search term matches any part of the RO number
-      const searchableText = `${customerName} ${vehicleDesc} ${roNumber}`;
-      
-      if (!searchableText.includes(searchLower)) {
-        matches = false;
-      }
-    }
-
+    // Apply status filter
     if (statusFilter !== "all") {
       const status = order.status?.toLowerCase() || "";
       
@@ -417,6 +419,7 @@ const Orders = () => {
       }
     }
 
+    // Apply video filter
     if (videoFilter !== "all") {
       const videoCount = getVideoCountForOrder(order.id);
       if (videoFilter === "with-videos" && videoCount === 0) matches = false;
@@ -550,7 +553,9 @@ const Orders = () => {
   // Main render with static UI + dynamic data
   return (
     <div className="p-3 md:p-4 lg:p-6 transition-opacity duration-300 ease-in-out">
-     
+      
+      {/* Stats Cards - Only numbers are dynamic */}
+      {isInitialLoad ? <StatsSkeleton /> : <StatsCards orderCounts={orderCounts} />}
 
       {/* Filter Section - Always visible */}
       <FilterSection
@@ -564,9 +569,10 @@ const Orders = () => {
 
       {/* Results count */}
       <div className="mb-3 md:mb-4 text-xs md:text-sm text-gray-600">
-        Showing {filteredOrders.length} of {allOrders.length} orders
-        {statusFilter === "active" && " (WIP & Estimates)"}
-        {searchTerm && ` • Search: "${searchTerm}"`}
+        Showing {filteredOrders.length} orders
+        {searchTerm && ` matching "${searchTerm}"`}
+        {statusFilter !== "all" && ` • ${statusFilter.replace(/-/g, ' ')} status`}
+        {videoFilter !== "all" && ` • ${videoFilter.replace(/-/g, ' ')}`}
       </div>
 
       {/* Orders Cards */}

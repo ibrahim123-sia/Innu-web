@@ -117,45 +117,38 @@ const OrderDetailModal = ({ order, videos, onClose, onVideoUpdate }) => {
     };
   }, [searchQuery, eduVideos]);
 
-const performSearch = (query) => {
-  setIsSearching(true);
-  
-  const searchTerm = query.toLowerCase().trim();
-  
-  // Ensure eduVideos is an array
-  const videosArray = Array.isArray(eduVideos) ? eduVideos : [];
-  
-  if (videosArray.length === 0) {
-    console.log('No educational videos available to search');
-    setSearchResults([]);
-    setIsSearching(false);
-    return;
-  }
-  
-  const results = videosArray.filter(video => {
-    const title = video.title?.toLowerCase() || '';
-    const description = video.description?.toLowerCase() || '';
-    const keywords = Array.isArray(video.keywords) 
-      ? video.keywords.map(k => k.toLowerCase()).join(' ') 
-      : '';
-    const category = video.category?.toLowerCase() || '';
+  const performSearch = (query) => {
+    setIsSearching(true);
     
-    return title.includes(searchTerm) || 
-           description.includes(searchTerm) || 
-           keywords.includes(searchTerm) ||
-           category.includes(searchTerm);
-  });
-  
-  setSearchResults(results);
-  setShowSearchResults(true);
-  setIsSearching(false);
-};
-
-  const handleSearchSelect = (video) => {
-    setSelectedReplacementVideo(video);
-    setSearchQuery('');
-    setShowSearchResults(false);
-    setEditStep('feedback');
+    const searchTerm = query.toLowerCase().trim();
+    
+    // Ensure eduVideos is an array
+    const videosArray = Array.isArray(eduVideos) ? eduVideos : [];
+    
+    if (videosArray.length === 0) {
+      console.log('No educational videos available to search');
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    const results = videosArray.filter(video => {
+      const title = video.title?.toLowerCase() || '';
+      const description = video.description?.toLowerCase() || '';
+      const keywords = Array.isArray(video.keywords) 
+        ? video.keywords.map(k => k.toLowerCase()).join(' ') 
+        : '';
+      const category = video.category?.toLowerCase() || '';
+      
+      return title.includes(searchTerm) || 
+             description.includes(searchTerm) || 
+             keywords.includes(searchTerm) ||
+             category.includes(searchTerm);
+    });
+    
+    setSearchResults(results);
+    setShowSearchResults(true);
+    setIsSearching(false);
   };
 
   const handleSearchInputChange = (e) => {
@@ -1142,11 +1135,11 @@ const performSearch = (query) => {
                 </div>
               )}
 
-              {/* Step 1: Categories with Search Bar - MEDIUM SIZE */}
+              {/* Step 1: Categories with Search Bar - Desktop Optimized */}
               {editStep === 'categories' && !editLoading && !editSuccess && (
                 <div>
-                  {/* Search Bar - Medium Size */}
-                  <div className="mb-6 relative max-w-2xl mx-auto">
+                  {/* Search Bar - Desktop Optimized */}
+                  <div className="mb-6 relative max-w-3xl mx-auto w-full">
                     <div className="relative">
                       <input
                         ref={searchInputRef}
@@ -1154,20 +1147,20 @@ const performSearch = (query) => {
                         value={searchQuery}
                         onChange={handleSearchInputChange}
                         onFocus={handleSearchFocus}
-                        placeholder={isFetchingEduVideos ? "Loading educational videos..." : "Search videos by title, description, or keywords..."}
+                        placeholder={isFetchingEduVideos ? "Loading educational videos..." : "Search videos by title, description, or keywords (min. 2 characters)..."}
                         disabled={isFetchingEduVideos}
-                        className={`w-full pl-10 pr-10 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-base ${
-                          isFetchingEduVideos ? 'bg-gray-100 cursor-not-allowed' : ''
+                        className={`w-full pl-12 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-base shadow-sm ${
+                          isFetchingEduVideos ? 'bg-gray-100 cursor-not-allowed' : 'hover:border-indigo-200'
                         }`}
                       />
-                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                      <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
                         {isSearching || isFetchingEduVideos ? (
-                          <svg className="animate-spin w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                          <svg className="animate-spin w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
                         ) : (
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                           </svg>
                         )}
@@ -1175,7 +1168,7 @@ const performSearch = (query) => {
                       {searchQuery && (
                         <button
                           onClick={() => setSearchQuery('')}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-1 transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1184,30 +1177,37 @@ const performSearch = (query) => {
                       )}
                     </div>
 
-                    {/* Search Results Dropdown */}
+                    {/* Search Results Dropdown - Desktop Optimized */}
                     {showSearchResults && searchResults.length > 0 && (
-                      <div className="absolute z-10 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-80 overflow-y-auto">
+                      <div className="absolute z-10 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-2xl max-h-96 overflow-y-auto">
                         {searchResults.map((video) => {
                           const thumbnailUrl = getThumbnailUrl(video);
                           
                           return (
                             <button
                               key={video.id}
-                              onClick={() => handleSearchSelect(video)}
-                              className="w-full flex items-start gap-3 p-3 hover:bg-indigo-50 transition-colors border-b border-gray-100 last:border-0 text-left"
+                              onClick={() => {
+                                setSelectedReplacementVideo(video);
+                                setSearchQuery('');
+                                setShowSearchResults(false);
+                                setEditStep('feedback');
+                              }}
+                              className={`w-full flex items-start gap-4 p-4 hover:bg-indigo-50 transition-colors border-b border-gray-100 last:border-0 text-left ${
+                                selectedReplacementVideo?.id === video.id ? 'bg-indigo-50' : ''
+                              }`}
                             >
                               {/* Thumbnail */}
-                              <div className="relative w-16 h-12 bg-gray-900 rounded-lg overflow-hidden flex-shrink-0">
+                              <div className="relative w-24 h-16 bg-gray-900 rounded-lg overflow-hidden flex-shrink-0">
                                 {thumbnailUrl ? (
                                   <img 
                                     src={thumbnailUrl} 
                                     alt={video.title || "Video thumbnail"}
                                     className="w-full h-full object-cover"
-                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/64x48?text=Video'; }}
+                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/96x64?text=Video'; }}
                                   />
                                 ) : (
                                   <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
-                                    <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
                                       <path d="M4 4a2 2 0 012-2h12a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
                                     </svg>
                                   </div>
@@ -1216,43 +1216,77 @@ const performSearch = (query) => {
                               
                               {/* Video Info */}
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 text-sm mb-1 line-clamp-1">
+                                <p className="font-medium text-gray-900 group-hover:text-indigo-700 mb-1 line-clamp-2">
                                   {video.title || `Video #${video.id}`}
                                 </p>
                                 {video.description && (
-                                  <p className="text-xs text-gray-600 mb-1 line-clamp-1">
+                                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">
                                     {video.description}
                                   </p>
                                 )}
-                                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
                                   {video.category && (
-                                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs">
+                                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
                                       {video.category}
                                     </span>
                                   )}
                                   {video.duration_seconds && (
                                     <span className="flex items-center gap-1">
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                       </svg>
                                       {Math.round(video.duration_seconds)}s
                                     </span>
                                   )}
+                                  {video.created_at && (
+                                    <span className="flex items-center gap-1">
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
+                                      {new Date(video.created_at).toLocaleDateString()}
+                                    </span>
+                                  )}
                                 </div>
+                                {video.keywords?.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    {video.keywords.slice(0, 3).map((keyword, idx) => (
+                                      <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                        {keyword}
+                                      </span>
+                                    ))}
+                                    {video.keywords.length > 3 && (
+                                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                        +{video.keywords.length - 3}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
+                              
+                              {/* Selection Indicator */}
+                              {selectedReplacementVideo?.id === video.id && (
+                                <div className="flex-shrink-0">
+                                  <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              )}
                             </button>
                           );
                         })}
                       </div>
                     )}
 
+                    {/* No Results Message */}
                     {showSearchResults && searchQuery.trim().length >= 2 && searchResults.length === 0 && !isSearching && !isFetchingEduVideos && (
-                      <div className="absolute z-10 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl p-6 text-center">
-                        <svg className="w-10 h-10 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="absolute z-10 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-2xl p-8 text-center">
+                        <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <p className="text-gray-600">No videos found matching "<span className="font-medium">{searchQuery}</span>"</p>
-                        <p className="text-xs text-gray-500 mt-2">Try different keywords or browse categories below</p>
+                        <p className="text-gray-700 text-lg mb-2">No videos found matching "<span className="font-semibold">{searchQuery}</span>"</p>
+                        <p className="text-sm text-gray-500">Try different keywords or browse categories below</p>
                       </div>
                     )}
                   </div>
