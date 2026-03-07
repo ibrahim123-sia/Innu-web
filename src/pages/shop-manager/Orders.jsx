@@ -120,7 +120,7 @@ const StatsSkeleton = () => (
   </div>
 );
 
-// Filter Section - Static UI (no skeleton needed as it's always visible)
+// Filter Section - Static UI
 const FilterSection = ({ searchTerm, setSearchTerm, statusFilter, setStatusFilter, videoFilter, setVideoFilter }) => (
   <div className="bg-white rounded-lg shadow-md p-3 md:p-4 mb-6">
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -146,7 +146,7 @@ const FilterSection = ({ searchTerm, setSearchTerm, statusFilter, setStatusFilte
           onChange={(e) => setStatusFilter(e.target.value)}
           className="w-full px-3 md:px-4 py-1.5 md:py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
         >
-          <option value="active">WIP & Estimates</option>
+          <option value="active">WIP & Estimates (Default)</option>
           <option value="all">All Status</option>
           <option value="work-in-progress">Work-In-Progress</option>
           <option value="estimate">Estimate</option>
@@ -179,45 +179,33 @@ const FilterSection = ({ searchTerm, setSearchTerm, statusFilter, setStatusFilte
   </div>
 );
 
-// Card Skeleton (only for cards)
-const CardSkeleton = () => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-      <div
-        key={i}
-        className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200"
-      >
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 border-b border-gray-200">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="h-4 bg-gray-200 rounded w-24 mb-1"></div>
-              <div className="h-3 bg-gray-200 rounded w-16"></div>
-            </div>
-            <div className="h-5 bg-gray-200 rounded-full w-16"></div>
-          </div>
-        </div>
-        <div className="p-2">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center space-x-1">
-              <div className="w-4 h-4 bg-gray-200 rounded"></div>
-              <div className="h-3 bg-gray-200 rounded w-20"></div>
-            </div>
-            <div className="h-3 bg-gray-200 rounded w-16"></div>
-          </div>
-          <div className="flex items-center space-x-1 mb-2">
-            <div className="w-4 h-4 bg-gray-200 rounded"></div>
-            <div className="h-3 bg-gray-200 rounded w-24"></div>
-          </div>
-          <div className="flex justify-between items-center pt-1.5 border-t">
-            <div className="flex items-center space-x-1">
-              <div className="w-4 h-4 bg-gray-200 rounded"></div>
-              <div className="h-3 bg-gray-200 rounded w-4"></div>
-            </div>
-            <div className="h-6 bg-gray-200 rounded w-16"></div>
-          </div>
-        </div>
-      </div>
-    ))}
+// Table Skeleton
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <th key={i} className="px-4 md:px-6 py-3">
+                <div className="h-3 md:h-4 bg-gray-200 rounded animate-pulse w-16 md:w-20"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {[1, 2, 3, 4, 5].map((row) => (
+            <tr key={row}>
+              {[1, 2, 3, 4, 5, 6, 7].map((col) => (
+                <td key={col} className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                  <div className="h-3 md:h-4 bg-gray-200 rounded animate-pulse w-20 md:w-24"></div>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   </div>
 );
 
@@ -293,6 +281,7 @@ const Orders = () => {
     }
   }, [dispatch, targetShopId]);
 
+  // Fetch ALL orders when shop is available or refresh is triggered
   useEffect(() => {
     if (myShop?.id) {
       dispatch(getOrdersByShop(myShop.id)).then(() => {
@@ -302,6 +291,7 @@ const Orders = () => {
     }
   }, [dispatch, myShop, refreshTrigger]);
 
+  // Fetch videos for all orders when orders change
   useEffect(() => {
     if (allOrders.length > 0) {
       fetchVideosForAllOrders();
@@ -366,30 +356,33 @@ const Orders = () => {
   const getVideoCountForOrder = (orderId) =>
     videosByOrder[orderId]?.length || 0;
 
-  // Fixed search to properly handle RO numbers
-  const filteredOrders = allOrders?.filter((order) => {
+  // First apply search to ALL orders (search works across all statuses)
+  const ordersAfterSearch = allOrders?.filter((order) => {
+    if (!searchTerm) return true;
+
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    // Combine all searchable fields from the order
+    const customerName = order.customer_name?.toLowerCase() || "";
+    const vehicleInfo = order.vehicle_info || {};
+    const vehicleDesc =
+      `${vehicleInfo.year || ""} ${vehicleInfo.make || ""} ${vehicleInfo.model || ""}`.toLowerCase();
+    const licensePlate = vehicleInfo.license_plate?.toLowerCase() || "";
+    
+    // Handle RO number search - check both fields
+    const roNumber = (order.ro_number || order.tekmetric_ro_id || "").toLowerCase();
+    
+    // Create a single searchable text string
+    const searchableText = `${customerName} ${vehicleDesc} ${licensePlate} ${roNumber}`;
+    
+    return searchableText.includes(searchLower);
+  });
+
+  // Then apply status and video filters to the searched orders
+  const filteredOrders = ordersAfterSearch?.filter((order) => {
     let matches = true;
 
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase().trim();
-      
-      // Combine all searchable fields
-      const customerName = order.customer_name?.toLowerCase() || "";
-      const vehicleInfo = order.vehicle_info || {};
-      const vehicleDesc =
-        `${vehicleInfo.year || ""} ${vehicleInfo.make || ""} ${vehicleInfo.model || ""}`.toLowerCase();
-      
-      // Handle RO number search properly - check both fields
-      const roNumber = (order.ro_number || order.tekmetric_ro_id || "").toLowerCase();
-      
-      // Also check if search term matches any part of the RO number
-      const searchableText = `${customerName} ${vehicleDesc} ${roNumber}`;
-      
-      if (!searchableText.includes(searchLower)) {
-        matches = false;
-      }
-    }
-
+    // Status filter
     if (statusFilter !== "all") {
       const status = order.status?.toLowerCase() || "";
       
@@ -417,6 +410,7 @@ const Orders = () => {
       }
     }
 
+    // Video filter
     if (videoFilter !== "all") {
       const videoCount = getVideoCountForOrder(order.id);
       if (videoFilter === "with-videos" && videoCount === 0) matches = false;
@@ -463,25 +457,32 @@ const Orders = () => {
 
   const orderCounts = getOrderCounts();
 
+  const formatLastRefreshed = () =>
+    lastRefreshed.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+  // Status badge color helper
   const getStatusBadge = (status) => {
     const statusLower = status?.toLowerCase() || "";
 
     if (["completed", "posted", "done"].includes(statusLower)) {
-      return "bg-green-100 text-green-800 border-green-200";
+      return "bg-green-100 text-green-800";
     } else if (
       ["in_progress", "work-in-progress", "processing"].includes(statusLower)
     ) {
-      return "bg-blue-100 text-blue-800 border-blue-200";
+      return "bg-blue-100 text-blue-800";
     } else if (["pending", "estimate"].includes(statusLower)) {
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-yellow-100 text-yellow-800";
     } else if (["cancelled", "canceled"].includes(statusLower)) {
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800";
     } else {
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-100 text-gray-800";
     }
   };
 
-  // Loading states
   if (loadingUser) {
     return (
       <div className="p-4 md:p-6 flex justify-center items-center h-64">
@@ -547,17 +548,33 @@ const Orders = () => {
     );
   }
 
-  // Main render with static UI + dynamic data
   return (
     <div className="p-3 md:p-4 lg:p-6 transition-opacity duration-300 ease-in-out">
-      {/* Stats Cards - Static UI with dynamic numbers */}
+      {/* Auto-refresh indicator */}
+      <div className="mb-4 flex justify-end">
+        <div className="flex items-center text-xs text-gray-500 bg-gray-50 px-2 md:px-3 py-1 rounded-lg">
+          <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-green-500 rounded-full animate-pulse mr-1.5 md:mr-2"></div>
+          <span>Last updated: {formatLastRefreshed()}</span>
+          <button 
+            onClick={() => setRefreshTrigger(prev => prev + 1)}
+            className="ml-2 text-blue-600 hover:text-blue-800"
+            title="Refresh now"
+          >
+            <svg className="w-3 h-3 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
       {isInitialLoad || (loading && !allOrders.length && !isDataReady) ? (
         <StatsSkeleton />
       ) : (
         <StatsCards orderCounts={orderCounts} />
       )}
 
-      {/* Filter Section - Always visible */}
+      {/* Filter Section */}
       <FilterSection
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -574,137 +591,79 @@ const Orders = () => {
         {searchTerm && ` • Search: "${searchTerm}"`}
       </div>
 
-      {/* Orders Cards */}
+      {/* Orders Table */}
       {isInitialLoad || (loading && !allOrders.length && !isDataReady) ? (
-        <CardSkeleton />
+        <TableSkeleton />
       ) : filteredOrders?.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-          {filteredOrders.map((order) => {
-            const vehicleInfo = order.vehicle_info || {};
-            const videoCount = getVideoCountForOrder(order.id);
-            const statusBadgeColor = getStatusBadge(order.status);
-
-            return (
-              <div
-                key={order.id}
-                className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-all duration-200 hover:border-blue-300 group"
-              >
-                {/* Vehicle Info Section */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 border-b border-gray-200">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-xs md:text-sm text-gray-800 truncate">
-                        {vehicleInfo.year && vehicleInfo.make
-                          ? `${vehicleInfo.year} ${vehicleInfo.make}`
-                          : "Vehicle Info"}
-                      </h3>
-                      <p className="text-gray-600 text-xs truncate">
-                        {vehicleInfo.model || "Model N/A"}
-                      </p>
-                    </div>
-                    <span
-                      className={`px-1.5 md:px-2 py-0.5 text-[10px] md:text-xs font-semibold rounded-full border ${statusBadgeColor} ml-1 whitespace-nowrap`}
-                    >
-                      {order.status?.replace(/_/g, " ") || "Unknown"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Customer and Order Info */}
-                <div className="p-2 bg-white">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center space-x-1 min-w-0">
-                      <svg
-                        className="w-3 h-3 md:w-4 md:h-4 text-gray-400 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                        />
-                      </svg>
-                      <span className="text-gray-800 text-xs font-medium truncate">
-                        {order.customer_name || "N/A"}
-                      </span>
-                    </div>
-
-                    {vehicleInfo.license_plate && (
-                      <span className="text-gray-800 text-[10px] md:text-xs font-medium truncate ml-1">
-                        {vehicleInfo.license_plate}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* RO Number */}
-                  <div className="flex items-center space-x-1 mb-2">
-                    <svg
-                      className="w-3 h-3 md:w-4 md:h-4 text-gray-400 flex-shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <span className="text-gray-800 text-xs font-medium truncate">
-                      RO #{order.ro_number || order.tekmetric_ro_id || "N/A"}
-                    </span>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="flex justify-between items-center pt-1.5 border-t border-gray-100">
-                    <div className="flex items-center space-x-1">
-                      <svg
-                        className={`w-3 h-3 md:w-4 md:h-4 ${videoCount > 0 ? "text-indigo-600" : "text-gray-300"} flex-shrink-0`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <span
-                        className={`text-[10px] md:text-xs font-medium ${videoCount > 0 ? "text-indigo-600" : "text-gray-400"}`}
-                      >
-                        {videoCount}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleViewOrder(order)}
-                      className="px-2 md:px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-[10px] md:text-xs font-medium transition-all duration-200 transform group-hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center space-x-1"
-                    >
-                      <span>Open</span>
-                      <svg
-                        className="w-2 h-2 md:w-3 md:h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M14 5l7 7m0 0l-7 7m7-7H3"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RO Number</th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Videos</th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredOrders.map((order) => {
+                  const vehicleInfo = order.vehicle_info || {};
+                  const videoCount = getVideoCountForOrder(order.id);
+                  
+                  return (
+                    <tr key={order.id} className="hover:bg-gray-50 transition-colors duration-150">
+                      <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                        <div className="text-xs md:text-sm font-medium text-gray-900">#{order.ro_number || order.tekmetric_ro_id || "N/A"}</div>
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                        <div className="text-xs md:text-sm font-medium text-gray-900">{order.customer_name || "N/A"}</div>
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-xs md:text-sm font-medium text-gray-900">
+                            {vehicleInfo.year && vehicleInfo.make ? `${vehicleInfo.year} ${vehicleInfo.make}` : "N/A"}
+                          </div>
+                          <div className="text-xs text-gray-500">{vehicleInfo.model || ""}</div>
+                        </div>
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(order.status)}`}>
+                          {order.status?.replace(/_/g, " ") || "Unknown"}
+                        </span>
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-1">
+                          <svg className={`w-4 h-4 ${videoCount > 0 ? 'text-indigo-600' : 'text-gray-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          <span className={`text-xs font-medium ${videoCount > 0 ? 'text-indigo-600' : 'text-gray-400'}`}>
+                            {videoCount}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs text-gray-500">
+                        {order.created_at ? new Date(order.created_at).toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric', year: 'numeric'
+                        }) : "N/A"}
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleViewOrder(order)}
+                          className="px-2 md:px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-xs font-medium transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="py-8 md:py-12 text-center transition-opacity duration-300 bg-white rounded-lg shadow-md">
