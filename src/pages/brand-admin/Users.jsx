@@ -1,24 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { useParams } from 'react-router-dom';
-import { 
-  getUsersByShopId,
+import React, { useState, useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import {
+  getBrandUsers,
   createUser,
   updateUser,
-  toggleUserActiveStatus,
-  selectUserLoading,
-  selectUserError,
-  selectUserSuccess,
-  selectUsersByShopId
-} from '../../redux/slice/userSlice';
+} from "../../redux/slice/userSlice";
 import {
-  getShopById,
-  selectCurrentShop
-} from '../../redux/slice/shopSlice';
+  getShopsByBrand,
+  selectShopsForBrand,
+} from "../../redux/slice/shopSlice";
+import {
+  selectDistrictsByBrand,
+  getDistrictsByBrand,
+} from "../../redux/slice/districtSlice";
 
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
 
-const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const DEFAULT_PROFILE_PIC =
+  "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
 const validateEmail = (email) => {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -33,7 +32,7 @@ const validateName = (name) => {
 const validateNameLength = (name, fieldName) => {
   if (name.length < 2) return `${fieldName} must be at least 2 characters long`;
   if (name.length > 50) return `${fieldName} must be less than 50 characters`;
-  return '';
+  return "";
 };
 
 const TableRowSkeleton = () => (
@@ -43,7 +42,7 @@ const TableRowSkeleton = () => (
         <div className="w-10 h-10 bg-gray-200 rounded-full animate-pulse mr-3"></div>
         <div>
           <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
-          <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-40"></div>
         </div>
       </div>
     </td>
@@ -51,10 +50,13 @@ const TableRowSkeleton = () => (
       <div className="h-6 bg-gray-200 rounded-full animate-pulse w-20"></div>
     </td>
     <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
     </td>
     <td className="px-6 py-4 whitespace-nowrap">
       <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
     </td>
     <td className="px-6 py-4 whitespace-nowrap">
       <div className="flex space-x-2">
@@ -71,7 +73,7 @@ const TableSkeleton = () => (
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            {["User", "Role", "Status", "Joined", "Actions"].map((header) => (
+            {["User", "Role", "Assigned Shop", "Assigned District", "Status", "Actions"].map((header) => (
               <th key={header} className="px-6 py-3 text-left">
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
               </th>
@@ -79,7 +81,7 @@ const TableSkeleton = () => (
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2, 3, 4, 5].map((i) => (
             <TableRowSkeleton key={i} />
           ))}
         </tbody>
@@ -89,45 +91,19 @@ const TableSkeleton = () => (
 );
 
 const HeaderSkeleton = () => (
-  <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+  <div className="mb-6 flex justify-between items-center">
     <div className="flex items-center space-x-4">
-      <div className="h-8 bg-gray-200 rounded animate-pulse w-48"></div>
-      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-24"></div>
+      <div className="h-8 bg-gray-200 rounded animate-pulse w-32"></div>
+      <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
     </div>
-    <div className="flex space-x-4">
-      <div className="h-6 bg-gray-200 rounded animate-pulse w-24"></div>
-      <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
-    </div>
-  </div>
-);
-
-const SearchSkeleton = () => (
-  <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div className="md:col-span-2">
-        <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
-        <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
-      </div>
-      <div className="flex items-end">
-        <div className="flex space-x-4 w-full">
-          <div className="text-center flex-1">
-            <div className="h-8 bg-gray-200 rounded animate-pulse w-16 mx-auto mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded animate-pulse w-12 mx-auto"></div>
-          </div>
-          <div className="text-center flex-1">
-            <div className="h-8 bg-gray-200 rounded animate-pulse w-16 mx-auto mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded animate-pulse w-12 mx-auto"></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-32"></div>
   </div>
 );
 
 const FormSkeleton = () => (
   <div className="bg-white rounded-lg shadow-md p-6 mb-6">
     <div className="h-8 bg-gray-200 rounded animate-pulse w-48 mb-4"></div>
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="space-y-4">
         <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
         <div className="border-2 border-dashed border-gray-200 rounded-lg p-6">
@@ -137,10 +113,10 @@ const FormSkeleton = () => (
           </div>
         </div>
       </div>
-      <div className="space-y-6">
+      <div className="lg:col-span-2 space-y-6">
         <div className="space-y-4">
           <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
               <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
@@ -149,6 +125,17 @@ const FormSkeleton = () => (
               <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
               <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
             </div>
+          </div>
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
+          </div>
+        </div>
+        <div className="space-y-4 pt-6 border-t">
+          <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
+          <div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
+            <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-full"></div>
           </div>
           <div>
             <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-2"></div>
@@ -173,149 +160,178 @@ const FormSkeleton = () => (
 
 const Users = () => {
   const dispatch = useDispatch();
-  const { shopId } = useParams();
-  const currentUser = useSelector(state => state.user.currentUser);
-  
-  const targetShopId = shopId || currentUser?.shop_id;
-  
-  const myShop = useSelector(selectCurrentShop);
-  
-  const shopUsers = useSelector(state => selectUsersByShopId(targetShopId)(state)) || [];
-  
-  const loading = useSelector(selectUserLoading);
-  const error = useSelector(selectUserError);
-  const success = useSelector(selectUserSuccess);
-  
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isDataReady, setIsDataReady] = useState(false);
+  const currentUser = useSelector((state) => state.user.currentUser);
+  const brandId = currentUser?.brand_id;
+
+  const users = useSelector((state) => state.user.users) || [];
+  const loading = useSelector((state) => state.user.loading);
+  const error = useSelector((state) => state.user.error);
+
+  const shops = useSelector(selectShopsForBrand(brandId)) || [];
+  const districts = useSelector(selectDistrictsByBrand) || [];
+
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [showViewModal, setShowViewModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [lastOperation, setLastOperation] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
-  
+  const [localLoading, setLocalLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [profilePicPreview, setProfilePicPreview] = useState(null);
   const [editProfilePicFile, setEditProfilePicFile] = useState(null);
   const [editProfilePicPreview, setEditProfilePicPreview] = useState(null);
-  
+
+  const [formData, setFormData] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    role: "user",
+    shop_id: "",
+    district_id: "",
+    is_active: true,
+  });
+
+  const [editFormData, setEditFormData] = useState({});
+  const [viewUserData, setViewUserData] = useState(null);
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+  const [emailExistsError, setEmailExistsError] = useState("");
+
   const [validationErrors, setValidationErrors] = useState({
-    first_name: '', last_name: '', email: ''
+    first_name: "",
+    last_name: "",
+    email: "",
   });
 
   const [editValidationErrors, setEditValidationErrors] = useState({
-    first_name: '', last_name: ''
+    first_name: "",
+    last_name: "",
   });
-  
-  const [formData, setFormData] = useState({
-    first_name: '', last_name: '', email: '', role: 'technician', is_active: true
-  });
-  
-  const [editFormData, setEditFormData] = useState({
-    first_name: '', last_name: '', email: '', role: '', is_active: true,
-    original_first_name: '', original_last_name: '', original_role: '',
-    original_is_active: true, profile_pic: ''
-  });
-
-  const [viewUserData, setViewUserData] = useState(null);
-  
-  const [formError, setFormError] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [emailExistsError, setEmailExistsError] = useState('');
 
   const roles = [
-    { value: 'technician', label: 'Technician' },
-    { value: 'shop_manager', label: 'Shop Manager' },
+    { value: "district_manager", label: "District Manager" },
+    { value: "shop_manager", label: "Shop Manager" },
+    { value: "technician", label: "Technician" },
+    { value: "user", label: "User" },
   ];
 
+  useEffect(() => {
+    if (currentUser?.brand_id) {
+      fetchData();
+    }
+  }, [dispatch, currentUser?.brand_id]);
+
+  const fetchData = async () => {
+    setLocalLoading(true);
+    setIsInitialLoad(true);
+    try {
+      await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
+      await Promise.all([
+        dispatch(getShopsByBrand(currentUser.brand_id)),
+        dispatch(getDistrictsByBrand(currentUser.brand_id)),
+      ]);
+    } catch {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to load users. Please try again.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
+      });
+    } finally {
+      setLocalLoading(false);
+      setIsInitialLoad(false);
+    }
+  };
+
   const validateFirstName = (name) => {
-    if (!name?.trim()) return 'First name is required';
-    if (!validateName(name)) return 'First name can only contain letters, spaces, hyphens, and apostrophes';
-    return validateNameLength(name, 'First name');
+    if (!name?.trim()) return "First name is required";
+    if (!validateName(name))
+      return "First name can only contain letters, spaces, hyphens, and apostrophes";
+    return validateNameLength(name, "First name");
   };
 
   const validateLastName = (name) => {
-    if (!name?.trim()) return 'Last name is required';
-    if (!validateName(name)) return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
-    return validateNameLength(name, 'Last name');
+    if (!name?.trim()) return "Last name is required";
+    if (!validateName(name))
+      return "Last name can only contain letters, spaces, hyphens, and apostrophes";
+    return validateNameLength(name, "Last name");
   };
 
   const validateEmailField = (email) => {
-    if (!email?.trim()) return 'Email is required';
-    if (!validateEmail(email)) return 'Please enter a valid email address (e.g., name@example.com)';
-    if (email.length > 100) return 'Email must be less than 100 characters';
-    return '';
-  };
-
-  const validateProfilePic = (file) => {
-    if (!file) return '';
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) return 'Please upload only image files (JPEG, PNG, GIF, WEBP)';
-    if (file.size > 5 * 1024 * 1024) return 'Profile picture must be less than 5MB';
-    return '';
+    if (!email?.trim()) return "Email is required";
+    if (!validateEmail(email))
+      return "Please enter a valid email address (e.g., name@example.com)";
+    if (email.length > 100) return "Email must be less than 100 characters";
+    return "";
   };
 
   const validateForm = () => {
     const errors = {
       first_name: validateFirstName(formData.first_name),
       last_name: validateLastName(formData.last_name),
-      email: validateEmailField(formData.email)
+      email: validateEmailField(formData.email),
     };
-    
+
     setValidationErrors(errors);
-    return !Object.values(errors).some(error => error);
+    return !Object.values(errors).some((error) => error);
   };
 
   const validateEditForm = () => {
     const errors = {
-      first_name: editFormData.first_name ? validateFirstName(editFormData.first_name) : '',
-      last_name: editFormData.last_name ? validateLastName(editFormData.last_name) : ''
+      first_name: editFormData.first_name
+        ? validateFirstName(editFormData.first_name)
+        : "",
+      last_name: editFormData.last_name
+        ? validateLastName(editFormData.last_name)
+        : "",
     };
-    
+
     setEditValidationErrors(errors);
-    return !Object.values(errors).some(error => error);
+    return !Object.values(errors).some((error) => error);
   };
-  
+
   const generateRandomPassword = () => {
-    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-    const numbers = '0123456789';
-    const special = '!@#$%^&*';
-    
-    let password = '';
+    const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lowercase = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    const special = "!@#$%^&*";
+
+    let password = "";
     password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
     password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
     password += numbers.charAt(Math.floor(Math.random() * numbers.length));
     password += special.charAt(Math.floor(Math.random() * special.length));
-    
+
     const allChars = uppercase + lowercase + numbers + special;
     for (let i = 0; i < 6; i++) {
       password += allChars.charAt(Math.floor(Math.random() * allChars.length));
     }
-    
-    return password.split('').sort(() => Math.random() - 0.5).join('');
+
+    return password.split("").sort(() => Math.random() - 0.5).join("");
   };
 
   const checkEmailExists = (email, excludeUserId = null) => {
     if (!email) return false;
-    const exists = shopUsers.some(user => 
-      user.email?.toLowerCase() === email.toLowerCase() && 
-      user.id !== excludeUserId
+    const exists = users.some(
+      (u) =>
+        u.email?.toLowerCase() === email.toLowerCase() &&
+        u.id !== excludeUserId,
     );
-    setEmailExistsError(exists ? 'A user with this email already exists. Please use a different email.' : '');
+    setEmailExistsError(
+      exists
+        ? "A user with this email already exists in your brand. Please use a different email."
+        : "",
+    );
     return exists;
-  };
-
-  const getRoleDisplay = (role) => {
-    const roleObj = roles.find(r => r.value === role);
-    return roleObj ? roleObj.label : role?.replace(/_/g, ' ') || 'Unknown';
   };
 
   const getProfilePicUrl = (profilePicData) => {
     if (!profilePicData) return DEFAULT_PROFILE_PIC;
-    if (typeof profilePicData === 'string') {
-      if (profilePicData.startsWith('{')) {
+
+    if (typeof profilePicData === "string") {
+      if (profilePicData.startsWith("{")) {
         try {
           const parsed = JSON.parse(profilePicData);
           return parsed.publicUrl || parsed.signedUrl || parsed.filePath || DEFAULT_PROFILE_PIC;
@@ -325,84 +341,56 @@ const Users = () => {
       }
       return profilePicData;
     }
+
     return DEFAULT_PROFILE_PIC;
   };
 
-  useEffect(() => {
-    if (targetShopId) {
-      Promise.all([dispatch(getShopById(targetShopId))]).then(() => {
-        setTimeout(() => setIsInitialLoad(false), 300);
-      });
-    }
-  }, [dispatch, targetShopId]);
+  const getShopName = (shopId) => {
+    if (!shopId) return "None";
+    const shop = shops.find((s) => s.id === shopId);
+    return shop ? shop.name : "Unknown Shop";
+  };
 
-  useEffect(() => {
-    if (targetShopId && myShop?.id) {
-      dispatch(getUsersByShopId(targetShopId))
-        .unwrap()
-        .then(() => setIsDataReady(true))
-        .catch(() => {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Failed to load users. Please try again.',
-            confirmButtonColor: '#d33'
-          });
-        });
-    }
-  }, [dispatch, targetShopId, myShop]);
+  const getDistrictName = (districtId) => {
+    if (!districtId) return "None";
+    const district = districts.find((d) => d.id === districtId);
+    return district ? district.name : "Unknown District";
+  };
 
-  // Filter only technicians and shop managers
-  const filteredShopUsers = shopUsers.filter(user => 
-    user.role === 'technician' || user.role === 'shop_manager'
-  );
-
-  useEffect(() => {
-    if (success && lastOperation) {
-      if (lastOperation === 'create') {
-        setSuccessMessage('User created successfully!');
-        setTimeout(() => {
-          setSuccessMessage('');
-          setShowCreateForm(false);
-          setLastOperation(null);
-          resetForm();
-        }, 2000);
-      } else if (lastOperation === 'update') {
-        setSuccessMessage('User updated successfully!');
-        setTimeout(() => {
-          setSuccessMessage('');
-          setShowEditModal(null);
-          setLastOperation(null);
-          resetEditForm();
-        }, 2000);
-      }
-    }
-  }, [success, lastOperation]);
-
-  useEffect(() => {
-    if (error) {
-      setFormError(error);
-      setLastOperation(null);
-    }
-  }, [error]);
+  const getRoleLabel = (roleValue) => {
+    const role = roles.find((r) => r.value === roleValue);
+    return role ? role.label : roleValue;
+  };
 
   const handleFileChange = (e, isEdit = false) => {
     const file = e.target.files[0];
     if (file) {
-      const picError = validateProfilePic(file);
-      if (picError) {
+      const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+      if (!validTypes.includes(file.type)) {
         Swal.fire({
-          icon: 'error',
-          title: 'Invalid File',
-          text: picError,
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#d33'
+          icon: "error",
+          title: "Invalid File Type",
+          text: "Please upload only image files (JPEG, PNG, GIF, WEBP)",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33",
         });
-        e.target.value = '';
+        return;
+      }
+
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        Swal.fire({
+          icon: "error",
+          title: "File Too Large",
+          text: "Profile picture must be less than 5MB",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#d33",
+        });
         return;
       }
 
       const previewUrl = URL.createObjectURL(file);
+
       if (isEdit) {
         setEditProfilePicFile(file);
         setEditProfilePicPreview(previewUrl);
@@ -415,69 +403,74 @@ const Users = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormError('');
-    
-    if (!validateForm()) {
-      setFormError('Please fix the validation errors before submitting');
-      Swal.fire({
-        icon: 'error',
-        title: 'Validation Error',
-        text: 'Please fix the validation errors before submitting',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
-      });
-      return;
-    }
+    setFormError("");
+    setFormSuccess("");
 
-    if (!myShop) {
-      setFormError('Shop information not available');
+    if (!validateForm()) {
+      setFormError("Please fix the validation errors before submitting");
+      Swal.fire({
+        icon: "error",
+        title: "Validation Error",
+        text: "Please fix the validation errors before submitting",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
+      });
       return;
     }
 
     if (checkEmailExists(formData.email)) {
-      setFormError('Email already exists. Please use a different email.');
+      setFormError("Email already exists. Please use a different email.");
       Swal.fire({
-        icon: 'error',
-        title: 'Email Already Exists',
-        text: 'This email is already registered. Please use a different email address.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Email Already Exists",
+        text: "This email is already registered in your brand. Please use a different email address.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
       return;
     }
 
-    setLastOperation('create');
     setIsSubmitting(true);
 
     try {
       const randomPassword = generateRandomPassword();
-      
-      const userFormData = new FormData();
-      userFormData.append('first_name', formData.first_name.trim());
-      userFormData.append('last_name', formData.last_name.trim());
-      userFormData.append('email', formData.email.trim());
-      userFormData.append('role', formData.role);
-      userFormData.append('shop_id', myShop.id);
-      userFormData.append('brand_id', myShop.brand_id);
-      if (myShop.district_id) userFormData.append('district_id', myShop.district_id);
-      userFormData.append('is_active', formData.is_active);
-      userFormData.append('ft_password', randomPassword);
-      userFormData.append('password_type', 'ft_password');
-      userFormData.append('is_first_login', 'true');
-      
-      if (profilePicFile) userFormData.append('profile_pic', profilePicFile);
 
-      const userResult = await dispatch(createUser(userFormData)).unwrap();
-      
-      if (userResult.success) {
+      const userFormData = new FormData();
+      userFormData.append("email", formData.email.trim());
+      userFormData.append("first_name", formData.first_name.trim());
+      userFormData.append("last_name", formData.last_name.trim());
+      userFormData.append("contact_no", "");
+      userFormData.append("role", formData.role);
+      userFormData.append("brand_id", currentUser.brand_id);
+
+      if (formData.shop_id && formData.shop_id !== "") {
+        userFormData.append("shop_id", formData.shop_id);
+      }
+
+      if (formData.district_id && formData.district_id !== "") {
+        userFormData.append("district_id", formData.district_id);
+      }
+
+      userFormData.append("is_active", formData.is_active);
+      userFormData.append("ft_password", randomPassword);
+      userFormData.append("password_type", "ft_password");
+      userFormData.append("is_first_login", "true");
+
+      if (profilePicFile) userFormData.append("profile_pic", profilePicFile);
+
+      const result = await dispatch(createUser(userFormData)).unwrap();
+
+      if (result.success) {
         Swal.fire({
-          icon: 'success',
-          title: 'User Created Successfully!',
+          icon: "success",
+          title: "User Created Successfully!",
           html: `
             <div style="text-align: left;">
               <p><strong>Name:</strong> ${formData.first_name} ${formData.last_name}</p>
               <p><strong>Email:</strong> ${formData.email}</p>
-              <p><strong>Role:</strong> ${getRoleDisplay(formData.role)}</p>
+              <p><strong>Role:</strong> ${getRoleLabel(formData.role)}</p>
+              <p><strong>Shop:</strong> ${formData.shop_id ? getShopName(formData.shop_id) : "None"}</p>
+              <p><strong>District:</strong> ${formData.district_id ? getDistrictName(formData.district_id) : "None"}</p>
               <br>
               <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0;">
                 <p style="color: #0d47a1; margin: 0; font-weight: bold;">✓ Welcome email sent!</p>
@@ -485,145 +478,174 @@ const Users = () => {
                   A temporary password has been sent to <strong>${formData.email}</strong>
                 </p>
               </div>
-              <p style="font-size: 14px; color: #666; margin-top: 15px;">
-                The user will use this password for first-time login and will be prompted to create a new password.
-              </p>
             </div>
           `,
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#4CAF50',
-          width: '550px'
+          confirmButtonText: "OK",
+          confirmButtonColor: "#4CAF50",
+          width: "550px",
         });
-        
-        dispatch(getUsersByShopId(myShop.id));
+
+        resetForm();
+        await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
+        setTimeout(() => setShowCreateForm(false), 100);
       }
-      
     } catch (err) {
-      setFormError(err?.error || 'Failed to create user. Please try again.');
+      setFormError(err?.error || "Failed to create user. Please try again.");
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: err?.error || 'Failed to create user. Please try again.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Error",
+        text: err?.error || "Failed to create user. Please try again.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
-      setLastOperation(null);
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    setFormError('');
-    
+    setFormError("");
+    setFormSuccess("");
+
     if (!validateEditForm()) {
-      setFormError('Please fix the validation errors before submitting');
+      setFormError("Please fix the validation errors before submitting");
       Swal.fire({
-        icon: 'error',
-        title: 'Validation Error',
-        text: 'Please fix the validation errors before submitting',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Validation Error",
+        text: "Please fix the validation errors before submitting",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
       return;
     }
 
-    setLastOperation('update');
-
     try {
       const userFormData = new FormData();
       let hasChanges = false;
-      
+
       if (editFormData.first_name !== editFormData.original_first_name) {
-        userFormData.append('first_name', editFormData.first_name.trim());
+        userFormData.append("first_name", editFormData.first_name.trim());
         hasChanges = true;
       }
       if (editFormData.last_name !== editFormData.original_last_name) {
-        userFormData.append('last_name', editFormData.last_name.trim());
+        userFormData.append("last_name", editFormData.last_name.trim());
         hasChanges = true;
       }
       if (editFormData.role !== editFormData.original_role) {
-        userFormData.append('role', editFormData.role);
+        userFormData.append("role", editFormData.role);
+        hasChanges = true;
+      }
+      if (editFormData.shop_id !== editFormData.original_shop_id) {
+        userFormData.append("shop_id", editFormData.shop_id && editFormData.shop_id !== "" ? editFormData.shop_id : "");
+        hasChanges = true;
+      }
+      if (editFormData.district_id !== editFormData.original_district_id) {
+        userFormData.append("district_id", editFormData.district_id && editFormData.district_id !== "" ? editFormData.district_id : "");
         hasChanges = true;
       }
       if (editFormData.is_active !== editFormData.original_is_active) {
-        userFormData.append('is_active', editFormData.is_active);
+        userFormData.append("is_active", editFormData.is_active);
         hasChanges = true;
       }
-      
       if (editProfilePicFile) {
-        userFormData.append('profile_pic', editProfilePicFile);
+        userFormData.append("profile_pic", editProfilePicFile);
         hasChanges = true;
       }
 
       if (hasChanges) {
-        await dispatch(updateUser({
-          id: showEditModal,
-          data: userFormData
-        })).unwrap();
-        
-        dispatch(getUsersByShopId(myShop.id));
-        
+        await dispatch(updateUser({ id: showEditModal, data: userFormData })).unwrap();
+
         Swal.fire({
-          icon: 'success',
-          title: 'Success!',
-          text: 'User updated successfully!',
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#4CAF50',
-          timer: 2000
+          icon: "success",
+          title: "Success!",
+          text: "User updated successfully!",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#4CAF50",
+          timer: 2000,
         });
-      } else {
-        Swal.fire({
-          icon: 'info',
-          title: 'No Changes',
-          text: 'No changes were made to the user profile.',
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#4CAF50',
-          timer: 2000
-        });
-        setLastOperation(null);
-        setShowEditModal(null);
+
         resetEditForm();
+        await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
+        setTimeout(() => setShowEditModal(null), 100);
+      } else {
+        setShowEditModal(null);
       }
-      
     } catch (err) {
-      setFormError(err?.error || 'Failed to update user. Please try again.');
+      setFormError(err?.error || "Failed to update user. Please try again.");
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: err?.error || 'Failed to update user. Please try again.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
+        icon: "error",
+        title: "Error",
+        text: err?.error || "Failed to update user. Please try again.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
       });
-      setLastOperation(null);
+    }
+  };
+
+  const handleView = (user) => {
+    setViewUserData({
+      ...user,
+      profile_pic: getProfilePicUrl(user.profile_pic_url),
+      role_label: getRoleLabel(user.role),
+      shop_name: getShopName(user.shop_id),
+      district_name: getDistrictName(user.district_id),
+    });
+    setShowViewModal(user.id);
+  };
+
+  const handleToggleStatus = async (user) => {
+    try {
+      const userFormData = new FormData();
+      userFormData.append("is_active", !user.is_active);
+
+      await dispatch(updateUser({ id: user.id, data: userFormData })).unwrap();
+      await dispatch(getBrandUsers(currentUser.brand_id)).unwrap();
+
+      Swal.fire({
+        icon: "success",
+        title: "Status Updated",
+        text: `${user.first_name} ${user.last_name} has been ${!user.is_active ? "activated" : "deactivated"} successfully.`,
+        confirmButtonText: "OK",
+        confirmButtonColor: "#4CAF50",
+        timer: 2000,
+      });
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to update user status.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
+      });
     }
   };
 
   const resetForm = () => {
-    setFormData({ first_name: '', last_name: '', email: '', role: 'technician', is_active: true });
-    setValidationErrors({ first_name: '', last_name: '', email: '' });
+    setFormData({
+      first_name: "",
+      last_name: "",
+      email: "",
+      role: "user",
+      shop_id: "",
+      district_id: "",
+      is_active: true,
+    });
+    setValidationErrors({ first_name: "", last_name: "", email: "" });
     setProfilePicFile(null);
     setProfilePicPreview(null);
-    setEmailExistsError('');
-    setIsSubmitting(false);
+    setEmailExistsError("");
   };
 
   const resetEditForm = () => {
-    setEditFormData({ 
-      first_name: '', last_name: '', email: '', role: '', is_active: true,
-      original_first_name: '', original_last_name: '', original_role: '',
-      original_is_active: true, profile_pic: '' 
-    });
-    setEditValidationErrors({ first_name: '', last_name: '' });
+    setEditFormData({});
+    setEditValidationErrors({ first_name: "", last_name: "" });
     setEditProfilePicFile(null);
     setEditProfilePicPreview(null);
-    setShowEditModal(null);
   };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
 
     const validators = {
       email: validateEmailField,
@@ -631,17 +653,19 @@ const Users = () => {
       last_name: validateLastName
     };
 
+    setFormData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+
     if (name in validators) {
       const error = validators[name](value);
       setValidationErrors(prev => ({ ...prev, [name]: error }));
-      if (name === 'email' && !error) checkEmailExists(value);
+      if (name === "email" && !error) checkEmailExists(value);
     }
   };
 
   const handleEditInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    setEditFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+
+    setEditFormData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
 
     const validators = {
       first_name: validateFirstName,
@@ -649,7 +673,7 @@ const Users = () => {
     };
 
     if (name in validators) {
-      const error = value ? validators[name](value) : '';
+      const error = value ? validators[name](value) : "";
       setEditValidationErrors(prev => ({ ...prev, [name]: error }));
     }
   };
@@ -657,91 +681,36 @@ const Users = () => {
   const handleEdit = (user) => {
     setShowEditModal(user.id);
     setEditFormData({
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      email: user.email || '',
-      role: user.role || 'technician',
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      email: user.email || "",
+      role: user.role || "user",
+      shop_id: user.shop_id || "",
+      district_id: user.district_id || "",
       is_active: user.is_active,
-      original_first_name: user.first_name || '',
-      original_last_name: user.last_name || '',
-      original_role: user.role || 'technician',
+      profile_pic: getProfilePicUrl(user.profile_pic_url),
+      original_first_name: user.first_name || "",
+      original_last_name: user.last_name || "",
+      original_role: user.role || "user",
+      original_shop_id: user.shop_id || "",
+      original_district_id: user.district_id || "",
       original_is_active: user.is_active,
-      profile_pic: getProfilePicUrl(user.profile_pic_url)
     });
     setEditProfilePicPreview(getProfilePicUrl(user.profile_pic_url));
     setEditProfilePicFile(null);
-    setEditValidationErrors({ first_name: '', last_name: '' });
+    setEditValidationErrors({ first_name: "", last_name: "" });
   };
 
-  const handleView = (user) => {
-    setViewUserData({
-      ...user,
-      profile_pic: getProfilePicUrl(user.profile_pic_url),
-      role_label: getRoleDisplay(user.role),
-    });
-    setShowViewModal(user.id);
-  };
+  const getAvailableShops = () => shops.filter((shop) => shop.is_active);
+  const getAvailableDistricts = () => districts.filter((district) => district.is_active);
 
-  const handleToggleStatus = async (userId, currentStatus, userName) => {
-    try {
-      await dispatch(toggleUserActiveStatus({
-        userId,
-        is_active: !currentStatus
-      })).unwrap();
-      
-      dispatch(getUsersByShopId(myShop.id));
-      
-      Swal.fire({
-        icon: 'success',
-        title: 'Status Updated',
-        text: `${userName} has been ${!currentStatus ? 'activated' : 'deactivated'} successfully.`,
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#4CAF50',
-        timer: 2000
-      });
-    } catch (err) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to update user status.',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#d33'
-      });
-    }
-  };
+  const isBrandAdmin = currentUser?.role === "brand_admin";
 
-  const filteredUsers = filteredShopUsers?.filter(user => {
-    let matches = true;
-    
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
-      const email = user.email.toLowerCase();
-      
-      if (!fullName.includes(searchLower) && !email.includes(searchLower)) matches = false;
-    }
-    
-    return matches;
-  });
-
-  const getUserCounts = () => {
-    if (!filteredShopUsers) return { total: 0, active: 0 };
-    return {
-      total: filteredShopUsers.length,
-      active: filteredShopUsers.filter(u => u.is_active).length,
-    };
-  };
-
-  const userCounts = getUserCounts();
-  const hasValidationErrors = Object.values(validationErrors).some(error => error);
-  const hasEditValidationErrors = Object.values(editValidationErrors).some(error => error);
-
-  if (isInitialLoad || (loading && !isDataReady)) {
+  if (isInitialLoad && (localLoading || loading)) {
     return (
       <div className="transition-opacity duration-300 ease-in-out">
         <HeaderSkeleton />
         {showCreateForm && <FormSkeleton />}
-        <SearchSkeleton />
         <TableSkeleton />
       </div>
     );
@@ -749,127 +718,104 @@ const Users = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+      <div className="mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-bold text-gray-800">
-            {myShop?.shop_name || 'Shop'} - Users
-          </h2>
+          <h2 className="text-xl font-bold text-gray-800">Brand Users</h2>
           <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-            {userCounts.total} Users
+            {users?.length || 0} Users
           </span>
         </div>
-        
-        <div className="flex space-x-2">
-          <span className="text-sm text-gray-600 flex items-center mr-4">
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-            {userCounts.active} Active
-          </span>
-          <button
-            onClick={() => {
-              if (showCreateForm) {
-                setShowCreateForm(false);
-                resetForm();
-              } else {
-                setShowCreateForm(true);
-                setFormError('');
-                setEmailExistsError('');
-                setValidationErrors({ first_name: '', last_name: '', email: '' });
-              }
-            }}
-            className={`px-4 py-2 rounded-lg flex items-center transition-colors duration-200 ${
-              showCreateForm ? 'bg-gray-500 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
-            } text-white`}
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d={showCreateForm 
-                  ? "M6 18L18 6M6 6l12 12"
-                  : "M12 6v6m0 0v6m0-6h6m-6 0H6"
-                } 
-              />
-            </svg>
-            {showCreateForm ? 'Cancel' : 'New User'}
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setShowCreateForm(!showCreateForm);
+            setFormError("");
+            setEmailExistsError("");
+            setValidationErrors({ first_name: "", last_name: "", email: "" });
+          }}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+        >
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          {showCreateForm ? "Cancel" : "New User"}
+        </button>
       </div>
 
       {showCreateForm && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300 ease-in-out">
-          <h2 className="text-xl font-bold text-blue-600 mb-4">Add New User</h2>
-          
-          {(formError || successMessage) && (
-            <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-              {formError || successMessage}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-bold text-blue-600 mb-4">Create New User</h2>
+
+          {(formError || formSuccess) && (
+            <div className={`mb-4 p-3 rounded-lg ${formError ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
+              {formError || formSuccess}
             </div>
           )}
-          
+
           <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="space-y-8">
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">Profile Picture</h3>
-                  
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800">
-                      <strong>Note:</strong> A random password will be auto-generated and sent to the user's email.
-                      They will use this password for first-time login and will be prompted to create a new password.
-                    </p>
-                  </div>
-                  
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    {profilePicPreview ? (
-                      <div className="space-y-2">
-                        <img 
-                          src={profilePicPreview} 
-                          alt="Profile preview" 
-                          className="w-32 h-32 rounded-full mx-auto object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfilePicFile(null);
-                            setProfilePicPreview(null);
-                          }}
-                          className="text-sm text-red-600 hover:text-red-700"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <img 
-                          src={DEFAULT_PROFILE_PIC}
-                          alt="Default profile" 
-                          className="w-32 h-32 rounded-full mx-auto object-cover opacity-50"
-                        />
-                        <p className="text-sm text-gray-500">Default profile picture will be used if not uploaded</p>
-                      </div>
-                    )}
-                    <label className="block mt-4">
-                      <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block transition-colors duration-200">
-                        Choose Photo
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, false)}
-                        className="hidden"
-                        name="profile_pic"
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-700">Profile Picture</h3>
+
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> A random password will be auto-generated and sent to the user's email.
+                  </p>
+                </div>
+
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  {profilePicPreview ? (
+                    <div className="space-y-2">
+                      <img
+                        src={profilePicPreview}
+                        alt="Profile preview"
+                        className="w-32 h-32 rounded-full mx-auto object-cover"
                       />
-                    </label>
-                    <p className="text-xs text-gray-500 mt-2">Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP</p>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfilePicFile(null);
+                          setProfilePicPreview(null);
+                        }}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <img
+                        src={DEFAULT_PROFILE_PIC}
+                        alt="Default profile"
+                        className="w-32 h-32 rounded-full mx-auto object-cover opacity-50"
+                      />
+                      <p className="text-sm text-gray-500">
+                        Default profile picture will be used if not uploaded
+                      </p>
+                    </div>
+                  )}
+                  <label className="block mt-4">
+                    <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                      Choose Photo
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, false)}
+                      className="hidden"
+                      name="profile_pic"
+                    />
+                  </label>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Max size: 5MB. Allowed: JPEG, PNG, GIF, WEBP
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="lg:col-span-2 space-y-6">
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-700">User Information</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
+                  <h3 className="font-semibold text-gray-700">Basic Information</h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         First Name <span className="text-red-500">*</span>
@@ -879,8 +825,8 @@ const Users = () => {
                         name="first_name"
                         value={formData.first_name}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                          validationErrors.first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          validationErrors.first_name ? "border-red-500 bg-red-50" : "border-gray-300"
                         }`}
                         placeholder="First name"
                         required
@@ -899,8 +845,8 @@ const Users = () => {
                         name="last_name"
                         value={formData.last_name}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                          validationErrors.last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          validationErrors.last_name ? "border-red-500 bg-red-50" : "border-gray-300"
                         }`}
                         placeholder="Last name"
                         required
@@ -920,8 +866,8 @@ const Users = () => {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                        validationErrors.email || emailExistsError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        validationErrors.email || emailExistsError ? "border-red-500 bg-red-50" : "border-gray-300"
                       }`}
                       placeholder="user@example.com"
                       required
@@ -932,6 +878,10 @@ const Users = () => {
                       </p>
                     )}
                   </div>
+                </div>
+
+                <div className="space-y-4 border-t pt-6">
+                  <h3 className="font-semibold text-gray-700">Role & Assignments</h3>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -941,11 +891,45 @@ const Users = () => {
                       name="role"
                       value={formData.role}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
                       {roles.map((role) => (
                         <option key={role.value} value={role.value}>{role.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assign Shop</label>
+                    <select
+                      name="shop_id"
+                      value={formData.shop_id}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">None (No shop assigned)</option>
+                      {getAvailableShops().map((shop) => (
+                        <option key={shop.id} value={shop.id}>
+                          {shop.name} {shop.is_active ? "" : "(Inactive)"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assign District</label>
+                    <select
+                      name="district_id"
+                      value={formData.district_id}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">None (No district assigned)</option>
+                      {getAvailableDistricts().map((district) => (
+                        <option key={district.id} value={district.id}>
+                          {district.name} {district.is_active ? "" : "(Inactive)"}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -967,229 +951,156 @@ const Users = () => {
             <div className="mt-8 pt-6 border-t">
               <button
                 type="submit"
-                disabled={!!emailExistsError || hasValidationErrors || isSubmitting || lastOperation === 'create'}
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                  emailExistsError || hasValidationErrors || isSubmitting || lastOperation === 'create'
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                disabled={!!emailExistsError || !!validationErrors.first_name || !!validationErrors.last_name || !!validationErrors.email || isSubmitting}
+                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                  emailExistsError || validationErrors.first_name || validationErrors.last_name || validationErrors.email || isSubmitting
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
                 }`}
               >
-                {isSubmitting || lastOperation === 'create' 
-                  ? 'Creating...' 
-                  : hasValidationErrors 
-                    ? 'Fix Validation Errors' 
-                    : emailExistsError 
-                      ? 'Email Already Exists' 
-                      : 'Add User'}
+                {isSubmitting ? "Creating User..." : "Create User"}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6 hover:shadow-lg transition-shadow duration-200">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search Users</label>
-            <input
-              type="text"
-              placeholder="Search by name or email"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-            />
-          </div>
-          
-          <div className="flex items-end">
-            <div className="flex space-x-4 w-full">
-              <div className="text-center flex-1">
-                <div className="text-2xl font-bold text-blue-600">{userCounts.total}</div>
-                <div className="text-xs text-gray-500">Total</div>
-              </div>
-              <div className="text-center flex-1">
-                <div className="text-2xl font-bold text-green-600">{userCounts.active}</div>
-                <div className="text-xs text-gray-500">Active</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
-        {loading && !isDataReady ? (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {(localLoading || loading) && !isInitialLoad ? (
           <div className="py-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading users...</p>
           </div>
-        ) : filteredUsers?.length > 0 ? (
+        ) : error ? (
+          <div className="py-12 text-center">
+            <p className="text-red-600 mb-4">{typeof error === "string" ? error : "Failed to load users"}</p>
+            <button onClick={fetchData} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              Retry
+            </button>
+          </div>
+        ) : users?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Joined
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Shop</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned District</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => {
-                  const profilePic = getProfilePicUrl(user.profile_pic_url);
-                  const isFirstLogin = user.is_first_login || (user.ft_password && !user.password);
-                  
-                  return (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-150">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full overflow-hidden mr-3 border bg-gray-100">
-                            <img 
-                              src={profilePic}
-                              alt={`${user.first_name} ${user.last_name}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
-                            />
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              {user.first_name} {user.last_name}
-                            </div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
-                            {isFirstLogin && (
-                              <span className="inline-flex items-center mt-1 text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
-                                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-1.5"></span>
-                                First login pending
-                              </span>
-                            )}
-                          </div>
+                {users.map((userItem) => (
+                  <tr key={userItem.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-full overflow-hidden mr-3 border bg-gray-100">
+                          <img
+                            src={getProfilePicUrl(userItem.profile_pic_url)}
+                            alt={`${userItem.first_name} ${userItem.last_name}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.target.src = DEFAULT_PROFILE_PIC; }}
+                          />
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          user.role === 'shop_manager' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {getRoleDisplay(user.role)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {user.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { 
-                          month: 'short', day: 'numeric', year: 'numeric' 
-                        }) : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex space-x-2">
-                          {user.role === 'shop_manager' ? (
-                            <button
-                              onClick={() => handleView(user)}
-                              className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center"
-                              title="View User Details"
-                            >
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              View
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleEdit(user)}
-                              className="px-3 py-1.5 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded-lg text-sm font-medium transition-colors duration-200"
-                            >
-                              Edit
-                            </button>
-                          )}
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{userItem.first_name} {userItem.last_name}</div>
+                          <div className="text-xs text-gray-500">{userItem.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                        {getRoleLabel(userItem.role)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {userItem.shop_id ? getShopName(userItem.shop_id) : <span className="text-gray-400 italic">None</span>}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {userItem.district_id ? getDistrictName(userItem.district_id) : <span className="text-gray-400 italic">None</span>}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        userItem.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                      }`}>
+                        {userItem.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex space-x-2">
+                        {userItem.role === "brand_admin" ? (
                           <button
-                            onClick={() => handleToggleStatus(user.id, user.is_active, `${user.first_name} ${user.last_name}`)}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                              user.is_active 
-                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
-                            }`}
+                            onClick={() => handleView(userItem)}
+                            className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm flex items-center"
+                            title="View User Details"
                           >
-                            {user.is_active ? 'Deactivate' : 'Activate'}
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        ) : (
+                          <button
+                            onClick={() => handleEdit(userItem)}
+                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleToggleStatus(userItem)}
+                          className={`px-3 py-1 rounded text-sm ${
+                            userItem.is_active
+                              ? "bg-red-100 text-red-700 hover:bg-red-200"
+                              : "bg-green-100 text-green-700 hover:bg-green-200"
+                          }`}
+                        >
+                          {userItem.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         ) : (
           <div className="py-12 text-center">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
+            <img src={DEFAULT_PROFILE_PIC} alt="No users" className="w-16 h-16 mx-auto mb-4 opacity-50 rounded-full" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Users Found</h3>
-            <p className="text-gray-500 mb-4">
-              {searchTerm ? 'Try adjusting your search' : 'Add your first user to get started'}
-            </p>
-            {!showCreateForm && (
-              <button
-                onClick={() => {
-                  setShowCreateForm(true);
-                  setFormError('');
-                  setEmailExistsError('');
-                  setValidationErrors({ first_name: '', last_name: '', email: '' });
-                }}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add User
-              </button>
-            )}
+            <p className="text-gray-500 mb-4">Create your first user to get started</p>
+            <button onClick={() => setShowCreateForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+              Create First User
+            </button>
           </div>
         )}
       </div>
 
-      {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 transition-opacity duration-300">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto transform transition-all duration-300 scale-100">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-blue-600 mb-4">Edit User</h2>
-              
-              {(formError || successMessage) && (
-                <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                  {formError || successMessage}
+
+              {(formError || formSuccess) && (
+                <div className={`mb-4 p-3 rounded-lg ${formError ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
+                  {formError || formSuccess}
                 </div>
               )}
-              
+
               <form onSubmit={handleEditSubmit}>
-                <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="space-y-4">
                     <h3 className="font-semibold text-gray-700">Profile Picture</h3>
-                    
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                       {editProfilePicPreview ? (
                         <div className="space-y-2">
-                          <img 
-                            src={editProfilePicPreview} 
-                            alt="Profile preview" 
+                          <img
+                            src={editProfilePicPreview}
+                            alt="Profile preview"
                             className="w-32 h-32 rounded-full mx-auto object-cover"
                           />
                           <button
@@ -1198,23 +1109,19 @@ const Users = () => {
                               setEditProfilePicFile(null);
                               setEditProfilePicPreview(editFormData.profile_pic);
                             }}
-                            className="text-sm text-red-600 hover:text-red-700 transition-colors duration-200"
+                            className="text-sm text-red-600 hover:text-red-700"
                           >
                             Remove
                           </button>
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <img 
-                            src={editFormData.profile_pic || DEFAULT_PROFILE_PIC}
-                            alt="Profile" 
-                            className="w-32 h-32 rounded-full mx-auto object-cover"
-                          />
+                          <img src={editFormData.profile_pic || DEFAULT_PROFILE_PIC} alt="Profile" className="w-32 h-32 rounded-full mx-auto object-cover" />
                           <p className="text-sm text-gray-500">Current profile picture</p>
                         </div>
                       )}
                       <label className="block mt-4">
-                        <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block transition-colors duration-200">
+                        <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
                           Change Photo
                         </span>
                         <input
@@ -1229,112 +1136,142 @@ const Users = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-700">User Information</h3>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          First Name
-                        </label>
-                        <input
-                          type="text"
-                          name="first_name"
-                          value={editFormData.first_name || ''}
-                          onChange={handleEditInputChange}
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                            editValidationErrors.first_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                          }`}
-                        />
-                        {editValidationErrors.first_name && (
-                          <p className="mt-1 text-sm text-red-600">{editValidationErrors.first_name}</p>
-                        )}
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-700">Basic Information</h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                          <input
+                            type="text"
+                            name="first_name"
+                            value={editFormData.first_name || ""}
+                            onChange={handleEditInputChange}
+                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              editValidationErrors.first_name ? "border-red-500 bg-red-50" : "border-gray-300"
+                            }`}
+                            placeholder="First name"
+                          />
+                          {editValidationErrors.first_name && (
+                            <p className="mt-1 text-sm text-red-600">{editValidationErrors.first_name}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                          <input
+                            type="text"
+                            name="last_name"
+                            value={editFormData.last_name || ""}
+                            onChange={handleEditInputChange}
+                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              editValidationErrors.last_name ? "border-red-500 bg-red-50" : "border-gray-300"
+                            }`}
+                            placeholder="Last name"
+                          />
+                          {editValidationErrors.last_name && (
+                            <p className="mt-1 text-sm text-red-600">{editValidationErrors.last_name}</p>
+                          )}
+                        </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Last Name
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                         <input
-                          type="text"
-                          name="last_name"
-                          value={editFormData.last_name || ''}
-                          onChange={handleEditInputChange}
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                            editValidationErrors.last_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                          }`}
+                          type="email"
+                          name="email"
+                          value={editFormData.email || ""}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          readOnly
                         />
-                        {editValidationErrors.last_name && (
-                          <p className="mt-1 text-sm text-red-600">{editValidationErrors.last_name}</p>
-                        )}
+                        <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={editFormData.email || ''}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                        readOnly
-                      />
-                      <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
-                    </div>
+                    <div className="space-y-4 border-t pt-6">
+                      <h3 className="font-semibold text-gray-700">Role & Assignments</h3>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Role
-                      </label>
-                      <select
-                        name="role"
-                        value={editFormData.role || 'technician'}
-                        onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                      >
-                        {roles.map((role) => (
-                          <option key={role.value} value={role.value}>{role.label}</option>
-                        ))}
-                      </select>
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                        <select
+                          name="role"
+                          value={editFormData.role || "user"}
+                          onChange={handleEditInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {roles.map((role) => (
+                            <option key={role.value} value={role.value}>{role.label}</option>
+                          ))}
+                        </select>
+                      </div>
 
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        name="is_active"
-                        checked={editFormData.is_active || false}
-                        onChange={handleEditInputChange}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">Active</span>
-                    </label>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Assign Shop</label>
+                        <select
+                          name="shop_id"
+                          value={editFormData.shop_id || ""}
+                          onChange={handleEditInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">None (No shop assigned)</option>
+                          {getAvailableShops().map((shop) => (
+                            <option key={shop.id} value={shop.id}>
+                              {shop.name} {shop.is_active ? "" : "(Inactive)"}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Assign District</label>
+                        <select
+                          name="district_id"
+                          value={editFormData.district_id || ""}
+                          onChange={handleEditInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">None (No district assigned)</option>
+                          {getAvailableDistricts().map((district) => (
+                            <option key={district.id} value={district.id}>
+                              {district.name} {district.is_active ? "" : "(Inactive)"}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          name="is_active"
+                          checked={editFormData.is_active || false}
+                          onChange={handleEditInputChange}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Active</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
 
                 <div className="mt-8 pt-6 border-t flex justify-end space-x-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowEditModal(null);
-                      resetEditForm();
-                      setLastOperation(null);
-                    }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    onClick={() => setShowEditModal(null)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={hasEditValidationErrors || lastOperation === 'update'}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
-                      hasEditValidationErrors || lastOperation === 'update'
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    disabled={!!editValidationErrors.first_name || !!editValidationErrors.last_name}
+                    className={`px-4 py-2 rounded-lg font-medium ${
+                      editValidationErrors.first_name || editValidationErrors.last_name
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
                     }`}
                   >
-                    {lastOperation === 'update' ? 'Updating...' : 
-                     hasEditValidationErrors ? 'Fix Validation Errors' : 'Update User'}
+                    Update User
                   </button>
                 </div>
               </form>
@@ -1343,10 +1280,9 @@ const Users = () => {
         </div>
       )}
 
-      {/* View Modal */}
       {showViewModal && viewUserData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-blue-600">User Details</h2>
@@ -1385,6 +1321,12 @@ const Users = () => {
                       <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
                       <p className="text-gray-900">{viewUserData.email}</p>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Role</label>
+                      <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded">
+                        {viewUserData.role_label}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="space-y-4">
@@ -1393,14 +1335,12 @@ const Users = () => {
                       <p className="text-lg font-semibold text-gray-900">{viewUserData.last_name}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Role</label>
-                      <span className={`px-3 py-1 text-sm font-medium rounded ${
-                        viewUserData.role === 'shop_manager' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {viewUserData.role_label}
-                      </span>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Assigned Shop</label>
+                      <p className="text-gray-900">{viewUserData.shop_name}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Assigned District</label>
+                      <p className="text-gray-900">{viewUserData.district_name}</p>
                     </div>
                   </div>
                 </div>
