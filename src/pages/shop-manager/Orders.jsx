@@ -172,7 +172,8 @@ const FilterSection = ({ searchTerm, setSearchTerm, statusFilter, setStatusFilte
       
       <div className="flex items-end">
         <div className="text-xs md:text-sm text-gray-500 pb-1.5 md:pb-2">
-          {statusFilter === "active" && "Showing WIP & Estimates"}
+          {statusFilter === "active" && !searchTerm && "Showing WIP & Estimates"}
+          {statusFilter === "active" && searchTerm && "Searching all orders"}
         </div>
       </div>
     </div>
@@ -381,8 +382,10 @@ const Orders = () => {
     // Handle RO number search properly - check both fields
     const roNumber = (order.ro_number || order.tekmetric_ro_id || "").toLowerCase();
     
-    // Also check if search term matches any part of the RO number
-    const searchableText = `${customerName} ${vehicleDesc} ${roNumber}`;
+    // Add license plate to search
+    const licensePlate = vehicleInfo.license_plate?.toLowerCase() || "";
+    
+    const searchableText = `${customerName} ${vehicleDesc} ${roNumber} ${licensePlate}`;
     
     return searchableText.includes(searchLower);
   });
@@ -391,11 +394,15 @@ const Orders = () => {
   const filteredOrders = searchFilteredOrders?.filter((order) => {
     let matches = true;
 
-    // Apply status filter
+    // Apply status filter - when searching, ignore the "active" filter to show all results
     if (statusFilter !== "all") {
       const status = order.status?.toLowerCase() || "";
       
-      if (statusFilter === "active") {
+      // If we're searching and filter is "active", don't filter by status
+      if (statusFilter === "active" && searchTerm) {
+        // Skip status filtering when searching with active filter
+        // This allows showing all matching orders regardless of status
+      } else if (statusFilter === "active") {
         if (
           ![
             "in_progress",
@@ -571,7 +578,8 @@ const Orders = () => {
       <div className="mb-3 md:mb-4 text-xs md:text-sm text-gray-600">
         Showing {filteredOrders.length} orders
         {searchTerm && ` matching "${searchTerm}"`}
-        {statusFilter !== "all" && ` • ${statusFilter.replace(/-/g, ' ')} status`}
+        {statusFilter !== "all" && !searchTerm && ` • ${statusFilter.replace(/-/g, ' ')} status`}
+        {statusFilter === "active" && searchTerm && " • searching all orders"}
         {videoFilter !== "all" && ` • ${videoFilter.replace(/-/g, ' ')}`}
       </div>
 
