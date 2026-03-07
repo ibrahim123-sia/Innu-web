@@ -57,7 +57,7 @@ const FilterSection = ({ searchTerm, setSearchTerm, statusFilter, setStatusFilte
           onChange={(e) => setVideoFilter(e.target.value)}
           className="w-full px-3 md:px-4 py-1.5 md:py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
         >
-          <option value="all">All Jobs</option>
+          <option value="all">All Orders</option>
           <option value="with-videos">With Videos</option>
           <option value="without-videos">Without Videos</option>
         </select>
@@ -410,14 +410,7 @@ const Orders = () => {
         setVideoFilter={setVideoFilter}
       />
 
-      {/* Results count */}
-      <div className="mb-3 md:mb-4 text-xs md:text-sm text-gray-600">
-        Showing {filteredOrders.length} orders
-        {searchTerm && ` matching "${searchTerm}"`}
-        {statusFilter !== "all" && !searchTerm && ` • ${statusFilter.replace(/-/g, ' ')} status`}
-        {statusFilter === "active" && searchTerm && " • searching all orders"}
-        {videoFilter !== "all" && ` • ${videoFilter.replace(/-/g, ' ')}`}
-      </div>
+     
 
       {/* Orders Cards */}
       {isInitialLoad || (loading && !allOrders.length && !isDataReady) ? (

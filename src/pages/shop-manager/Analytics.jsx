@@ -563,23 +563,7 @@ const Analytics = () => {
         </div>
       )}
 
-      {/* Shop Info Banner - Show which shop we're viewing */}
-      {myShop && (
-        <div className="mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 01-1 1h-2a1 1 0 01-1-1v-2a1 1 0 00-1-1H7a1 1 0 00-1 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3 flex-1">
-              <p className="text-sm text-blue-700">
-                <span className="font-bold">Shop:</span> {myShop.name} - Analytics Dashboard
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+     
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

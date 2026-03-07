@@ -459,34 +459,7 @@ const Overview = () => {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">
-                    Total employees in shop:
-                  </span>
-                  <span className="font-bold text-blue-600">
-                    {getTotalEmployees()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-sm text-gray-600">
-                    Total orders processed:
-                  </span>
-                  <span className="font-bold text-green-600">
-                    {getTotalOrders()}
-                  </span>
-                </div>
-                {shopStats && (
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-sm text-gray-600">
-                      Order completion rate:
-                    </span>
-                    <span className="font-bold text-purple-600">
-                      {shopStats.completionRate}%
-                    </span>
-                  </div>
-                )}
-              </div>
+              
             </div>
           ) : (
             <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">

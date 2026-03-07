@@ -683,28 +683,10 @@ const Users = () => {
   return (
     <div className="transition-opacity duration-300 ease-in-out">
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-        <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-bold text-gray-800">
-            {myShop?.shop_name || 'Shop'} - Team Members
-          </h2>
-          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-            {userCounts.total} Members
-          </span>
-        </div>
+       
         
         <div className="flex space-x-2 items-center">
-          <span className="text-sm text-gray-600 flex items-center mr-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-            {userCounts.active} Active
-          </span>
-          <span className="text-sm text-gray-600 flex items-center mr-2">
-            <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-            {userCounts.shopManagers} Managers
-          </span>
-          <span className="text-sm text-gray-600 flex items-center mr-4">
-            <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-            {userCounts.technicians} Technicians
-          </span>
+        
           {!isShopManager && (
             <button
               onClick={() => {
