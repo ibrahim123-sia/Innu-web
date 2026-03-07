@@ -20,15 +20,18 @@ const ShopManagerLayout = ({ children }) => {
 
   useEffect(() => {
     if (shopId) {
-      // Check if this is an impersonated access (coming from brand-admin or district-manager)
-      const isImpersonated =
-        location.pathname.includes("/brand-admin/shops/") ||
-        location.pathname.includes("/district-manager/shops/");
+      // This is impersonated access (brand_admin or district_manager viewing a shop)
+      // Check if this is coming from brand-admin or district-manager paths
+      const isImpersonated = 
+        location.pathname.includes("/brand-admin/shops/") || 
+        location.pathname.includes("/district-manager/shops/") ||
+        // Also check if user role is not shop_manager
+        user?.role !== "shop_manager";
 
       // Try to get shop from localStorage (set by brand-admin or district-manager)
       const storedShop = localStorage.getItem("selectedShop");
 
-      if (storedShop && isImpersonated) {
+      if (storedShop) {
         const parsedShop = JSON.parse(storedShop);
         if (parsedShop.id === shopId) {
           setSelectedShop(parsedShop);
@@ -36,35 +39,35 @@ const ShopManagerLayout = ({ children }) => {
           return;
         }
       }
-
-      // If not in localStorage or not impersonated, try to get from user data (for shop manager)
-      if (user?.shop_id === shopId) {
+      
+      // If no stored shop but we have shopId, create basic shop object
+      setSelectedShop({ 
+        id: shopId, 
+        name: "Shop",
+        city: "",
+        state: ""
+      });
+      setAccessMode("impersonated");
+      
+    } else {
+      // No shopId in URL - this is shop manager direct access
+      if (user?.role === "shop_manager" && user?.shop_id) {
+        // Use the user's shop data
         setSelectedShop({
-          id: shopId,
+          id: user.shop_id,
           name: user.shop_name || "Your Shop",
           city: user.shop_city,
           state: user.shop_state,
         });
         setAccessMode("direct");
       } else {
-        // Fallback - just use the ID (this should rarely happen)
-        setSelectedShop({ id: shopId, name: "Shop" });
-        setAccessMode(
-          user?.role === "shop_manager" ? "direct" : "impersonated",
-        );
+        setSelectedShop(null);
+        setAccessMode("direct");
       }
-    } else {
-      setSelectedShop(null);
-      setAccessMode("direct");
     }
   }, [shopId, user, location.pathname]);
 
-  // Auto-redirect if user is shop manager with shop_id but no shopId in URL
-  useEffect(() => {
-    if (!shopId && user?.role === "shop_manager" && user?.shop_id) {
-      navigate(`/shop-manager/shops/${user.shop_id}`, { replace: true });
-    }
-  }, [shopId, user, navigate]);
+  // REMOVED the auto-redirect that was forcing shop managers to URL with shopId
 
   const handleBack = () => {
     if (accessMode === "impersonated") {
@@ -103,18 +106,21 @@ const ShopManagerLayout = ({ children }) => {
 
   const getNavItems = () => {
     if (selectedShop && selectedShop.id) {
+      // For shop manager direct access (no shopId in URL)
+      if (accessMode === "direct" && user?.role === "shop_manager") {
+        return [
+          { name: "Overview", path: "/shop-manager" },
+          { name: "Job Board", path: "/shop-manager/orders" },
+          { name: "Users", path: "/shop-manager/users" },
+          { name: "Analytics", path: "/shop-manager/analytics" },
+        ];
+      }
+      // For impersonated access (with shopId in URL)
       return [
         { name: "Overview", path: `/shop-manager/shops/${selectedShop.id}` },
-        {
-          name: "Job Board",
-          path: `/shop-manager/shops/${selectedShop.id}/orders`,
-        },
-      
+        { name: "Job Board", path: `/shop-manager/shops/${selectedShop.id}/orders` },
         { name: "Users", path: `/shop-manager/shops/${selectedShop.id}/users` },
-          {
-          name: "Analytics",
-          path: `/shop-manager/shops/${selectedShop.id}/analytics`,
-        },
+        { name: "Analytics", path: `/shop-manager/shops/${selectedShop.id}/analytics` },
       ];
     }
     // Fallback for when no shop is selected
@@ -128,8 +134,46 @@ const ShopManagerLayout = ({ children }) => {
 
   const navItems = getNavItems();
 
-  // If no shopId and user is not shop manager, or if shop manager has no shop_id
-  if (!shopId && user?.role !== "shop_manager") {
+  // If no shop selected and user is not shop manager, or if shop manager has no shop_id
+  if (!selectedShop) {
+    if (user?.role === "shop_manager" && !user?.shop_id) {
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <header className="bg-primary-blue text-white p-4 shadow">
+            <div className="container mx-auto flex justify-between items-center">
+              <h1 className="text-2xl font-bold">Shop Manager Dashboard</h1>
+              <LogoutButton />
+            </div>
+          </header>
+          <main className="container mx-auto p-6">
+            <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 text-center">
+              <svg
+                className="w-12 h-12 text-yellow-500 mx-auto mb-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <h3 className="text-lg font-medium text-yellow-800 mb-2">
+                No Shop Assigned
+              </h3>
+              <p className="text-yellow-700">
+                You don't have a shop assigned to your account. Please contact an
+                administrator.
+              </p>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    // For other users with no shop
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-primary-blue text-white p-4 shadow">
@@ -157,44 +201,6 @@ const ShopManagerLayout = ({ children }) => {
               No Shop Selected
             </h3>
             <p className="text-yellow-700">Please select a shop to view.</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // If shop manager with no shop_id
-  if (user?.role === "shop_manager" && !user?.shop_id) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-primary-blue text-white p-4 shadow">
-          <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Shop Manager Dashboard</h1>
-            <LogoutButton />
-          </div>
-        </header>
-        <main className="container mx-auto p-6">
-          <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 text-center">
-            <svg
-              className="w-12 h-12 text-yellow-500 mx-auto mb-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-            <h3 className="text-lg font-medium text-yellow-800 mb-2">
-              No Shop Assigned
-            </h3>
-            <p className="text-yellow-700">
-              You don't have a shop assigned to your account. Please contact an
-              administrator.
-            </p>
           </div>
         </main>
       </div>
