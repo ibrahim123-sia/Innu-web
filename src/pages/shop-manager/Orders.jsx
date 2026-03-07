@@ -67,27 +67,27 @@ const FilterSkeleton = () => (
 );
 
 const CardSkeleton = () => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    {[1, 2, 3, 4, 5, 6].map((i) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
       <div
         key={i}
         className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200"
       >
-        <div className="p-5">
-          <div className="flex justify-between items-start mb-4">
+        <div className="p-3">
+          <div className="flex justify-between items-start mb-2">
             <div>
-              <div className="h-5 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-24 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
             </div>
-            <div className="h-8 bg-gray-200 rounded-full animate-pulse w-24"></div>
+            <div className="h-6 bg-gray-200 rounded-full animate-pulse w-20"></div>
           </div>
-          <div className="space-y-3 mb-4">
-            <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
-            <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
+          <div className="space-y-2 mb-2">
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-full"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
           </div>
-          <div className="flex justify-between items-center pt-4 border-t">
+          <div className="flex justify-between items-center pt-2 border-t">
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-12"></div>
             <div className="h-6 bg-gray-200 rounded animate-pulse w-16"></div>
-            <div className="h-8 bg-gray-200 rounded animate-pulse w-24"></div>
           </div>
         </div>
       </div>
@@ -119,7 +119,7 @@ const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderVideos, setOrderVideos] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("active");
+  const [statusFilter, setStatusFilter] = useState("active"); // Default to 'active' (WIP & Estimates)
   const [videoFilter, setVideoFilter] = useState("all");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
@@ -271,7 +271,7 @@ const Orders = () => {
       }
     }
 
-    // Status filter
+    // Status filter - Show WIP and Estimate by default (when statusFilter is "active")
     if (statusFilter !== "all") {
       const status = order.status?.toLowerCase() || "";
       
@@ -489,7 +489,7 @@ const Orders = () => {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
             >
-              <option value="active">WIP & Estimates</option>
+              <option value="active">WIP & Estimates (Default)</option>
               <option value="all">All Status</option>
               <option value="work-in-progress">Work-In-Progress</option>
               <option value="estimate">Estimate</option>
@@ -518,11 +518,12 @@ const Orders = () => {
       {/* Results count */}
       <div className="mb-4 text-sm text-gray-600">
         Showing {filteredOrders.length} of {allOrders.length} orders
+        {statusFilter === "active" && " (WIP & Estimates only)"}
       </div>
 
-      {/* Orders Cards - EXACT same design */}
+      {/* Orders Cards - REDUCED SIZE with same data and font sizes */}
       {filteredOrders?.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredOrders.map((order) => {
             const vehicleInfo = order.vehicle_info || {};
             const videoCount = getVideoCountForOrder(order.id);
@@ -531,36 +532,36 @@ const Orders = () => {
             return (
               <div
                 key={order.id}
-                className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-200 hover:border-blue-300 group"
+                className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-all duration-200 hover:border-blue-300 group"
               >
-                {/* Vehicle Info Section - Prominent at top */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b border-gray-200">
+                {/* Vehicle Info Section - Compact */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 border-b border-gray-200">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg text-gray-800">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-sm text-gray-800 truncate">
                         {vehicleInfo.year
                           ? `${vehicleInfo.year} ${vehicleInfo.make}`
                           : "Vehicle Information"}
                       </h3>
-                      <p className="text-gray-600 font-medium">
+                      <p className="text-gray-600 text-xs truncate">
                         {vehicleInfo.model || "Model not specified"}
                       </p>
                     </div>
                     <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusBadgeColor} ml-2`}
+                      className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${statusBadgeColor} ml-1 whitespace-nowrap`}
                     >
                       {order.status?.replace(/_/g, " ") || "Unknown"}
                     </span>
                   </div>
                 </div>
 
-                {/* Customer and Plate Info */}
-                <div className="p-4 bg-white">
-                  <div className="flex items-center justify-between mb-3">
+                {/* Customer and Order Info - Compact */}
+                <div className="p-2 bg-white">
+                  <div className="flex items-center justify-between mb-1">
                     {/* Customer */}
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1 min-w-0">
                       <svg
-                        className="w-5 h-5 text-gray-400"
+                        className="w-4 h-4 text-gray-400 flex-shrink-0"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -572,24 +573,23 @@ const Orders = () => {
                           d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                         />
                       </svg>
-
-                      <span className="text-gray-800 font-medium">
-                        {order.customer_name}
+                      <span className="text-gray-800 text-xs font-medium truncate">
+                        {order.customer_name || "N/A"}
                       </span>
                     </div>
 
                     {/* Plate Number */}
                     {vehicleInfo.license_plate && (
-                      <span className="text-gray-800 font-medium">
+                      <span className="text-gray-800 text-xs font-medium truncate ml-1">
                         {vehicleInfo.license_plate}
                       </span>
                     )}
                   </div>
 
                   {/* RO Number */}
-                  <div className="flex items-center space-x-2 mb-4">
+                  <div className="flex items-center space-x-1 mb-2">
                     <svg
-                      className="w-5 h-5 text-gray-400"
+                      className="w-4 h-4 text-gray-400 flex-shrink-0"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -601,16 +601,16 @@ const Orders = () => {
                         d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
                       />
                     </svg>
-                    <span className="text-gray-800 font-medium">
+                    <span className="text-gray-800 text-xs font-medium truncate">
                       RO #{order.ro_number || "N/A"}
                     </span>
                   </div>
 
-                  {/* Footer with Video Count and Open Button */}
-                  <div className="flex justify-between items-center pt-3 border-t border-gray-100">
-                    <div className="flex items-center space-x-2">
+                  {/* Footer with Video Count and Open Button - Compact */}
+                  <div className="flex justify-between items-center pt-1.5 border-t border-gray-100">
+                    <div className="flex items-center space-x-1">
                       <svg
-                        className={`w-5 h-5 ${videoCount > 0 ? "text-indigo-600" : "text-gray-300"}`}
+                        className={`w-4 h-4 ${videoCount > 0 ? "text-indigo-600" : "text-gray-300"} flex-shrink-0`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -623,18 +623,18 @@ const Orders = () => {
                         />
                       </svg>
                       <span
-                        className={`text-sm font-medium ${videoCount > 0 ? "text-indigo-600" : "text-gray-400"}`}
+                        className={`text-xs font-medium ${videoCount > 0 ? "text-indigo-600" : "text-gray-400"}`}
                       >
-                        {videoCount} {videoCount === 1 ? "Video" : "Videos"}
+                        {videoCount}
                       </span>
                     </div>
                     <button
                       onClick={() => handleViewOrder(order)}
-                      className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm font-medium transition-all duration-200 transform group-hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center space-x-1"
+                      className="px-3 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-xs font-medium transition-all duration-200 transform group-hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center space-x-1"
                     >
                       <span>Open</span>
                       <svg
-                        className="w-4 h-4"
+                        className="w-3 h-3"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -674,7 +674,7 @@ const Orders = () => {
           <p className="text-gray-500 mb-4">
             {searchTerm || statusFilter !== "active" || videoFilter !== "all"
               ? "Try changing your search filters"
-              : "No orders have been created for this shop yet"}
+              : "No active orders (WIP or Estimates) for this shop yet"}
           </p>
         </div>
       )}
