@@ -56,7 +56,7 @@ export const getAllEduVideos = createAsyncThunk(
   "video/getAllEduVideos",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await API.get("/edu-videos/all");
+      const response = await API.get("videos/edu-videos/all");
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { error: error.message });
