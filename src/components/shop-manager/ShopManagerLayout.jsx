@@ -106,20 +106,21 @@ const ShopManagerLayout = ({ children }) => {
       return [
         { name: "Overview", path: `/shop-manager/shops/${selectedShop.id}` },
         {
-          name: "Orders",
+          name: "Job Board",
           path: `/shop-manager/shops/${selectedShop.id}/orders`,
         },
-        {
+      
+        { name: "Users", path: `/shop-manager/shops/${selectedShop.id}/users` },
+          {
           name: "Analytics",
           path: `/shop-manager/shops/${selectedShop.id}/analytics`,
         },
-        { name: "Users", path: `/shop-manager/shops/${selectedShop.id}/users` },
       ];
     }
     // Fallback for when no shop is selected
     return [
       { name: "Overview", path: "/shop-manager" },
-      { name: "Orders", path: "/shop-manager/orders" },
+      { name: "Job Board", path: "/shop-manager/orders" },
       { name: "Users", path: "/shop-manager/users" },
       { name: "Analytics", path: "/shop-manager/analytics" },
     ];

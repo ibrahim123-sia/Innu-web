@@ -9,7 +9,6 @@ import {
 import { getShopById, selectCurrentShop } from "../../redux/slice/shopSlice";
 import {
   getVideosByOrderId,
-  selectVideos,
 } from "../../redux/slice/videoSlice";
 import OrderDetailModal from "../../components/shop-manager/OrderDetailModal";
 import axios from "axios";
@@ -58,7 +57,7 @@ const FilterSection = ({ searchTerm, setSearchTerm, statusFilter, setStatusFilte
           onChange={(e) => setVideoFilter(e.target.value)}
           className="w-full px-3 md:px-4 py-1.5 md:py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
         >
-          <option value="all">All Orders</option>
+          <option value="all">All Jobs</option>
           <option value="with-videos">With Videos</option>
           <option value="without-videos">Without Videos</option>
         </select>
@@ -277,11 +276,9 @@ const Orders = () => {
   const filteredOrders = searchFilteredOrders?.filter((order) => {
     let matches = true;
 
-    // Apply status filter - when searching, ignore the "active" filter
     if (statusFilter !== "all") {
       const status = order.status?.toLowerCase() || "";
       
-      // When searching with "active" filter, don't filter by status
       if (statusFilter === "active" && searchTerm) {
         // Skip status filtering when searching
       } else if (statusFilter === "active") {
@@ -297,18 +294,17 @@ const Orders = () => {
           matches = false;
         }
       } else if (statusFilter === "work-in-progress") {
-        if (!["in_progress", "work-in-progress", "processing"].includes(status))
+        if (!["work-in-progress"].includes(status))
           matches = false;
       } else if (statusFilter === "estimate") {
-        if (!["pending", "estimate"].includes(status)) matches = false;
+        if (!["estimate"].includes(status)) matches = false;
       } else if (statusFilter === "posted") {
-        if (!["completed", "posted", "done"].includes(status)) matches = false;
+        if (!["posted"].includes(status)) matches = false;
       } else if (statusFilter === "cancelled") {
         if (!["cancelled", "canceled"].includes(status)) matches = false;
       }
     }
 
-    // Apply video filter
     if (matches && videoFilter !== "all") {
       const videoCount = getVideoCountForOrder(order.id);
       if (videoFilter === "with-videos" && videoCount === 0) matches = false;
