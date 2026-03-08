@@ -18,8 +18,10 @@ const SuperAdminLayout = ({ children }) => {
       <header className="bg-primary-blue text-white p-4 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <h1 className="text-2xl font-bold">Super Admin Dashboard</h1>
-            <p className="text-sm text-primary-blue-100">Manage your entire platform</p>
+            <div>
+              <h1 className="text-2xl font-bold">Super Admin Dashboard</h1>
+              <p className="text-sm text-primary-blue-100">Manage your entire platform</p>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
@@ -39,7 +41,7 @@ const SuperAdminLayout = ({ children }) => {
               <NavLink
                 key={item.path}
                 to={item.path}
-                end={item.path === '/super-admin'}
+                end={item.name === "Overview"}
                 className={({ isActive }) =>
                   `px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
