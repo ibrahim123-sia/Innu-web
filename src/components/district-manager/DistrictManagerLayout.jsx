@@ -1,10 +1,6 @@
+// DistrictManagerLayout.jsx
 import React, { useState, useEffect } from "react";
-import {
-  Outlet,
-  NavLink,
-  useNavigate,
-  useParams
-} from "react-router-dom";
+import { Outlet, NavLink, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import LogoutButton from "../common/LogoutButton";
 
@@ -14,34 +10,50 @@ const DistrictManagerLayout = ({ children }) => {
   const user = useSelector((state) => state.user.currentUser);
   
   const [selectedShop, setSelectedShop] = useState(null);
+  const [accessMode, setAccessMode] = useState('district');
 
   useEffect(() => {
     if (shopId) {
       const shop = localStorage.getItem('selectedShop');
       if (shop) {
         setSelectedShop(JSON.parse(shop));
+        setAccessMode('shop');
       }
     } else {
       setSelectedShop(null);
+      setAccessMode('district');
+      localStorage.removeItem('selectedShop');
     }
   }, [shopId]);
 
+  const handleBack = () => {
+    if (accessMode === 'shop') {
+      localStorage.removeItem('selectedShop');
+      navigate('/district-manager');
+    }
+  };
+
   const getHeaderTitle = () => {
-    if (selectedShop) {
-      return `${selectedShop.name || 'Shop'} Management`;
+    if (accessMode === 'shop' && selectedShop) {
+      return `${selectedShop.name} Shop`;
     }
     return "District Manager Dashboard";
   };
 
-
+  const getHeaderSubtitle = () => {
+    if (accessMode === 'shop' && selectedShop) {
+      return `Viewing Shop: ${selectedShop.city}${selectedShop.state ? `, ${selectedShop.state}` : ''}`;
+    }
+    return user?.district_name ? `Managing: ${user.district_name} District` : "District Management";
+  };
 
   const getNavItems = () => {
-    if (selectedShop) {
+    if (accessMode === 'shop' && selectedShop) {
       return [
         { name: "Overview", path: `/district-manager/shops/${selectedShop.id}` },
         { name: "Orders", path: `/district-manager/shops/${selectedShop.id}/orders` },
-        { name: "Analytics", path: `/district-manager/shops/${selectedShop.id}/analytics` },
         { name: "Users", path: `/district-manager/shops/${selectedShop.id}/users` },
+        { name: "Analytics", path: `/district-manager/shops/${selectedShop.id}/analytics` },
       ];
     }
     return [
@@ -52,13 +64,6 @@ const DistrictManagerLayout = ({ children }) => {
     ];
   };
 
-  const handleBack = () => {
-    if (selectedShop) {
-      localStorage.removeItem('selectedShop');
-      navigate('/district-manager');
-    }
-  };
-
   const navItems = getNavItems();
 
   return (
@@ -67,8 +72,7 @@ const DistrictManagerLayout = ({ children }) => {
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <div className="flex items-center">
-              {/* Show back button when viewing a shop */}
-              {selectedShop && (
+              {accessMode === 'shop' && (
                 <button
                   onClick={handleBack}
                   className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
@@ -81,13 +85,13 @@ const DistrictManagerLayout = ({ children }) => {
               )}
               <div>
                 <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-              
+                <p className="text-sm text-primary-blue-100">{getHeaderSubtitle()}</p>
               </div>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
-              {selectedShop ? "District Manager" : "District Manager"}
+              {accessMode === 'shop' ? "District Manager • Shop View" : "District Manager"}
             </div>
             <span className="hidden md:inline text-white">{user?.email}</span>
             <LogoutButton />

@@ -14,6 +14,14 @@ import {
   getAllUsers,
   selectAllUsers
 } from '../../redux/slice/userSlice';
+import { 
+  getDistrictsByBrand,
+  selectDistrictsByBrand
+} from '../../redux/slice/districtSlice';
+import { 
+  getRepairOrdersByBrand,
+  selectRepairOrdersByBrand
+} from '../../redux/slice/repairOrderSlice'; // You'll need to create this slice or import existing
 import BrandDetailModal from '../../components/super-admin/BrandDetailModal';
 import Swal from 'sweetalert2';
 
@@ -87,6 +95,11 @@ const Brands = () => {
   const loading = useSelector(selectBrandLoading);
   const error = useSelector(selectBrandError);
   
+  // State for districts by brand
+  const [districtsByBrand, setDistrictsByBrand] = useState({});
+  // State for repair orders by brand
+  const [repairOrdersByBrand, setRepairOrdersByBrand] = useState({});
+  
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showBrandDetail, setShowBrandDetail] = useState(null);
   const [showEditModal, setShowEditModal] = useState(null);
@@ -135,6 +148,33 @@ const Brands = () => {
     dispatch(getAllUsers());
   }, [dispatch]);
 
+  // Fetch districts and repair orders for each brand
+  useEffect(() => {
+    if (brands && brands.length > 0) {
+      brands.forEach(brand => {
+        // Fetch districts for each brand
+        dispatch(getDistrictsByBrand(brand.id)).then((result) => {
+          if (result.payload && result.payload.data) {
+            setDistrictsByBrand(prev => ({
+              ...prev,
+              [brand.id]: result.payload.data
+            }));
+          }
+        });
+
+        // Fetch repair orders for each brand (you'll need to implement this action)
+        dispatch(getRepairOrdersByBrand(brand.id)).then((result) => {
+          if (result.payload && result.payload.data) {
+            setRepairOrdersByBrand(prev => ({
+              ...prev,
+              [brand.id]: result.payload.data
+            }));
+          }
+        });
+      });
+    }
+  }, [brands, dispatch]);
+
   useEffect(() => {
     const adminsMap = {};
     users.forEach(user => {
@@ -163,6 +203,14 @@ const Brands = () => {
     const admin = brandAdmins[brandId];
     if (!admin) return DEFAULT_PROFILE_PIC;
     return (admin.profile_pic_url?.trim()) ? admin.profile_pic_url : DEFAULT_PROFILE_PIC;
+  };
+
+  const getDistrictCount = (brandId) => {
+    return districtsByBrand[brandId]?.length || 0;
+  };
+
+  const getTotalRepairOrders = (brandId) => {
+    return repairOrdersByBrand[brandId]?.length || 0;
   };
 
   const formatPhoneNumber = (value) => {
@@ -959,6 +1007,12 @@ const Brands = () => {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Districts
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total Orders
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -972,6 +1026,8 @@ const Brands = () => {
                   const brandLogo = getBrandLogo(brand);
                   const adminProfilePic = getAdminProfilePic(brand.id);
                   const canActivate = canActivateBrand(brand);
+                  const districtCount = getDistrictCount(brand.id);
+                  const totalOrders = getTotalRepairOrders(brand.id);
                   
                   return (
                     <tr key={brand.id} className="hover:bg-gray-50 transition-colors duration-150">
@@ -1028,6 +1084,16 @@ const Brands = () => {
                           brand.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}>
                           {brand.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {districtCount} {districtCount === 1 ? 'District' : 'Districts'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                          {totalOrders} Orders
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
@@ -1099,7 +1165,17 @@ const Brands = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-blue-600 mb-4">Edit Company</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-blue-600">Edit Company</h2>
+                <button
+                  onClick={() => setShowEditModal(null)}
+                  className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
               
               {(formError || formSuccess) && (
                 <div className={`mb-4 p-3 rounded-lg ${formError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>

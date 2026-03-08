@@ -1,3 +1,4 @@
+// BrandAdminLayout.jsx
 import React, { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -10,7 +11,7 @@ const BrandAdminLayout = ({ children }) => {
   
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [selectedShop, setSelectedShop] = useState(null);
-  const [activeContext, setActiveContext] = useState('brand');
+  const [accessMode, setAccessMode] = useState('brand');
 
   useEffect(() => {
     if (districtId) {
@@ -18,56 +19,56 @@ const BrandAdminLayout = ({ children }) => {
       if (district) {
         setSelectedDistrict(JSON.parse(district));
         setSelectedShop(null);
-        setActiveContext('district');
+        setAccessMode('district');
       }
     } else if (shopId) {
       const shop = localStorage.getItem('selectedShop');
       if (shop) {
         setSelectedShop(JSON.parse(shop));
         setSelectedDistrict(null);
-        setActiveContext('shop');
+        setAccessMode('shop');
       }
     } else {
       setSelectedDistrict(null);
       setSelectedShop(null);
-      setActiveContext('brand');
+      setAccessMode('brand');
       localStorage.removeItem('selectedDistrict');
       localStorage.removeItem('selectedShop');
     }
   }, [districtId, shopId]);
 
   const handleBack = () => {
-    if (activeContext === 'district') {
+    if (accessMode === 'district') {
       localStorage.removeItem('selectedDistrict');
       navigate('/brand-admin/districts');
-    } else if (activeContext === 'shop') {
+    } else if (accessMode === 'shop') {
       localStorage.removeItem('selectedShop');
       navigate('/brand-admin/shops');
     }
   };
 
   const getHeaderTitle = () => {
-    if (activeContext === 'district' && selectedDistrict) {
+    if (accessMode === 'district' && selectedDistrict) {
       return `${selectedDistrict.name} District`;
     }
-    if (activeContext === 'shop' && selectedShop) {
+    if (accessMode === 'shop' && selectedShop) {
       return `${selectedShop.name} Shop`;
     }
-    return "Company Admin Dashboard";
+    return "Brand Admin Dashboard";
   };
 
   const getHeaderSubtitle = () => {
-    if (activeContext === 'district' && selectedDistrict) {
+    if (accessMode === 'district' && selectedDistrict) {
       return `Viewing District: ${selectedDistrict.city}${selectedDistrict.state ? `, ${selectedDistrict.state}` : ''}`;
     }
-    if (activeContext === 'shop' && selectedShop) {
+    if (accessMode === 'shop' && selectedShop) {
       return `Viewing Shop: ${selectedShop.city}${selectedShop.state ? `, ${selectedShop.state}` : ''}`;
     }
-    return user?.brand_name ? `Managing: ${user.brand_name}` : "Company Management";
+    return user?.brand_name ? `Managing: ${user.brand_name}` : "Brand Management";
   };
 
   const getNavItems = () => {
-    if (activeContext === 'district' && selectedDistrict) {
+    if (accessMode === 'district' && selectedDistrict) {
       return [
         { name: "Overview", path: `/brand-admin/districts/${selectedDistrict.id}` },
         { name: "Shops", path: `/brand-admin/districts/${selectedDistrict.id}/shops` },
@@ -75,12 +76,12 @@ const BrandAdminLayout = ({ children }) => {
         { name: "Analytics", path: `/brand-admin/districts/${selectedDistrict.id}/analytics` },
       ];
     }
-    if (activeContext === 'shop' && selectedShop) {
+    if (accessMode === 'shop' && selectedShop) {
       return [
         { name: "Overview", path: `/brand-admin/shops/${selectedShop.id}` },
         { name: "Orders", path: `/brand-admin/shops/${selectedShop.id}/orders` },
-        { name: "Analytics", path: `/brand-admin/shops/${selectedShop.id}/analytics` },
         { name: "Users", path: `/brand-admin/shops/${selectedShop.id}/users` },
+        { name: "Analytics", path: `/brand-admin/shops/${selectedShop.id}/analytics` },
       ];
     }
     return [
@@ -100,11 +101,11 @@ const BrandAdminLayout = ({ children }) => {
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <div className="flex items-center">
-              {(activeContext === 'district' || activeContext === 'shop') && (
+              {(accessMode === 'district' || accessMode === 'shop') && (
                 <button
                   onClick={handleBack}
                   className="mr-3 p-1 hover:bg-primary-red rounded-full transition-colors"
-                  title={`Back to ${activeContext === 'district' ? 'Districts' : 'Shops'}`}
+                  title={`Back to ${accessMode === 'district' ? 'Districts' : 'Shops'}`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -113,12 +114,17 @@ const BrandAdminLayout = ({ children }) => {
               )}
               <div>
                 <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
+                <p className="text-sm text-primary-blue-100">{getHeaderSubtitle()}</p>
               </div>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
-              Brand Admin
+              {accessMode === 'district' 
+                ? "Brand Admin • District View" 
+                : accessMode === 'shop'
+                  ? "Brand Admin • Shop View"
+                  : "Brand Admin"}
             </div>
             <span className="hidden md:inline text-white">{user?.email}</span>
             <LogoutButton />
