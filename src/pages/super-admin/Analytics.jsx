@@ -700,10 +700,7 @@ const Analytics = () => {
                           <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-gray-800">Manual Correction Feedback</h3>
                             <button
-                              onClick={() => {
-                                setSelectedBrandForFeedback(showBrandAnalyticsModal);
-                                setShowAllFeedbackModal(true);
-                              }}
+                              onClick={() => handleViewAllFeedback(showBrandAnalyticsModal)}
                               className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
                             >
                               View All ({stats.brandEdits.length})
@@ -750,10 +747,7 @@ const Analytics = () => {
                           {stats.brandEdits.length > 5 && (
                             <div className="mt-4 text-center">
                               <button
-                                onClick={() => {
-                                  setSelectedBrandForFeedback(showBrandAnalyticsModal);
-                                  setShowAllFeedbackModal(true);
-                                }}
+                                onClick={() => handleViewAllFeedback(showBrandAnalyticsModal)}
                                 className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                               >
                                 + {stats.brandEdits.length - 5} more feedback items

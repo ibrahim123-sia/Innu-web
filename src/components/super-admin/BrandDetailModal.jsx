@@ -6,10 +6,7 @@ import {
   selectOrdersByBrand 
 } from '../../redux/slice/orderSlice';
 import { selectAllUsers } from '../../redux/slice/userSlice';
-import { 
-  getDistrictsByBrand, 
-  selectDistrictsByBrand 
-} from '../../redux/slice/districtSlice';
+import { selectAllDistricts } from '../../redux/slice/districtSlice';
 
 const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -20,8 +17,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
   const shops = useSelector(selectAllShops);
   const ordersByBrand = useSelector(selectOrdersByBrand);
   const users = useSelector(selectAllUsers);
-  // Use the specific selector for districts by brand
-  const brandDistricts = useSelector(selectDistrictsByBrand);
+  const districts = useSelector(selectAllDistricts);
 
   const [loading, setLoading] = useState(true);
   const [brandOrders, setBrandOrders] = useState([]);
@@ -29,13 +25,12 @@ const BrandDetailModal = ({ brandId, onClose }) => {
   const brand = brands?.find(b => b.id === brandId);
   const brandShops = shops?.filter(shop => shop.brand_id === brandId) || [];
   const brandUsers = users?.filter(user => user.brand_id === brandId) || [];
+  const brandDistricts = districts?.filter(district => district.brand_id === brandId) || [];
   
   const brandAdmin = brandUsers.find(user => user.role === 'brand_admin') || {};
 
   useEffect(() => {
     fetchBrandOrders();
-    // Fetch districts specifically for this brand
-    fetchBrandDistricts();
   }, [brandId]);
 
   useEffect(() => {
@@ -47,14 +42,6 @@ const BrandDetailModal = ({ brandId, onClose }) => {
       const result = await dispatch(getOrdersByBrand(brandId));
       if (result.payload?.data) setBrandOrders(result.payload.data);
     } catch {
-    }
-  };
-
-  const fetchBrandDistricts = async () => {
-    try {
-      await dispatch(getDistrictsByBrand(brandId));
-    } catch (error) {
-      console.error('Failed to fetch brand districts:', error);
     }
   };
 
@@ -296,7 +283,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                 <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-                <p className="text-gray-500 italic">No shops found for this company</p>
+                <p className="text-gray-500 italic">No shops found for this companies</p>
                 <p className="text-sm text-gray-400 mt-1">Add shops in the Shops management section</p>
               </div>
             )}
