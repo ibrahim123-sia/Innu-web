@@ -44,7 +44,7 @@ const DistrictManagerLayout = ({ children }) => {
     if (accessMode === 'shop' && selectedShop) {
       return `Viewing Shop: ${selectedShop.city}${selectedShop.state ? `, ${selectedShop.state}` : ''}`;
     }
-    return user?.district_name ? `Managing: ${user.district_name} District` : "District Management";
+    return user?.district_name ? `Managing: ${user.district_name} District` : "Managing your district";
   };
 
   const getNavItems = () => {

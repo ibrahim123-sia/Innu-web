@@ -54,7 +54,7 @@ const BrandAdminLayout = ({ children }) => {
     if (accessMode === 'shop' && selectedShop) {
       return `${selectedShop.name} Shop`;
     }
-    return "Brand Admin Dashboard";
+    return "Company Admin Dashboard";
   };
 
   const getHeaderSubtitle = () => {
@@ -64,7 +64,7 @@ const BrandAdminLayout = ({ children }) => {
     if (accessMode === 'shop' && selectedShop) {
       return `Viewing Shop: ${selectedShop.city}${selectedShop.state ? `, ${selectedShop.state}` : ''}`;
     }
-    return user?.brand_name ? `Managing: ${user.brand_name}` : "Brand Management";
+    return user?.brand_name ? `Managing: ${user.brand_name}` : "Managing your company";
   };
 
   const getNavItems = () => {
