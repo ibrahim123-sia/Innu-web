@@ -29,23 +29,13 @@ const BrandDetailModal = ({ brandId, onClose }) => {
   const brandAdmin = brandUsers.find(user => user.role === 'brand_admin') || {};
 
   useEffect(() => {
-    fetchBrandData();
+    fetchBrandOrders();
+    fetchBrandDistricts();
   }, [brandId]);
 
   useEffect(() => {
     if (brand) setLoading(false);
   }, [brand]);
-
-  const fetchBrandData = async () => {
-    try {
-      await Promise.all([
-        fetchBrandOrders(),
-        fetchBrandDistricts()
-      ]);
-    } catch (error) {
-      console.error('Error fetching brand data:', error);
-    }
-  };
 
   const fetchBrandOrders = async () => {
     try {
