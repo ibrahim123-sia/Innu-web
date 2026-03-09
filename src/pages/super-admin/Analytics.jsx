@@ -231,13 +231,19 @@ const Analytics = () => {
     return brand?.name || 'Unknown Brand';
   };
 
+  // Calculate overall stats using only the main data sources
   const totalAIVideoRequests = videos?.length || 0;
   
-  // Count unique videos that have corrections
+  // Count unique videos that have corrections from main editDetailsList only
   const videosWithCorrections = new Set();
-  editDetailsList?.forEach(edit => {
-    if (edit.video_id) videosWithCorrections.add(edit.video_id);
-  });
+  // Only use editDetailsList if it exists and has items
+  if (editDetailsList && Array.isArray(editDetailsList) && editDetailsList.length > 0) {
+    editDetailsList.forEach(edit => {
+      if (edit && edit.video_id) {
+        videosWithCorrections.add(edit.video_id);
+      }
+    });
+  }
   
   const totalManualCorrections = videosWithCorrections.size;
   const aiSuccess = Math.max(0, totalAIVideoRequests - totalManualCorrections);
@@ -257,10 +263,13 @@ const Analytics = () => {
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
-      additionalEdits = editDetailsList?.filter(edit => 
-        edit.video_id && videoIds.includes(edit.video_id) && 
-        !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
-      ) || [];
+      // Only filter editDetailsList if it exists and has items
+      if (editDetailsList && Array.isArray(editDetailsList) && editDetailsList.length > 0) {
+        additionalEdits = editDetailsList.filter(edit => 
+          edit && edit.video_id && videoIds.includes(edit.video_id) && 
+          !brandSpecificEdits.some(e => (e.edit_id && e.edit_id === edit.edit_id) || (e.id && e.id === edit.id))
+        ) || [];
+      }
     }
     
     const allBrandEdits = [...brandSpecificEdits, ...additionalEdits];
@@ -277,7 +286,7 @@ const Analytics = () => {
     // Count unique videos with corrections for this brand
     const brandVideosWithCorrections = new Set();
     uniqueEdits.forEach(edit => {
-      if (edit.video_id) brandVideosWithCorrections.add(edit.video_id);
+      if (edit && edit.video_id) brandVideosWithCorrections.add(edit.video_id);
     });
     
     const brandManualCorrections = brandVideosWithCorrections.size;
@@ -289,10 +298,10 @@ const Analytics = () => {
       successCount: brandSuccess,
       successRate: brandVideoCount > 0 ? ((brandSuccess / brandVideoCount) * 100).toFixed(2) : 0,
       errorRate: brandVideoCount > 0 ? ((brandManualCorrections / brandVideoCount) * 100).toFixed(2) : 0,
-      completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
-      processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
-      pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
-      failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
+      completedVideos: brandSpecificVideos.filter(v => v && v.status === 'completed').length,
+      processingVideos: brandSpecificVideos.filter(v => v && v.status === 'processing').length,
+      pendingVideos: brandSpecificVideos.filter(v => v && v.status === 'pending').length,
+      failedVideos: brandSpecificVideos.filter(v => v && v.status === 'failed').length,
       totalEdits: uniqueEdits.length,
     };
   };
@@ -304,10 +313,13 @@ const Analytics = () => {
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
-      additionalEdits = editDetailsList?.filter(edit => 
-        edit.video_id && videoIds.includes(edit.video_id) && 
-        !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
-      ) || [];
+      // Only filter editDetailsList if it exists and has items
+      if (editDetailsList && Array.isArray(editDetailsList) && editDetailsList.length > 0) {
+        additionalEdits = editDetailsList.filter(edit => 
+          edit && edit.video_id && videoIds.includes(edit.video_id) && 
+          !brandSpecificEdits.some(e => (e.edit_id && e.edit_id === edit.edit_id) || (e.id && e.id === edit.id))
+        ) || [];
+      }
     }
     
     const allEdits = [...brandSpecificEdits, ...additionalEdits];
@@ -317,7 +329,7 @@ const Analytics = () => {
     // Count unique videos with corrections
     const videosWithCorrections = new Set();
     allEdits.forEach(edit => {
-      if (edit.video_id) videosWithCorrections.add(edit.video_id);
+      if (edit && edit.video_id) videosWithCorrections.add(edit.video_id);
     });
     
     const manualCorrections = videosWithCorrections.size;
@@ -329,10 +341,10 @@ const Analytics = () => {
       successCount,
       successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0,
       errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0,
-      completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
-      processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
-      pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
-      failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
+      completedVideos: brandSpecificVideos.filter(v => v && v.status === 'completed').length,
+      processingVideos: brandSpecificVideos.filter(v => v && v.status === 'processing').length,
+      pendingVideos: brandSpecificVideos.filter(v => v && v.status === 'pending').length,
+      failedVideos: brandSpecificVideos.filter(v => v && v.status === 'failed').length,
       brandVideos: brandSpecificVideos,
       brandEdits: allEdits,
       totalEdits: allEdits.length,
