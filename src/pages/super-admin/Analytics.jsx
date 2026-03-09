@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
   selectAllBrands,
@@ -93,9 +93,15 @@ const BrandsTableSkeleton = () => (
 const Analytics = () => {
   const dispatch = useDispatch();
   
-  // Store the original overall data
+  // Store the original overall data - this is the key fix
   const [originalVideos, setOriginalVideos] = useState([]);
   const [originalEditDetails, setOriginalEditDetails] = useState([]);
+  const [originalBrands, setOriginalBrands] = useState([]);
+  
+  // Use refs to track if we've already saved the original data
+  const hasSavedVideos = useRef(false);
+  const hasSavedEdits = useRef(false);
+  const hasSavedBrands = useRef(false);
   
   const brands = useSelector(selectAllBrands);
   const videos = useSelector(selectVideos);
@@ -119,18 +125,32 @@ const Analytics = () => {
     fetchData();
   }, []);
 
-  // Save original data when it's loaded
+  // Save original videos when they're first loaded - and never update them again
   useEffect(() => {
-    if (videos?.length && !originalVideos.length) {
+    if (videos?.length > 0 && !hasSavedVideos.current) {
+      console.log("Saving original videos:", videos.length);
       setOriginalVideos(videos);
+      hasSavedVideos.current = true;
     }
   }, [videos]);
 
+  // Save original edit details when they're first loaded - and never update them again
   useEffect(() => {
-    if (editDetailsList?.length && !originalEditDetails.length) {
+    if (editDetailsList?.length > 0 && !hasSavedEdits.current) {
+      console.log("Saving original edit details:", editDetailsList.length);
       setOriginalEditDetails(editDetailsList);
+      hasSavedEdits.current = true;
     }
   }, [editDetailsList]);
+
+  // Save original brands when they're first loaded
+  useEffect(() => {
+    if (brands?.length > 0 && !hasSavedBrands.current) {
+      console.log("Saving original brands:", brands.length);
+      setOriginalBrands(brands);
+      hasSavedBrands.current = true;
+    }
+  }, [brands]);
 
   const fetchData = async () => {
     setLocalLoading(true);
@@ -144,7 +164,8 @@ const Analytics = () => {
         setIsInitialLoad(false);
         setIsDataReady(true);
       }, 300);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching data:", error);
       setIsInitialLoad(false);
     } finally {
       setLocalLoading(false);
@@ -152,9 +173,12 @@ const Analytics = () => {
   };
 
   const loadAllBrandData = async () => {
+    // Only load brand data if we have original brands
+    if (!originalBrands.length) return;
+    
     const promises = [];
     
-    brands.forEach(brand => {
+    originalBrands.forEach(brand => {
       // Store brand videos separately without affecting original data
       promises.push(
         dispatch(getVideosByBrand(brand.id))
@@ -183,6 +207,7 @@ const Analytics = () => {
     });
     
     await Promise.allSettled(promises);
+    console.log("Finished loading brand data");
   };
 
   const fetchBrandVideos = async (brandId) => {
@@ -233,14 +258,14 @@ const Analytics = () => {
   };
 
   const getBrandLogo = (brandId) => {
-    if (!brands?.length) return DEFAULT_BRAND_LOGO;
-    const brand = brands.find(b => String(b.id) === String(brandId));
+    if (!originalBrands?.length) return DEFAULT_BRAND_LOGO;
+    const brand = originalBrands.find(b => String(b.id) === String(brandId));
     return brand?.logo_url?.trim() ? brand.logo_url : DEFAULT_BRAND_LOGO;
   };
 
   const getBrandName = (brandId) => {
-    if (!brands?.length) return 'Unknown Brand';
-    const brand = brands.find(b => String(b.id) === String(brandId));
+    if (!originalBrands?.length) return 'Unknown Brand';
+    const brand = originalBrands.find(b => String(b.id) === String(brandId));
     return brand?.name || 'Unknown Brand';
   };
 
@@ -282,7 +307,7 @@ const Analytics = () => {
       });
     }
     
-    // Also include any pre-fetched brand-specific edits
+    // Also include any pre-fetched brand-specific edits (for when modal is opened)
     const prefetchedEdits = brandEdits[brandId] || [];
     
     // Combine and deduplicate edits
@@ -468,7 +493,7 @@ const Analytics = () => {
           <p className="text-gray-600">AI video requests and manual corrections by company</p>
         </div>
         
-        {brands?.length > 0 ? (
+        {originalBrands?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -491,7 +516,7 @@ const Analytics = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {brands.map((brand) => {
+                {originalBrands.map((brand) => {
                   const stats = getBrandStats(brand.id);
                   
                   return (
@@ -521,7 +546,6 @@ const Analytics = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
-                      
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
