@@ -30,54 +30,39 @@ import axios from 'axios';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-// ========== FIXED SELECTORS FOR SHOP-SPECIFIC DATA ==========
-
-// FIXED: Get videos by shop - extract data array from response
 const selectVideosByShop = (state) => {
   const videos = state.video.videos;
-  // If videos is an array with a 'data' property (API response structure)
   if (videos && videos.data && Array.isArray(videos.data)) {
     return videos.data;
   }
-  // If videos is already an array
   if (Array.isArray(videos)) {
     return videos;
   }
   return [];
 };
 
-// FIXED: Get edit details by shop - extract data array from response
 const selectEditDetailsByShop = (state) => {
   const edits = state.videoEdit.shopEditDetails;
-  // If edits has a data property (API response structure)
   if (edits && edits.data && Array.isArray(edits.data)) {
     return edits.data;
   }
-  // If edits is already an array
   if (Array.isArray(edits)) {
     return edits;
   }
   return [];
 };
 
-// Local selector for videos by user - filter from shop videos
 const selectVideosByUser = (userId) => (state) => {
   if (!userId) return [];
-  
-  // Get all shop videos first
   const shopVideos = selectVideosByShop(state);
-  
-  // Filter videos where created_by matches the userId
   return shopVideos.filter(video => video.created_by === userId);
 };
 
-// Local selector for edit details by user ID - use the slice selector
 const selectEditDetailsByUserId = (userId) => (state) => {
   if (!userId) return [];
   return selectAllUserEdits(userId)(state);
 };
 
-// Skeleton Loader Components
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -157,8 +142,8 @@ const TableSkeleton = () => (
 
 const Analytics = () => {
   const dispatch = useDispatch();
-  const { shopId } = useParams(); // Get shopId from URL params
-  const [searchParams] = useSearchParams(); // Get userId from query params for impersonation
+  const { shopId } = useParams();
+  const [searchParams] = useSearchParams();
   const userId = searchParams.get('userId');
   
   const currentUser = useSelector(state => state.user?.currentUser);
@@ -168,18 +153,15 @@ const Analytics = () => {
   const [targetShopId, setTargetShopId] = useState(null);
   const [loadingUser, setLoadingUser] = useState(false);
   
-  // Use shopId from URL if available, otherwise fallback to user's shop_id
   const effectiveShopId = shopId || currentUser?.shop_id;
-  
   
   const myShop = useSelector(selectCurrentShop);
   const orders = useSelector(selectOrdersByShop) || [];
   const shopUsers = useSelector(selectAllUsers) || [];
   
-  // Get shop-level data using our fixed selectors
   const allVideos = useSelector(selectVideosByShop) || [];
   const shopEdits = useSelector(selectEditDetailsByShop) || [];
-
+  
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
@@ -189,14 +171,12 @@ const Analytics = () => {
   const [userPerformanceData, setUserPerformanceData] = useState([]);
   const [dataFetchComplete, setDataFetchComplete] = useState(false);
   
-  // Modal states
   const [showUserAnalyticsModal, setShowUserAnalyticsModal] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
   const [selectedUserForFeedback, setSelectedUserForFeedback] = useState(null);
 
-  // Handle impersonation - fetch shop manager data if userId is provided
   useEffect(() => {
     if (userId) {
       fetchShopManagerData();
@@ -233,113 +213,79 @@ const Analytics = () => {
     
     setLoading(true);
     try {
-      console.log('🚀 Fetching all data for shop:', targetShopId);
-      
-      // Clear previous user edit details to prevent stale data
       dispatch(clearUserEditDetails());
       
       await Promise.all([
         dispatch(getShopById(targetShopId)),
         dispatch(getOrdersByShop(targetShopId)),
         dispatch(getUsersByShopId(targetShopId)),
-        dispatch(getVideosByShop(targetShopId)),  // This will store in state.video.videos
-        dispatch(getEditDetailsByShop(targetShopId))  // This will store in state.videoEdit.shopEditDetails
+        dispatch(getVideosByShop(targetShopId)),
+        dispatch(getEditDetailsByShop(targetShopId))
       ]);
-      
-      console.log('✅ All shop-level data fetched successfully');
     } catch (error) {
-      console.error('❌ Error fetching data:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
       setIsDataReady(true);
     }
   }, [dispatch, targetShopId]);
 
-  // FIXED: Fetch ONLY edit details for a user, NOT videos
   const fetchUserEditDetails = useCallback(async (userId) => {
     setLoadingData(prev => ({ ...prev, [userId]: true }));
     try {
-      console.log(`🚀 Fetching edit details for user: ${userId}`);
-      
-      // Only fetch edit details, not videos (to avoid overwriting shop videos)
       await dispatch(getEditDetailsByUser(userId));
-      
-      console.log(`✅ User ${userId} edit details fetched successfully`);
       return true;
     } catch (error) {
-      console.error(`❌ Error fetching edit details for user ${userId}:`, error);
+      console.error(`Error fetching edit details for user ${userId}:`, error);
       return false;
     } finally {
       setLoadingData(prev => ({ ...prev, [userId]: false }));
     }
   }, [dispatch]);
 
-  // Fetch all users edit details sequentially
   const fetchAllUsersEditDetails = useCallback(async (users) => {
     if (!users.length) return;
     
-    console.log(`🚀 Fetching edit details for ${users.length} users one by one...`);
-    
-    // Fetch users one by one
     for (const user of users) {
       await fetchUserEditDetails(user.id);
     }
     
     setDataFetchComplete(true);
-    console.log('✅ All user edit details fetched successfully');
   }, [fetchUserEditDetails]);
 
-  // Fetch initial shop data
   useEffect(() => {
     if (targetShopId) {
-      console.log('🚀 Initial fetch for shop:', targetShopId);
       dispatch(getShopById(targetShopId)).then(() => {
         setTimeout(() => setIsInitialLoad(false), 300);
       });
     }
   }, [dispatch, targetShopId]);
 
-  // Fetch all other data when shop is available
   useEffect(() => {
     if (myShop?.id) {
       fetchData();
     }
   }, [myShop?.id, fetchData]);
 
-  // Filter shop users - EXCLUDE brand admin and district manager
-  // useEffect(() => {
-  //   if (shopUsers?.length > 0 && targetShopId) {
-  //     console.log('🔍 Filtering shop users...');
-  //     const filtered = shopUsers.filter(user => 
-  //       user.shop_id === targetShopId
-  //        && 
-  //       user.role !== 'brand_admin' && 
-  //       user.role !== 'district_manager'
-  //     );
-  //     console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
-  //     setFilteredShopUsers(filtered);
-  //   }
-  // }, [shopUsers, targetShopId]);
-    useEffect(() => {
+  useEffect(() => {
     if (shopUsers?.length > 0 && targetShopId) {
       const filtered = shopUsers.filter(user => 
-        user.shop_id === targetShopId
+        user.shop_id === targetShopId && 
+        user.role !== 'brand_admin' && 
+        user.role !== 'district_manager'
       );
       setFilteredShopUsers(filtered);
     }
   }, [shopUsers, targetShopId]);
 
-  // Fetch edit details for all filtered users when we have them
   useEffect(() => {
     if (filteredShopUsers.length > 0 && !dataFetchComplete) {
       fetchAllUsersEditDetails(filteredShopUsers);
     }
   }, [filteredShopUsers, dataFetchComplete, fetchAllUsersEditDetails]);
 
-  // Calculate video stats from shop-level data
   useEffect(() => {
     if (allVideos?.length > 0) {
-      console.log('📊 Calculating video stats from', allVideos.length, 'videos');
       calculateVideoStats(allVideos);
     }
   }, [allVideos]);
@@ -357,35 +303,23 @@ const Analytics = () => {
       },
     };
     
-    console.log('📊 Calculated Stats:', stats);
     setVideoStats(stats);
   }, []);
 
-  // Process user performance data
   useEffect(() => {
     if (filteredShopUsers.length === 0) {
       setUserPerformanceData([]);
       return;
     }
 
-    // Get current Redux state
     const state = store.getState();
     
     const processedData = filteredShopUsers.map(user => {
-      // Get user videos by filtering from shop videos (this is safe and doesn't overwrite anything)
       const userVideos = allVideos.filter(video => video.created_by === user.id) || [];
-      
-      // Get user edits using selector
       const userEdits = selectEditDetailsByUserId(user.id)(state) || [];
-      
-      console.log(`👤 Processing ${user.first_name} ${user.last_name} (${user.id}):`, {
-        videos: userVideos.length,
-        edits: userEdits.length
-      });
       
       const totalVideos = userVideos.length;
       
-      // Count unique videos with edits
       const uniqueVideoIdsWithEdits = new Set();
       userEdits.forEach(edit => {
         if (edit.video_id) {
@@ -396,7 +330,6 @@ const Analytics = () => {
       const manualCorrections = uniqueVideoIdsWithEdits.size;
       const successCount = totalVideos - manualCorrections;
       
-      // Ensure we don't go negative
       const adjustedSuccessCount = Math.max(0, successCount);
       const adjustedManualCorrections = Math.min(manualCorrections, totalVideos);
       
@@ -428,21 +361,12 @@ const Analytics = () => {
       };
     }).sort((a, b) => b.totalVideos - a.totalVideos);
     
-    console.log('📊 Processed User Data:', processedData.map(u => ({
-      name: u.name,
-      videos: u.totalVideos,
-      corrections: u.manualCorrections,
-      successRate: u.successRate
-    })));
-    
     setUserPerformanceData(processedData);
   }, [filteredShopUsers, loadingData, dataFetchComplete, allVideos]);
 
-  // Calculate overall stats from shop-level data
   const stats = useMemo(() => {
     const totalAIVideoRequests = allVideos?.length || 0;
     
-    // Count unique videos that have manual corrections
     const videosWithCorrections = new Set();
     shopEdits.forEach(edit => {
       if (edit.video_id) {
@@ -471,38 +395,30 @@ const Analytics = () => {
     };
   }, [allVideos, shopEdits]);
 
-  console.log('📊 Final Stats:', stats);
-
-  // FIXED: Handle view user analytics - only fetch edit details, not videos
   const handleViewUserAnalytics = useCallback(async (userId) => {
     setShowUserAnalyticsModal(userId);
     
-    // Only fetch edit details if needed (videos are already in allVideos)
     if (!loadingData[userId]) {
       await fetchUserEditDetails(userId);
     }
   }, [loadingData, fetchUserEditDetails]);
 
-  // Handle view all feedback for user
   const handleViewAllFeedback = useCallback((userId) => {
     setSelectedUserForFeedback(userId);
     setShowAllFeedbackModal(true);
   }, []);
 
-  // Handle view individual feedback
   const handleViewFeedback = useCallback((edit) => {
     setSelectedFeedback(edit);
     setShowFeedbackModal(true);
   }, []);
 
-  // Handle refresh data
   const handleRefreshData = useCallback(() => {
     setDataFetchComplete(false);
     setUserPerformanceData([]);
     fetchData();
   }, [fetchData]);
 
-  // Show loading if user data is being fetched (impersonation)
   if (loadingUser) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -514,7 +430,6 @@ const Analytics = () => {
     );
   }
 
-  // Show loading if no target shop ID
   if (!targetShopId) {
     return (
       <div className="p-6 flex justify-center items-center h-64">
@@ -529,7 +444,6 @@ const Analytics = () => {
     );
   }
 
-  // Show skeleton during initial load
   if (isInitialLoad || (loading && !isDataReady)) {
     return (
       <div className="p-6 transition-opacity duration-300 ease-in-out">
@@ -546,7 +460,6 @@ const Analytics = () => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
-      {/* Impersonation Banner - Show when viewing as different user */}
       {isImpersonating && shopManager && (
         <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
           <div className="flex">
@@ -565,11 +478,7 @@ const Analytics = () => {
         </div>
       )}
 
-     
-
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {/* Total AI Video Requests Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -585,7 +494,6 @@ const Analytics = () => {
           </div>
         </div>
         
-        {/* AI Success Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -601,7 +509,6 @@ const Analytics = () => {
           </div>
         </div>
         
-        {/* AI Error Rate Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -617,7 +524,6 @@ const Analytics = () => {
           </div>
         </div>
         
-        {/* Total Users Card */}
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
@@ -634,7 +540,6 @@ const Analytics = () => {
         </div>
       </div>
 
-      {/* User Performance Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="p-6 border-b flex justify-between items-center">
           <div>
@@ -802,7 +707,6 @@ const Analytics = () => {
         )}
       </div>
 
-      {/* User Analytics Modal */}
       {showUserAnalyticsModal && (
         <UserAnalyticsModal
           userId={showUserAnalyticsModal}
@@ -816,7 +720,6 @@ const Analytics = () => {
         />
       )}
 
-      {/* All Feedback Modal */}
       {showAllFeedbackModal && selectedUserForFeedback && (
         <AllFeedbackModal
           userId={selectedUserForFeedback}
@@ -829,7 +732,6 @@ const Analytics = () => {
         />
       )}
 
-      {/* Individual Feedback Detail Modal */}
       {showFeedbackModal && selectedFeedback && (
         <FeedbackDetailModal
           feedback={selectedFeedback}
@@ -843,20 +745,11 @@ const Analytics = () => {
   );
 };
 
-// ========== MODAL COMPONENTS ==========
-
 const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAllFeedback, onViewFeedback, allVideos }) => {
   const state = useSelector(state => state);
-  // For user videos, filter from the passed allVideos prop (shop videos)
   const userVideos = allVideos?.filter(video => video.created_by === userId) || [];
   const userEdits = selectEditDetailsByUserId(userId)(state) || [];
   
-  console.log(`📊 Modal for user ${userId}:`, {
-    videos: userVideos.length,
-    edits: userEdits.length
-  });
-  
-  // Count unique videos with edits
   const uniqueVideoIdsWithEdits = new Set();
   userEdits.forEach(edit => {
     if (edit.video_id) {
@@ -897,7 +790,6 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
         <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 rounded-full overflow-hidden border bg-gray-100">
@@ -927,9 +819,7 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
           </button>
         </div>
 
-        {/* Modal Content */}
         <div className="p-6">
-          {/* User Info */}
           <div className="mb-8 bg-gray-50 p-4 rounded-lg">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -953,7 +843,6 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
             </div>
           </div>
 
-          {/* Video Processing Stats */}
           <div className="mb-8">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Video Processing Stats</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -976,7 +865,6 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
             </div>
           </div>
 
-          {/* AI Performance Stats */}
           <div className="mb-8">
             <h3 className="text-lg font-bold text-gray-800 mb-4">AI Performance</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1039,7 +927,6 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
             </div>
           </div>
 
-          {/* Manual Corrections List with Feedback */}
           {userEdits && userEdits.length > 0 ? (
             <div className="bg-white border rounded-lg p-6">
               <div className="flex justify-between items-center mb-4">
@@ -1106,7 +993,6 @@ const UserAnalyticsModal = ({ userId, user, shopName, loading, onClose, onViewAl
           )}
         </div>
 
-        {/* Modal Footer */}
         <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end">
           <button
             onClick={onClose}
