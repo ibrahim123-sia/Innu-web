@@ -171,10 +171,6 @@ const Analytics = () => {
   // Use shopId from URL if available, otherwise fallback to user's shop_id
   const effectiveShopId = shopId || currentUser?.shop_id;
   
-  console.log('🔍 Analytics - URL Shop ID:', shopId);
-  console.log('🔍 Analytics - Current User:', currentUser);
-  console.log('🔍 Analytics - Impersonating User ID:', userId);
-  console.log('🔍 Analytics - Effective Shop ID:', effectiveShopId);
   
   const myShop = useSelector(selectCurrentShop);
   const orders = useSelector(selectOrdersByShop) || [];
@@ -183,10 +179,7 @@ const Analytics = () => {
   // Get shop-level data using our fixed selectors
   const allVideos = useSelector(selectVideosByShop) || [];
   const shopEdits = useSelector(selectEditDetailsByShop) || [];
-  
-  console.log('🔍 All Videos (shop-specific):', allVideos.length);
-  console.log('🔍 Shop Edits (shop-specific):', shopEdits.length);
-  
+
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
@@ -318,9 +311,10 @@ const Analytics = () => {
     if (shopUsers?.length > 0 && targetShopId) {
       console.log('🔍 Filtering shop users...');
       const filtered = shopUsers.filter(user => 
-        user.shop_id === targetShopId && 
-        user.role !== 'brand_admin' && 
-        user.role !== 'district_manager'
+        user.shop_id === targetShopId
+        //  && 
+        // user.role !== 'brand_admin' && 
+        // user.role !== 'district_manager'
       );
       console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
       setFilteredShopUsers(filtered);
