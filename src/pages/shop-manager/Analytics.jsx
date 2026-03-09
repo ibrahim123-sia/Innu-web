@@ -311,19 +311,19 @@ const Analytics = () => {
     }
   }, [myShop?.id, fetchData]);
 
-  // Filter shop users - EXCLUDE brand admin and district manager
-  useEffect(() => {
-    if (shopUsers?.length > 0 && targetShopId) {
-      console.log('🔍 Filtering shop users...');
-      const filtered = shopUsers.filter(user => 
-        user.shop_id === targetShopId && 
-        // user.role !== 'brand_admin' && 
-        user.role !== 'district_manager'
-      );
-      console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
-      setFilteredShopUsers(filtered);
-    }
-  }, [shopUsers, targetShopId]);
+  // // Filter shop users - EXCLUDE brand admin and district manager
+  // useEffect(() => {
+  //   if (shopUsers?.length > 0 && targetShopId) {
+  //     console.log('🔍 Filtering shop users...');
+  //     const filtered = shopUsers.filter(user => 
+  //       user.shop_id === targetShopId && 
+  //       user.role !== 'brand_admin' && 
+  //       user.role !== 'district_manager'
+  //     );
+  //     console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
+  //     setFilteredShopUsers(filtered);
+  //   }
+  // }, [shopUsers, targetShopId]);
 
   // Fetch edit details for all filtered users when we have them
   useEffect(() => {
@@ -617,9 +617,9 @@ const Analytics = () => {
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Total Users</h3>
-              <p className="text-3xl font-bold text-purple-600 mt-2">{filteredShopUsers?.length || 0}</p>
-              <p className="text-xs text-gray-400 mt-1">{filteredShopUsers?.filter(u => u.is_active).length || 0} active</p>
+              <h3 className="text-sm text-gray-500">Total Manual Corrections</h3>
+              <p className="text-3xl font-bold text-purple-600 mt-2">{totalManualCorrections || 0}</p>
+             
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
