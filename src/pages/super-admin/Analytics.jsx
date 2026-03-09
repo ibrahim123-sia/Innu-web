@@ -93,6 +93,10 @@ const BrandsTableSkeleton = () => (
 const Analytics = () => {
   const dispatch = useDispatch();
   
+  // Store the original overall data
+  const [originalVideos, setOriginalVideos] = useState([]);
+  const [originalEditDetails, setOriginalEditDetails] = useState([]);
+  
   const brands = useSelector(selectAllBrands);
   const videos = useSelector(selectVideos);
   const editDetailsList = useSelector(selectEditDetailsList);
@@ -115,11 +119,18 @@ const Analytics = () => {
     fetchData();
   }, []);
 
+  // Save original data when it's loaded
   useEffect(() => {
-    if (brands?.length && isDataReady) {
-      loadAllBrandData();
+    if (videos?.length && !originalVideos.length) {
+      setOriginalVideos(videos);
     }
-  }, [brands, isDataReady]);
+  }, [videos]);
+
+  useEffect(() => {
+    if (editDetailsList?.length && !originalEditDetails.length) {
+      setOriginalEditDetails(editDetailsList);
+    }
+  }, [editDetailsList]);
 
   const fetchData = async () => {
     setLocalLoading(true);
@@ -144,6 +155,7 @@ const Analytics = () => {
     const promises = [];
     
     brands.forEach(brand => {
+      // Store brand videos separately without affecting original data
       promises.push(
         dispatch(getVideosByBrand(brand.id))
           .unwrap()
@@ -156,6 +168,7 @@ const Analytics = () => {
           })
       );
       
+      // Store brand edits separately without affecting original data
       promises.push(
         dispatch(getEditDetailsByBrand(brand.id))
           .unwrap()
@@ -231,14 +244,13 @@ const Analytics = () => {
     return brand?.name || 'Unknown Brand';
   };
 
-  // Calculate overall stats using only the main data sources
-  const totalAIVideoRequests = videos?.length || 0;
+  // Calculate overall stats using the ORIGINAL data only
+  const totalAIVideoRequests = originalVideos?.length || 0;
   
-  // Count unique videos that have corrections from main editDetailsList only
+  // Count unique videos that have corrections from original editDetailsList only
   const videosWithCorrections = new Set();
-  // Only use editDetailsList if it exists and has items
-  if (editDetailsList && Array.isArray(editDetailsList) && editDetailsList.length > 0) {
-    editDetailsList.forEach(edit => {
+  if (originalEditDetails && Array.isArray(originalEditDetails) && originalEditDetails.length > 0) {
+    originalEditDetails.forEach(edit => {
       if (edit && edit.video_id) {
         videosWithCorrections.add(edit.video_id);
       }
@@ -263,9 +275,9 @@ const Analytics = () => {
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
-      // Only filter editDetailsList if it exists and has items
-      if (editDetailsList && Array.isArray(editDetailsList) && editDetailsList.length > 0) {
-        additionalEdits = editDetailsList.filter(edit => 
+      // Use originalEditDetails for additional edits, not the potentially overwritten editDetailsList
+      if (originalEditDetails && Array.isArray(originalEditDetails) && originalEditDetails.length > 0) {
+        additionalEdits = originalEditDetails.filter(edit => 
           edit && edit.video_id && videoIds.includes(edit.video_id) && 
           !brandSpecificEdits.some(e => (e.edit_id && e.edit_id === edit.edit_id) || (e.id && e.id === edit.id))
         ) || [];
@@ -313,9 +325,9 @@ const Analytics = () => {
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
-      // Only filter editDetailsList if it exists and has items
-      if (editDetailsList && Array.isArray(editDetailsList) && editDetailsList.length > 0) {
-        additionalEdits = editDetailsList.filter(edit => 
+      // Use originalEditDetails for additional edits
+      if (originalEditDetails && Array.isArray(originalEditDetails) && originalEditDetails.length > 0) {
+        additionalEdits = originalEditDetails.filter(edit => 
           edit && edit.video_id && videoIds.includes(edit.video_id) && 
           !brandSpecificEdits.some(e => (e.edit_id && e.edit_id === edit.edit_id) || (e.id && e.id === edit.id))
         ) || [];
@@ -566,6 +578,7 @@ const Analytics = () => {
         )}
       </div>
 
+      {/* Rest of your modal code remains the same... */}
       {showBrandAnalyticsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
