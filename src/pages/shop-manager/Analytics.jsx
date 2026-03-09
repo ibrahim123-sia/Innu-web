@@ -30,9 +30,7 @@ import axios from 'axios';
 
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-// ========== FIXED SELECTORS FOR SHOP-SPECIFIC DATA ==========
 
-// FIXED: Get videos by shop - extract data array from response
 const selectVideosByShop = (state) => {
   const videos = state.video.videos;
   // If videos is an array with a 'data' property (API response structure)
@@ -319,7 +317,7 @@ const Analytics = () => {
       console.log('🔍 Filtering shop users...');
       const filtered = shopUsers.filter(user => 
         user.shop_id === targetShopId && 
-        user.role !== 'brand_admin' && 
+        // user.role !== 'brand_admin' && 
         user.role !== 'district_manager'
       );
       console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
