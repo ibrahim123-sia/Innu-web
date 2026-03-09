@@ -312,18 +312,16 @@ const Analytics = () => {
   }, [myShop?.id, fetchData]);
 
   // // Filter shop users - EXCLUDE brand admin and district manager
-  // useEffect(() => {
-  //   if (shopUsers?.length > 0 && targetShopId) {
-  //     console.log('🔍 Filtering shop users...');
-  //     const filtered = shopUsers.filter(user => 
-  //       user.shop_id === targetShopId && 
-  //       user.role !== 'brand_admin' && 
-  //       user.role !== 'district_manager'
-  //     );
-  //     console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
-  //     setFilteredShopUsers(filtered);
-  //   }
-  // }, [shopUsers, targetShopId]);
+  useEffect(() => {
+    if (shopUsers?.length > 0 && targetShopId) {
+      console.log('🔍 Filtering shop users...');
+      const filtered = shopUsers.filter(user => 
+        user.shop_id === targetShopId 
+      );
+      console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
+      setFilteredShopUsers(filtered);
+    }
+  }, [shopUsers, targetShopId]);
 
   // Fetch edit details for all filtered users when we have them
   useEffect(() => {
