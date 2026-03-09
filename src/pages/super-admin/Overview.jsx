@@ -6,6 +6,7 @@ import {
   selectShopsByBrand,
 } from "../../redux/slice/shopSlice";
 import { getOrdersByBrand } from "../../redux/slice/orderSlice";
+import { getAllDistricts } from "../../redux/slice/districtSlice";
 import { getAllVideos, selectVideos } from "../../redux/slice/videoSlice";
 import { Link } from "react-router-dom";
 
@@ -120,7 +121,7 @@ const Overview = () => {
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
-  const [dailyOrders, setDailyOrders] = useState(0);
+  const [totalActiveDistricts, setTotalActiveDistricts] = useState(0);
   const [totalVideos, setTotalVideos] = useState(0);
   const [videosByBrand, setVideosByBrand] = useState([]);
   const [topBrand, setTopBrand] = useState(null);
@@ -192,17 +193,6 @@ const Overview = () => {
   }, []);
 
   const calculateStats = useCallback(() => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const todayOrders = allOrders?.filter((order) => {
-      if (!order.created_at) return false;
-      return new Date(order.created_at) >= yesterday;
-    }).length || 0;
-
-    setDailyOrders(todayOrders);
-
     if (videos?.length && brands?.length) {
       const videoCountByBrand = {};
       videos.forEach((video) => {
@@ -240,11 +230,11 @@ const Overview = () => {
     } else {
       setTopBrand(null);
     }
-  }, [allOrders, videos, brands, shopsByBrand]);
+  }, [videos, brands, shopsByBrand]);
 
   useEffect(() => {
     calculateStats();
-  }, [calculateStats, allOrders, videos, brands, shopsByBrand]);
+  }, [calculateStats, videos, brands, shopsByBrand]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -254,7 +244,10 @@ const Overview = () => {
       const brandsResult = await dispatch(getAllBrands());
       const brandsData = brandsResult.payload || brandsResult.data || [];
 
-      await dispatch(getAllVideos());
+      await Promise.all([
+        dispatch(getAllVideos()),
+        dispatch(getAllDistricts())
+      ]);
 
       if (brandsData?.length) {
         for (const brand of brandsData) {
@@ -273,6 +266,14 @@ const Overview = () => {
         }, []);
 
         setAllOrders(combinedOrders);
+      }
+
+      // Calculate total active districts from all districts data
+      const districtsState = await dispatch(getAllDistricts());
+      const districtsData = districtsState.payload?.data || districtsState.payload || [];
+      if (Array.isArray(districtsData)) {
+        const activeDistricts = districtsData.filter(district => district.is_active).length;
+        setTotalActiveDistricts(activeDistricts);
       }
 
       setTimeout(() => setIsInitialLoad(false), 300);
@@ -362,11 +363,11 @@ const Overview = () => {
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm text-gray-500">Daily Repair Orders</h3>
+              <h3 className="text-sm text-gray-500">Active Districts</h3>
               <p className="text-3xl font-bold text-blue-600 mt-2">
-                {dailyOrders}
+                {totalActiveDistricts}
               </p>
-              <p className="text-xs text-gray-400 mt-1">Last 24 hours</p>
+              <p className="text-xs text-gray-400 mt-1">Total active districts</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
               <svg
@@ -376,7 +377,7 @@ const Overview = () => {
               >
                 <path
                   fillRule="evenodd"
-                  d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+                  d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
                   clipRule="evenodd"
                 />
               </svg>
