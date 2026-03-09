@@ -47,25 +47,7 @@ const BrandAdminLayout = ({ children }) => {
     }
   };
 
-  const getHeaderTitle = () => {
-    if (accessMode === 'district' && selectedDistrict) {
-      return `${selectedDistrict.name} District`;
-    }
-    if (accessMode === 'shop' && selectedShop) {
-      return `${selectedShop.name} Shop`;
-    }
-    return "Company Admin Dashboard";
-  };
-
-  const getHeaderSubtitle = () => {
-    if (accessMode === 'district' && selectedDistrict) {
-      return `Viewing District: ${selectedDistrict.city}${selectedDistrict.state ? `, ${selectedDistrict.state}` : ''}`;
-    }
-    if (accessMode === 'shop' && selectedShop) {
-      return `Viewing Shop: ${selectedShop.city}${selectedShop.state ? `, ${selectedShop.state}` : ''}`;
-    }
-    return user?.brand_name ? `Managing: ${user.brand_name}` : "Managing your company";
-  };
+ 
 
   const getNavItems = () => {
     if (accessMode === 'district' && selectedDistrict) {
@@ -113,8 +95,8 @@ const BrandAdminLayout = ({ children }) => {
                 </button>
               )}
               <div>
-                <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-                <p className="text-sm text-primary-blue-100">{getHeaderSubtitle()}</p>
+                <h1 className="text-2xl font-bold">Company Admin Dashboard</h1>
+                <p className="text-sm text-primary-blue-100">Manage your company</p>
               </div>
             </div>
           </div>

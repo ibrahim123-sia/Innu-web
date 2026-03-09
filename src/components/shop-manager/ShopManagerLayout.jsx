@@ -67,24 +67,7 @@ const ShopManagerLayout = ({ children }) => {
     }
   };
 
-  const getHeaderTitle = () => {
-    if (selectedShop) {
-      return `${selectedShop.name || "Shop"} Management`;
-    }
-    return "Shop Manager Dashboard";
-  };
 
-  const getHeaderSubtitle = () => {
-    if (selectedShop) {
-      const city = selectedShop.city || "";
-      const state = selectedShop.state || "";
-
-      if (city && state) return `Managing: ${city}, ${state}`;
-      if (city) return `Managing: ${city}`;
-      return "Managing your shop";
-    }
-    return user?.email ? `Welcome, ${user.email}` : "Shop Management";
-  };
 
   const getNavItems = () => {
     if (selectedShop && selectedShop.id) {
@@ -179,8 +162,8 @@ const ShopManagerLayout = ({ children }) => {
                 </button>
               )}
               <div>
-                <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-                <p className="text-sm text-primary-blue-100">{getHeaderSubtitle()}</p>
+                <h1 className="text-2xl font-bold">Shop Manager Dashboard</h1>
+                <p className="text-sm text-primary-blue-100">Manage your shop</p>
               </div>
             </div>
           </div>

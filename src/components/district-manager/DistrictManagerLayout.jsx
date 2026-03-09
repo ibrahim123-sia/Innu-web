@@ -33,19 +33,6 @@ const DistrictManagerLayout = ({ children }) => {
     }
   };
 
-  const getHeaderTitle = () => {
-    if (accessMode === 'shop' && selectedShop) {
-      return `${selectedShop.name} Shop`;
-    }
-    return "District Manager Dashboard";
-  };
-
-  const getHeaderSubtitle = () => {
-    if (accessMode === 'shop' && selectedShop) {
-      return `Viewing Shop: ${selectedShop.city}${selectedShop.state ? `, ${selectedShop.state}` : ''}`;
-    }
-    return user?.district_name ? `Managing: ${user.district_name} District` : "Managing your district";
-  };
 
   const getNavItems = () => {
     if (accessMode === 'shop' && selectedShop) {
@@ -84,8 +71,8 @@ const DistrictManagerLayout = ({ children }) => {
                 </button>
               )}
               <div>
-                <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-                <p className="text-sm text-primary-blue-100">{getHeaderSubtitle()}</p>
+                <h1 className="text-2xl font-bold">District Manager Dashboard</h1>
+                <p className="text-sm text-primary-blue-100">Manage your district</p>
               </div>
             </div>
           </div>
