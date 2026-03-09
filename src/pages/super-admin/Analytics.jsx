@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
   selectAllBrands,
@@ -93,16 +93,6 @@ const BrandsTableSkeleton = () => (
 const Analytics = () => {
   const dispatch = useDispatch();
   
-  // Store the original overall data - this is the key fix
-  const [originalVideos, setOriginalVideos] = useState([]);
-  const [originalEditDetails, setOriginalEditDetails] = useState([]);
-  const [originalBrands, setOriginalBrands] = useState([]);
-  
-  // Use refs to track if we've already saved the original data
-  const hasSavedVideos = useRef(false);
-  const hasSavedEdits = useRef(false);
-  const hasSavedBrands = useRef(false);
-  
   const brands = useSelector(selectAllBrands);
   const videos = useSelector(selectVideos);
   const editDetailsList = useSelector(selectEditDetailsList);
@@ -125,32 +115,11 @@ const Analytics = () => {
     fetchData();
   }, []);
 
-  // Save original videos when they're first loaded - and never update them again
   useEffect(() => {
-    if (videos?.length > 0 && !hasSavedVideos.current) {
-      console.log("Saving original videos:", videos.length);
-      setOriginalVideos(videos);
-      hasSavedVideos.current = true;
+    if (brands?.length && isDataReady) {
+      loadAllBrandData();
     }
-  }, [videos]);
-
-  // Save original edit details when they're first loaded - and never update them again
-  useEffect(() => {
-    if (editDetailsList?.length > 0 && !hasSavedEdits.current) {
-      console.log("Saving original edit details:", editDetailsList.length);
-      setOriginalEditDetails(editDetailsList);
-      hasSavedEdits.current = true;
-    }
-  }, [editDetailsList]);
-
-  // Save original brands when they're first loaded
-  useEffect(() => {
-    if (brands?.length > 0 && !hasSavedBrands.current) {
-      console.log("Saving original brands:", brands.length);
-      setOriginalBrands(brands);
-      hasSavedBrands.current = true;
-    }
-  }, [brands]);
+  }, [brands, isDataReady]);
 
   const fetchData = async () => {
     setLocalLoading(true);
@@ -164,8 +133,7 @@ const Analytics = () => {
         setIsInitialLoad(false);
         setIsDataReady(true);
       }, 300);
-    } catch (error) {
-      console.error("Error fetching data:", error);
+    } catch {
       setIsInitialLoad(false);
     } finally {
       setLocalLoading(false);
@@ -173,13 +141,9 @@ const Analytics = () => {
   };
 
   const loadAllBrandData = async () => {
-    // Only load brand data if we have original brands
-    if (!originalBrands.length) return;
-    
     const promises = [];
     
-    originalBrands.forEach(brand => {
-      // Store brand videos separately without affecting original data
+    brands.forEach(brand => {
       promises.push(
         dispatch(getVideosByBrand(brand.id))
           .unwrap()
@@ -192,7 +156,6 @@ const Analytics = () => {
           })
       );
       
-      // Store brand edits separately without affecting original data
       promises.push(
         dispatch(getEditDetailsByBrand(brand.id))
           .unwrap()
@@ -207,7 +170,6 @@ const Analytics = () => {
     });
     
     await Promise.allSettled(promises);
-    console.log("Finished loading brand data");
   };
 
   const fetchBrandVideos = async (brandId) => {
@@ -258,29 +220,24 @@ const Analytics = () => {
   };
 
   const getBrandLogo = (brandId) => {
-    if (!originalBrands?.length) return DEFAULT_BRAND_LOGO;
-    const brand = originalBrands.find(b => String(b.id) === String(brandId));
+    if (!brands?.length) return DEFAULT_BRAND_LOGO;
+    const brand = brands.find(b => String(b.id) === String(brandId));
     return brand?.logo_url?.trim() ? brand.logo_url : DEFAULT_BRAND_LOGO;
   };
 
   const getBrandName = (brandId) => {
-    if (!originalBrands?.length) return 'Unknown Brand';
-    const brand = originalBrands.find(b => String(b.id) === String(brandId));
+    if (!brands?.length) return 'Unknown Brand';
+    const brand = brands.find(b => String(b.id) === String(brandId));
     return brand?.name || 'Unknown Brand';
   };
 
-  // Calculate overall stats using the ORIGINAL data only
-  const totalAIVideoRequests = originalVideos?.length || 0;
+  const totalAIVideoRequests = videos?.length || 0;
   
-  // Count unique videos that have corrections from original editDetailsList only
+  // Count unique videos that have corrections
   const videosWithCorrections = new Set();
-  if (originalEditDetails && Array.isArray(originalEditDetails) && originalEditDetails.length > 0) {
-    originalEditDetails.forEach(edit => {
-      if (edit && edit.video_id) {
-        videosWithCorrections.add(edit.video_id);
-      }
-    });
-  }
+  editDetailsList?.forEach(edit => {
+    if (edit.video_id) videosWithCorrections.add(edit.video_id);
+  });
   
   const totalManualCorrections = videosWithCorrections.size;
   const aiSuccess = Math.max(0, totalAIVideoRequests - totalManualCorrections);
@@ -294,24 +251,19 @@ const Analytics = () => {
     : 0;
 
   const getBrandStats = (brandId) => {
-    // Get brand-specific videos from the original videos list
-    const brandSpecificVideos = originalVideos.filter(v => v && String(v.brand_id) === String(brandId)) || [];
+    const brandSpecificVideos = brandVideos[brandId] || [];
+    const brandSpecificEdits = brandEdits[brandId] || [];
     
-    // Get brand-specific edits from the original edit details list
-    let brandSpecificEdits = [];
-    if (originalEditDetails && Array.isArray(originalEditDetails)) {
-      brandSpecificEdits = originalEditDetails.filter(edit => {
-        // Find the video for this edit to check its brand
-        const video = brandSpecificVideos.find(v => v.id === edit.video_id);
-        return video && String(video.brand_id) === String(brandId);
-      });
+    let additionalEdits = [];
+    if (brandSpecificVideos.length) {
+      const videoIds = brandSpecificVideos.map(v => v.id);
+      additionalEdits = editDetailsList?.filter(edit => 
+        edit.video_id && videoIds.includes(edit.video_id) && 
+        !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
+      ) || [];
     }
     
-    // Also include any pre-fetched brand-specific edits (for when modal is opened)
-    const prefetchedEdits = brandEdits[brandId] || [];
-    
-    // Combine and deduplicate edits
-    const allBrandEdits = [...brandSpecificEdits, ...prefetchedEdits];
+    const allBrandEdits = [...brandSpecificEdits, ...additionalEdits];
     
     const uniqueEdits = allBrandEdits.filter((edit, index, self) => 
       index === self.findIndex(e => 
@@ -325,7 +277,7 @@ const Analytics = () => {
     // Count unique videos with corrections for this brand
     const brandVideosWithCorrections = new Set();
     uniqueEdits.forEach(edit => {
-      if (edit && edit.video_id) brandVideosWithCorrections.add(edit.video_id);
+      if (edit.video_id) brandVideosWithCorrections.add(edit.video_id);
     });
     
     const brandManualCorrections = brandVideosWithCorrections.size;
@@ -337,46 +289,35 @@ const Analytics = () => {
       successCount: brandSuccess,
       successRate: brandVideoCount > 0 ? ((brandSuccess / brandVideoCount) * 100).toFixed(2) : 0,
       errorRate: brandVideoCount > 0 ? ((brandManualCorrections / brandVideoCount) * 100).toFixed(2) : 0,
-      completedVideos: brandSpecificVideos.filter(v => v && v.status === 'completed').length,
-      processingVideos: brandSpecificVideos.filter(v => v && v.status === 'processing').length,
-      pendingVideos: brandSpecificVideos.filter(v => v && v.status === 'pending').length,
-      failedVideos: brandSpecificVideos.filter(v => v && v.status === 'failed').length,
+      completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
+      processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
+      pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
+      failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
       totalEdits: uniqueEdits.length,
     };
   };
 
   const getBrandDetailedStats = (brandId) => {
-    // Get brand-specific videos from the original videos list
-    const brandSpecificVideos = originalVideos.filter(v => v && String(v.brand_id) === String(brandId)) || [];
+    const brandSpecificVideos = brandVideos[brandId] || [];
+    const brandSpecificEdits = brandEdits[brandId] || [];
     
-    // Get brand-specific edits from the original edit details list
-    let brandSpecificEdits = [];
-    if (originalEditDetails && Array.isArray(originalEditDetails)) {
-      brandSpecificEdits = originalEditDetails.filter(edit => {
-        const video = brandSpecificVideos.find(v => v.id === edit.video_id);
-        return video && String(video.brand_id) === String(brandId);
-      });
+    let additionalEdits = [];
+    if (brandSpecificVideos.length) {
+      const videoIds = brandSpecificVideos.map(v => v.id);
+      additionalEdits = editDetailsList?.filter(edit => 
+        edit.video_id && videoIds.includes(edit.video_id) && 
+        !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
+      ) || [];
     }
     
-    // Also include any pre-fetched brand-specific edits
-    const prefetchedEdits = brandEdits[brandId] || [];
-    
-    // Combine and deduplicate edits
-    const allEdits = [...brandSpecificEdits, ...prefetchedEdits];
-    
-    const uniqueEdits = allEdits.filter((edit, index, self) => 
-      index === self.findIndex(e => 
-        (e.edit_id && e.edit_id === edit.edit_id) || 
-        (e.id && e.id === edit.id)
-      )
-    );
+    const allEdits = [...brandSpecificEdits, ...additionalEdits];
     
     const totalVideos = brandSpecificVideos.length;
     
     // Count unique videos with corrections
     const videosWithCorrections = new Set();
-    uniqueEdits.forEach(edit => {
-      if (edit && edit.video_id) videosWithCorrections.add(edit.video_id);
+    allEdits.forEach(edit => {
+      if (edit.video_id) videosWithCorrections.add(edit.video_id);
     });
     
     const manualCorrections = videosWithCorrections.size;
@@ -388,13 +329,13 @@ const Analytics = () => {
       successCount,
       successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0,
       errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0,
-      completedVideos: brandSpecificVideos.filter(v => v && v.status === 'completed').length,
-      processingVideos: brandSpecificVideos.filter(v => v && v.status === 'processing').length,
-      pendingVideos: brandSpecificVideos.filter(v => v && v.status === 'pending').length,
-      failedVideos: brandSpecificVideos.filter(v => v && v.status === 'failed').length,
+      completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
+      processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
+      pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
+      failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
       brandVideos: brandSpecificVideos,
-      brandEdits: uniqueEdits,
-      totalEdits: uniqueEdits.length,
+      brandEdits: allEdits,
+      totalEdits: allEdits.length,
     };
   };
 
@@ -493,7 +434,7 @@ const Analytics = () => {
           <p className="text-gray-600">AI video requests and manual corrections by company</p>
         </div>
         
-        {originalBrands?.length > 0 ? (
+        {brands?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -516,7 +457,7 @@ const Analytics = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {originalBrands.map((brand) => {
+                {brands.map((brand) => {
                   const stats = getBrandStats(brand.id);
                   
                   return (
@@ -546,6 +487,7 @@ const Analytics = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
+                      
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
