@@ -269,22 +269,24 @@ const Analytics = () => {
     : 0;
 
   const getBrandStats = (brandId) => {
-    const brandSpecificVideos = brandVideos[brandId] || [];
-    const brandSpecificEdits = brandEdits[brandId] || [];
+    // Get brand-specific videos from the original videos list
+    const brandSpecificVideos = originalVideos.filter(v => v && String(v.brand_id) === String(brandId)) || [];
     
-    let additionalEdits = [];
-    if (brandSpecificVideos.length) {
-      const videoIds = brandSpecificVideos.map(v => v.id);
-      // Use originalEditDetails for additional edits, not the potentially overwritten editDetailsList
-      if (originalEditDetails && Array.isArray(originalEditDetails) && originalEditDetails.length > 0) {
-        additionalEdits = originalEditDetails.filter(edit => 
-          edit && edit.video_id && videoIds.includes(edit.video_id) && 
-          !brandSpecificEdits.some(e => (e.edit_id && e.edit_id === edit.edit_id) || (e.id && e.id === edit.id))
-        ) || [];
-      }
+    // Get brand-specific edits from the original edit details list
+    let brandSpecificEdits = [];
+    if (originalEditDetails && Array.isArray(originalEditDetails)) {
+      brandSpecificEdits = originalEditDetails.filter(edit => {
+        // Find the video for this edit to check its brand
+        const video = brandSpecificVideos.find(v => v.id === edit.video_id);
+        return video && String(video.brand_id) === String(brandId);
+      });
     }
     
-    const allBrandEdits = [...brandSpecificEdits, ...additionalEdits];
+    // Also include any pre-fetched brand-specific edits
+    const prefetchedEdits = brandEdits[brandId] || [];
+    
+    // Combine and deduplicate edits
+    const allBrandEdits = [...brandSpecificEdits, ...prefetchedEdits];
     
     const uniqueEdits = allBrandEdits.filter((edit, index, self) => 
       index === self.findIndex(e => 
@@ -319,28 +321,36 @@ const Analytics = () => {
   };
 
   const getBrandDetailedStats = (brandId) => {
-    const brandSpecificVideos = brandVideos[brandId] || [];
-    const brandSpecificEdits = brandEdits[brandId] || [];
+    // Get brand-specific videos from the original videos list
+    const brandSpecificVideos = originalVideos.filter(v => v && String(v.brand_id) === String(brandId)) || [];
     
-    let additionalEdits = [];
-    if (brandSpecificVideos.length) {
-      const videoIds = brandSpecificVideos.map(v => v.id);
-      // Use originalEditDetails for additional edits
-      if (originalEditDetails && Array.isArray(originalEditDetails) && originalEditDetails.length > 0) {
-        additionalEdits = originalEditDetails.filter(edit => 
-          edit && edit.video_id && videoIds.includes(edit.video_id) && 
-          !brandSpecificEdits.some(e => (e.edit_id && e.edit_id === edit.edit_id) || (e.id && e.id === edit.id))
-        ) || [];
-      }
+    // Get brand-specific edits from the original edit details list
+    let brandSpecificEdits = [];
+    if (originalEditDetails && Array.isArray(originalEditDetails)) {
+      brandSpecificEdits = originalEditDetails.filter(edit => {
+        const video = brandSpecificVideos.find(v => v.id === edit.video_id);
+        return video && String(video.brand_id) === String(brandId);
+      });
     }
     
-    const allEdits = [...brandSpecificEdits, ...additionalEdits];
+    // Also include any pre-fetched brand-specific edits
+    const prefetchedEdits = brandEdits[brandId] || [];
+    
+    // Combine and deduplicate edits
+    const allEdits = [...brandSpecificEdits, ...prefetchedEdits];
+    
+    const uniqueEdits = allEdits.filter((edit, index, self) => 
+      index === self.findIndex(e => 
+        (e.edit_id && e.edit_id === edit.edit_id) || 
+        (e.id && e.id === edit.id)
+      )
+    );
     
     const totalVideos = brandSpecificVideos.length;
     
     // Count unique videos with corrections
     const videosWithCorrections = new Set();
-    allEdits.forEach(edit => {
+    uniqueEdits.forEach(edit => {
       if (edit && edit.video_id) videosWithCorrections.add(edit.video_id);
     });
     
@@ -358,8 +368,8 @@ const Analytics = () => {
       pendingVideos: brandSpecificVideos.filter(v => v && v.status === 'pending').length,
       failedVideos: brandSpecificVideos.filter(v => v && v.status === 'failed').length,
       brandVideos: brandSpecificVideos,
-      brandEdits: allEdits,
-      totalEdits: allEdits.length,
+      brandEdits: uniqueEdits,
+      totalEdits: uniqueEdits.length,
     };
   };
 
@@ -578,7 +588,6 @@ const Analytics = () => {
         )}
       </div>
 
-      {/* Rest of your modal code remains the same... */}
       {showBrandAnalyticsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
