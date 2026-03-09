@@ -316,7 +316,10 @@ const Analytics = () => {
     if (shopUsers?.length > 0 && targetShopId) {
       console.log('🔍 Filtering shop users...');
       const filtered = shopUsers.filter(user => 
-        user.shop_id === targetShopId 
+        user.shop_id === targetShopId
+        //  && 
+        // user.role !== 'brand_admin' && 
+        // user.role !== 'district_manager'
       );
       console.log('🔍 Filtered Shop Users (excluding brand_admin and district_manager):', filtered);
       setFilteredShopUsers(filtered);
@@ -616,7 +619,7 @@ const Analytics = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm text-gray-500">Total Manual Corrections</h3>
-              <p className="text-3xl font-bold text-purple-600 mt-2">{totalManualCorrections || 0}</p>
+              <p className="text-3xl font-bold text-purple-600 mt-2">{videosWithCorrections.size || 0}</p>
              
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
