@@ -524,20 +524,21 @@ const Analytics = () => {
           </div>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600 hover:shadow-lg transition-shadow duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm text-gray-500">Total Users</h3>
-              <p className="text-3xl font-bold text-purple-600 mt-2">{filteredShopUsers?.length || 0}</p>
-              <p className="text-xs text-gray-400 mt-1">{filteredShopUsers?.filter(u => u.is_active).length || 0} active</p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-              </svg>
-            </div>
-          </div>
-        </div>
+       {/* Manual Correction Card */}
+<div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600 hover:shadow-lg transition-shadow duration-200">
+  <div className="flex items-center justify-between">
+    <div>
+      <h3 className="text-sm text-gray-500">Manual Corrections</h3>
+      <p className="text-3xl font-bold text-purple-600 mt-2">{stats.totalManualCorrections}</p>
+      <p className="text-xs text-gray-400 mt-1">Videos with corrections</p>
+    </div>
+    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+      <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    </div>
+  </div>
+</div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
