@@ -20,13 +20,10 @@ const BrandDetailModal = ({ brandId, onClose }) => {
 
   const [loading, setLoading] = useState(true);
   const [brandOrders, setBrandOrders] = useState([]);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
 
   const brand = brands?.find(b => b.id === brandId);
   const brandShops = shops?.filter(shop => shop.brand_id === brandId) || [];
   const brandUsers = users?.filter(user => user.brand_id === brandId) || [];
-  
-  // Filter districts by brand_id - the selector already does this, but we'll add a fallback
   const brandDistricts = districts?.filter(district => district.brand_id === brandId) || [];
   
   const brandAdmin = brandUsers.find(user => user.role === 'brand_admin') || {};
@@ -35,18 +32,18 @@ const BrandDetailModal = ({ brandId, onClose }) => {
     fetchBrandData();
   }, [brandId]);
 
+  useEffect(() => {
+    if (brand) setLoading(false);
+  }, [brand]);
+
   const fetchBrandData = async () => {
-    setLoading(true);
     try {
-      // Fetch orders and districts in parallel
       await Promise.all([
         fetchBrandOrders(),
         fetchBrandDistricts()
       ]);
     } catch (error) {
       console.error('Error fetching brand data:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -54,19 +51,14 @@ const BrandDetailModal = ({ brandId, onClose }) => {
     try {
       const result = await dispatch(getOrdersByBrand(brandId));
       if (result.payload?.data) setBrandOrders(result.payload.data);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
+    } catch {
     }
   };
 
   const fetchBrandDistricts = async () => {
-    setLoadingDistricts(true);
     try {
       await dispatch(getDistrictsByBrand(brandId));
-    } catch (error) {
-      console.error('Error fetching districts:', error);
-    } finally {
-      setLoadingDistricts(false);
+    } catch {
     }
   };
 
@@ -113,11 +105,6 @@ const BrandDetailModal = ({ brandId, onClose }) => {
   const brandLogo = getBrandLogo();
   const adminProfilePic = getAdminProfilePic();
 
-  // Calculate active counts
-  const activeShops = brandShops.filter(s => s.is_active).length;
-  const activeUsers = brandUsers.filter(u => u.is_active).length;
-  const activeDistricts = brandDistricts.filter(d => d.is_active).length;
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -160,23 +147,19 @@ const BrandDetailModal = ({ brandId, onClose }) => {
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="text-sm text-blue-600 font-medium">Shops</h3>
               <p className="text-2xl font-bold text-blue-700 mt-1">{brandShops.length}</p>
-              <p className="text-xs text-blue-600">{activeShops} Active</p>
+              <p className="text-xs text-blue-600">{brandShops.filter(s => s.is_active).length} Active</p>
             </div>
             
             <div className="bg-green-50 p-4 rounded-lg">
               <h3 className="text-sm text-green-600 font-medium">Users</h3>
               <p className="text-2xl font-bold text-green-700 mt-1">{brandUsers.length}</p>
-              <p className="text-xs text-green-600">{activeUsers} Active</p>
+              <p className="text-xs text-green-600">{brandUsers.filter(u => u.is_active).length} Active</p>
             </div>
             
             <div className="bg-purple-50 p-4 rounded-lg">
               <h3 className="text-sm text-purple-600 font-medium">Districts</h3>
-              <p className="text-2xl font-bold text-purple-700 mt-1">
-                {loadingDistricts ? '...' : brandDistricts.length}
-              </p>
-              <p className="text-xs text-purple-600">
-                {loadingDistricts ? 'Loading...' : `${activeDistricts} Active`}
-              </p>
+              <p className="text-2xl font-bold text-purple-700 mt-1">{brandDistricts.length}</p>
+              <p className="text-xs text-purple-600">{brandDistricts.filter(d => d.is_active).length} Active</p>
             </div>
             
             <div className="bg-yellow-50 p-4 rounded-lg">
@@ -266,7 +249,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
               <h3 className="text-lg font-bold text-gray-800">Shops ({brandShops.length})</h3>
               {brandShops.length > 0 && (
                 <span className="text-sm text-gray-500">
-                  {activeShops} active shops
+                  {brandShops.filter(s => s.is_active).length} active shops
                 </span>
               )}
             </div>
@@ -319,80 +302,6 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                 </svg>
                 <p className="text-gray-500 italic">No shops found for this companies</p>
                 <p className="text-sm text-gray-400 mt-1">Add shops in the Shops management section</p>
-              </div>
-            )}
-          </div>
-
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-800">Districts ({brandDistricts.length})</h3>
-              {loadingDistricts && (
-                <span className="text-sm text-gray-500 flex items-center">
-                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Loading...
-                </span>
-              )}
-              {!loadingDistricts && brandDistricts.length > 0 && (
-                <span className="text-sm text-gray-500">
-                  {activeDistricts} active districts
-                </span>
-              )}
-            </div>
-            {brandDistricts.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">District Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manager</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shops Count</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {brandDistricts.slice(0, 5).map((district) => (
-                      <tr key={district.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{district.name}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {district.manager_name || 'Not assigned'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {district.shop_count || brandShops.filter(shop => shop.district_id === district.id).length || 0}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            district.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {district.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {brandDistricts.length > 5 && (
-                  <p className="text-sm text-gray-500 mt-2 px-4">
-                    Showing 5 of {brandDistricts.length} districts
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-                <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <p className="text-gray-500 italic">No districts found for this company</p>
-                <p className="text-sm text-gray-400 mt-1">Add districts in the Districts management section</p>
               </div>
             )}
           </div>
