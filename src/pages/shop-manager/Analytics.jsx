@@ -278,9 +278,7 @@ const Analytics = () => {
     if (shopUsers?.length > 0 && targetShopId) {
       const filtered = shopUsers.filter(
         (user) =>
-          user.shop_id === targetShopId &&
-          user.role !== "brand_admin" &&
-          user.role !== "district_manager",
+          user.shop_id === targetShopId 
       );
       setFilteredShopUsers(filtered);
     }
