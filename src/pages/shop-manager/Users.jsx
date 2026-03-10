@@ -682,11 +682,15 @@ const Users = () => {
 
   return (
     <div className="transition-opacity duration-300 ease-in-out">
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-       
+     <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+        <div className="flex items-center space-x-4">
+          <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
+          <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
+            {userCounts.total} Total
+          </span>
+        </div>
         
         <div className="flex space-x-2 items-center">
-        
           {!isShopManager && (
             <button
               onClick={() => {
@@ -700,9 +704,7 @@ const Users = () => {
                   setValidationErrors({ first_name: '', last_name: '', email: '' });
                 }
               }}
-              className={`px-4 py-2 rounded-lg flex items-center transition-colors duration-200 ${
-                showCreateForm ? 'bg-gray-500 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
-              } text-white`}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors duration-200"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path 
