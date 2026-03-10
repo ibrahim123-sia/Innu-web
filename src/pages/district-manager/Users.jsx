@@ -140,7 +140,7 @@ const Users = () => {
 
   const roles = [
     { value: 'shop_manager', label: 'Shop Manager' },
-    { value: 'technician', label: 'Technician' }
+    { value: 'technician', label: 'Service Advisor' }
   ];
 
   const getCurrentDistrictInfo = () => {
