@@ -257,7 +257,7 @@ const Users = () => {
 
   const getRoleDisplay = (role) => {
     switch(role) {
-      case 'technician': return 'Technician';
+      case 'technician': return 'Service Advisor';
       case 'shop_manager': return 'Shop Manager';
       case 'district_manager': return 'District Manager';
       case 'brand_manager': return 'Brand Manager';
@@ -666,7 +666,7 @@ const Users = () => {
   const isShopManager = currentUser?.role === 'shop_manager';
 
   const roles = [
-    { value: 'technician', label: 'Technician' },
+    { value: 'technician', label: 'Service Advisor' },
     { value: 'shop_manager', label: 'Shop Manager' },
   ];
 
