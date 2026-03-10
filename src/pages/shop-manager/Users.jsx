@@ -691,7 +691,7 @@ const Users = () => {
         </div>
         
         <div className="flex space-x-2 items-center">
-          {!isShopManager && (
+         
             <button
               onClick={() => {
                 if (showCreateForm) {
@@ -719,7 +719,7 @@ const Users = () => {
               </svg>
               {showCreateForm ? 'Cancel' : 'New Member'}
             </button>
-          )}
+          
         </div>
       </div>
 
