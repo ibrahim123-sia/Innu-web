@@ -318,7 +318,7 @@ const Users = () => {
     const allRoles = [
       { value: 'district_manager', label: 'District Manager' },
       { value: 'shop_manager', label: 'Shop Manager' },
-      { value: 'technician', label: 'Technician' },
+      { value: 'technician', label: 'Service Advisor' },
       { value: 'user', label: 'User' }
     ];
     const role = allRoles.find(r => r.value === roleValue);

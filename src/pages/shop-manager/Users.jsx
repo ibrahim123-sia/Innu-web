@@ -723,7 +723,7 @@ const Users = () => {
         </div>
       </div>
 
-      {showCreateForm && !isShopManager && (
+      {showCreateForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6 transition-all duration-300 ease-in-out">
           <h2 className="text-xl font-bold text-blue-600 mb-4">Add New Team Member</h2>
           
