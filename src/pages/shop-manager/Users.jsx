@@ -666,8 +666,7 @@ const Users = () => {
   const isShopManager = currentUser?.role === 'shop_manager';
 
   const roles = [
-    { value: 'technician', label: 'Service Advisor' },
-    { value: 'shop_manager', label: 'Shop Manager' },
+    { value: 'technician', label: 'Service Advisor' }
   ];
 
   if (isInitialLoad || (loading && !isDataReady)) {
