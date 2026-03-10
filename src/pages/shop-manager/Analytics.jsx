@@ -274,15 +274,30 @@ const Analytics = () => {
     }
   }, [myShop?.id, fetchData]);
 
-  useEffect(() => {
-    if (shopUsers?.length > 0 && targetShopId) {
-      const filtered = shopUsers.filter(
-        (user) =>
-          user.shop_id === targetShopId 
-      );
-      setFilteredShopUsers(filtered);
-    }
-  }, [shopUsers, targetShopId]);
+useEffect(() => {
+  if (shopUsers?.length > 0 && targetShopId) {
+    // First get the current shop to know its brand_id
+    const currentShop = myShop;
+    
+    console.log('All shop users from Redux:', shopUsers);
+    console.log('Current Shop:', currentShop);
+    console.log('Brand ID to filter by:', currentShop?.brand_id);
+    
+    // Filter users by brand_id instead of shop_id
+    const filtered = shopUsers.filter(
+      (user) => user.brand_id === currentShop?.brand_id
+    );
+    
+    console.log('Filtered users by brand_id:', filtered);
+    console.log('User roles in filtered list:', filtered.map(u => ({ 
+      name: `${u.first_name} ${u.last_name}`, 
+      role: u.role, 
+      brand_id: u.brand_id 
+    })));
+    
+    setFilteredShopUsers(filtered);
+  }
+}, [shopUsers, targetShopId, myShop]);
 
   useEffect(() => {
     if (filteredShopUsers.length > 0 && !dataFetchComplete) {
