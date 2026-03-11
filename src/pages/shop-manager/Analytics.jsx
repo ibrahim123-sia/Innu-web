@@ -7,7 +7,7 @@ import {
   getOrdersByShop,
   selectOrdersByShop,
 } from "../../redux/slice/orderSlice";
-import { selectAllUsers, getUsersByShopId } from "../../redux/slice/userSlice";
+import { selectAllUsers, getBrandUsers } from "../../redux/slice/userSlice";
 import {
   getVideosByShop,
   getVideosByUser,
@@ -219,7 +219,7 @@ const Analytics = () => {
       await Promise.all([
         dispatch(getShopById(targetShopId)),
         dispatch(getOrdersByShop(targetShopId)),
-        dispatch(getUsersByShopId(targetShopId)),
+        dispatch(getBrandUsers(currentUser.brand_id)),
         dispatch(getVideosByShop(targetShopId)),
         dispatch(getEditDetailsByShop(targetShopId)),
       ]);
