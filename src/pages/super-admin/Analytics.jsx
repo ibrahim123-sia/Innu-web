@@ -94,15 +94,13 @@ const Analytics = () => {
   const dispatch = useDispatch();
   
   const brands = useSelector(selectAllBrands);
-  const globalVideos = useSelector(selectVideos);
-  const globalEditDetails = useSelector(selectEditDetailsList);
+  const videos = useSelector(selectVideos);
+  const editDetailsList = useSelector(selectEditDetailsList);
   const videoEditLoading = useSelector(selectVideoEditLoading);
 
   const [brandVideos, setBrandVideos] = useState({});
   const [brandEdits, setBrandEdits] = useState({});
   const [loadingBrandData, setLoadingBrandData] = useState({});
-  const [allVideos, setAllVideos] = useState([]);
-  const [allEdits, setAllEdits] = useState([]);
   
   const [localLoading, setLocalLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -128,20 +126,14 @@ const Analytics = () => {
     setIsInitialLoad(true);
     try {
       await dispatch(getAllBrands()).unwrap();
-      
-      // Fetch all videos and edits first
-      const videosResult = await dispatch(getAllVideos()).unwrap();
-      const editsResult = await dispatch(getAllEditDetails()).unwrap();
-      
-      setAllVideos(Array.isArray(videosResult) ? videosResult : []);
-      setAllEdits(Array.isArray(editsResult) ? editsResult : []);
+      await dispatch(getAllVideos()).unwrap();
+      await dispatch(getAllEditDetails()).unwrap();
       
       setTimeout(() => {
         setIsInitialLoad(false);
         setIsDataReady(true);
       }, 300);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch {
       setIsInitialLoad(false);
     } finally {
       setLocalLoading(false);
@@ -239,12 +231,11 @@ const Analytics = () => {
     return brand?.name || 'Unknown Brand';
   };
 
-  // Calculate global stats using allVideos and allEdits
-  const totalAIVideoRequests = allVideos?.length || 0;
+  const totalAIVideoRequests = videos?.length || 0;
   
   // Count unique videos that have corrections
   const videosWithCorrections = new Set();
-  allEdits?.forEach(edit => {
+  editDetailsList?.forEach(edit => {
     if (edit.video_id) videosWithCorrections.add(edit.video_id);
   });
   
@@ -266,7 +257,7 @@ const Analytics = () => {
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
-      additionalEdits = allEdits?.filter(edit => 
+      additionalEdits = editDetailsList?.filter(edit => 
         edit.video_id && videoIds.includes(edit.video_id) && 
         !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
       ) || [];
@@ -313,7 +304,7 @@ const Analytics = () => {
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
-      additionalEdits = allEdits?.filter(edit => 
+      additionalEdits = editDetailsList?.filter(edit => 
         edit.video_id && videoIds.includes(edit.video_id) && 
         !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
       ) || [];
@@ -368,7 +359,7 @@ const Analytics = () => {
                 {totalAIVideoRequests}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                Total videos processed across all companies
+                Total videos processed
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -496,6 +487,7 @@ const Analytics = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
+                      
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
