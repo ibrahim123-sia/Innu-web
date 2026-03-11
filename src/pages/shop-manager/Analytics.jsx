@@ -182,7 +182,7 @@ const Analytics = () => {
       setTargetShopId(shopId);
       setLoadingUser(false);
     } else if (currentUser?.shop_id) {
-      setTargetShopId(currentUser.brand_id);
+      setTargetShopId(currentUser.shop_id);
       setLoadingUser(false);
     }
   }, [userId, shopId, currentUser]);
@@ -199,8 +199,8 @@ const Analytics = () => {
       );
       const userData = response.data.data || response.data;
       setShopManager(userData);
-      if (userData?.brand_id) {
-        setTargetShopId(userData.brand_id);
+      if (userData?.shop_id) {
+        setTargetShopId(userData.shop_id);
       }
     } catch (error) {
       console.error("Error fetching shop manager:", error);
@@ -275,14 +275,14 @@ const Analytics = () => {
   }, [myShop?.id, fetchData]);
 
   useEffect(() => {
-    if (shopUsers?.length > 0 && targetShopId) {
+    if (shopUsers?.length > 0) {
       const filtered = shopUsers.filter(
         (user) =>
-          user.brand_id === targetShopId
+          user.brand_id === currentUser.brand_id
       );
       setFilteredShopUsers(filtered);
     }
-  }, [shopUsers, targetShopId]);
+  }, [shopUsers, currentUser]);
 
   useEffect(() => {
     if (filteredShopUsers.length > 0 && !dataFetchComplete) {
