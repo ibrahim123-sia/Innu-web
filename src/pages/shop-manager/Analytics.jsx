@@ -739,7 +739,7 @@ const Analytics = () => {
                               : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        {user.role || "User"}
+                        {user?.role === 'technician' ? 'Service Advisor' : user?.role || 'User'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
