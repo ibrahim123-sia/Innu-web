@@ -94,13 +94,15 @@ const Analytics = () => {
   const dispatch = useDispatch();
   
   const brands = useSelector(selectAllBrands);
-  const videos = useSelector(selectVideos);
-  const editDetailsList = useSelector(selectEditDetailsList);
+  const globalVideos = useSelector(selectVideos);
+  const globalEditDetails = useSelector(selectEditDetailsList);
   const videoEditLoading = useSelector(selectVideoEditLoading);
 
   const [brandVideos, setBrandVideos] = useState({});
   const [brandEdits, setBrandEdits] = useState({});
   const [loadingBrandData, setLoadingBrandData] = useState({});
+  const [allVideos, setAllVideos] = useState([]);
+  const [allEdits, setAllEdits] = useState([]);
   
   const [localLoading, setLocalLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -110,6 +112,47 @@ const Analytics = () => {
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
   const [selectedBrandForFeedback, setSelectedBrandForFeedback] = useState(null);
+
+  // Helper function to safely extract data from API responses
+  const extractData = (response) => {
+    if (!response) return [];
+    
+    // If response has a data property that's an array
+    if (response.data && Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    // If response itself is an array
+    if (Array.isArray(response)) {
+      return response;
+    }
+    
+    // If response has a videos property that's an array (common pattern)
+    if (response.videos && Array.isArray(response.videos)) {
+      return response.videos;
+    }
+    
+    // If response has a edits property that's an array
+    if (response.edits && Array.isArray(response.edits)) {
+      return response.edits;
+    }
+    
+    // If response has a results property that's an array (pagination pattern)
+    if (response.results && Array.isArray(response.results)) {
+      return response.results;
+    }
+    
+    // If it's an object with numeric keys (like a dictionary)
+    if (typeof response === 'object' && response !== null) {
+      const values = Object.values(response);
+      if (values.length > 0 && Array.isArray(values[0])) {
+        return values.flat();
+      }
+    }
+    
+    console.warn('Unexpected API response structure:', response);
+    return [];
+  };
 
   useEffect(() => {
     fetchData();
@@ -126,14 +169,27 @@ const Analytics = () => {
     setIsInitialLoad(true);
     try {
       await dispatch(getAllBrands()).unwrap();
-      await dispatch(getAllVideos()).unwrap();
-      await dispatch(getAllEditDetails()).unwrap();
+      
+      // Fetch all videos and edits first
+      const videosResult = await dispatch(getAllVideos()).unwrap();
+      const editsResult = await dispatch(getAllEditDetails()).unwrap();
+      
+      // Extract data properly
+      const extractedVideos = extractData(videosResult);
+      const extractedEdits = extractData(editsResult);
+      
+      console.log('Extracted videos:', extractedVideos);
+      console.log('Extracted edits:', extractedEdits);
+      
+      setAllVideos(extractedVideos);
+      setAllEdits(extractedEdits);
       
       setTimeout(() => {
         setIsInitialLoad(false);
         setIsDataReady(true);
       }, 300);
-    } catch {
+    } catch (error) {
+      console.error('Error fetching data:', error);
       setIsInitialLoad(false);
     } finally {
       setLocalLoading(false);
@@ -148,7 +204,7 @@ const Analytics = () => {
         dispatch(getVideosByBrand(brand.id))
           .unwrap()
           .then(result => {
-            const videosData = Array.isArray(result) ? result : [];
+            const videosData = extractData(result);
             setBrandVideos(prev => ({ ...prev, [brand.id]: videosData }));
           })
           .catch(() => {
@@ -160,7 +216,7 @@ const Analytics = () => {
         dispatch(getEditDetailsByBrand(brand.id))
           .unwrap()
           .then(result => {
-            const editsData = Array.isArray(result) ? result : [];
+            const editsData = extractData(result);
             setBrandEdits(prev => ({ ...prev, [brand.id]: editsData }));
           })
           .catch(() => {
@@ -176,7 +232,7 @@ const Analytics = () => {
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
       const result = await dispatch(getVideosByBrand(brandId)).unwrap();
-      const videosData = Array.isArray(result) ? result : [];
+      const videosData = extractData(result);
       setBrandVideos(prev => ({ ...prev, [brandId]: videosData }));
       return videosData;
     } catch {
@@ -191,7 +247,7 @@ const Analytics = () => {
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
       const result = await dispatch(getEditDetailsByBrand(brandId)).unwrap();
-      const editsData = Array.isArray(result) ? result : [];
+      const editsData = extractData(result);
       setBrandEdits(prev => ({ ...prev, [brandId]: editsData }));
       return editsData;
     } catch {
@@ -231,12 +287,13 @@ const Analytics = () => {
     return brand?.name || 'Unknown Brand';
   };
 
-  const totalAIVideoRequests = videos?.length || 0;
+  // Calculate global stats using allVideos and allEdits
+  const totalAIVideoRequests = allVideos?.length || 0;
   
   // Count unique videos that have corrections
   const videosWithCorrections = new Set();
-  editDetailsList?.forEach(edit => {
-    if (edit.video_id) videosWithCorrections.add(edit.video_id);
+  allEdits?.forEach(edit => {
+    if (edit?.video_id) videosWithCorrections.add(edit.video_id);
   });
   
   const totalManualCorrections = videosWithCorrections.size;
@@ -250,16 +307,22 @@ const Analytics = () => {
     ? ((totalManualCorrections / totalAIVideoRequests) * 100).toFixed(2) 
     : 0;
 
+  // Debug logging
+  console.log('All Videos:', allVideos);
+  console.log('All Edits:', allEdits);
+  console.log('Total Videos:', totalAIVideoRequests);
+  console.log('Manual Corrections:', totalManualCorrections);
+
   const getBrandStats = (brandId) => {
     const brandSpecificVideos = brandVideos[brandId] || [];
     const brandSpecificEdits = brandEdits[brandId] || [];
     
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
-      const videoIds = brandSpecificVideos.map(v => v.id);
-      additionalEdits = editDetailsList?.filter(edit => 
-        edit.video_id && videoIds.includes(edit.video_id) && 
-        !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
+      const videoIds = brandSpecificVideos.map(v => v?.id).filter(Boolean);
+      additionalEdits = allEdits?.filter(edit => 
+        edit?.video_id && videoIds.includes(edit.video_id) && 
+        !brandSpecificEdits.some(e => e?.edit_id === edit?.edit_id || e?.id === edit?.id)
       ) || [];
     }
     
@@ -267,8 +330,8 @@ const Analytics = () => {
     
     const uniqueEdits = allBrandEdits.filter((edit, index, self) => 
       index === self.findIndex(e => 
-        (e.edit_id && e.edit_id === edit.edit_id) || 
-        (e.id && e.id === edit.id)
+        (e?.edit_id && e.edit_id === edit?.edit_id) || 
+        (e?.id && e.id === edit?.id)
       )
     );
     
@@ -277,7 +340,7 @@ const Analytics = () => {
     // Count unique videos with corrections for this brand
     const brandVideosWithCorrections = new Set();
     uniqueEdits.forEach(edit => {
-      if (edit.video_id) brandVideosWithCorrections.add(edit.video_id);
+      if (edit?.video_id) brandVideosWithCorrections.add(edit.video_id);
     });
     
     const brandManualCorrections = brandVideosWithCorrections.size;
@@ -289,10 +352,10 @@ const Analytics = () => {
       successCount: brandSuccess,
       successRate: brandVideoCount > 0 ? ((brandSuccess / brandVideoCount) * 100).toFixed(2) : 0,
       errorRate: brandVideoCount > 0 ? ((brandManualCorrections / brandVideoCount) * 100).toFixed(2) : 0,
-      completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
-      processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
-      pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
-      failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
+      completedVideos: brandSpecificVideos.filter(v => v?.status === 'completed').length,
+      processingVideos: brandSpecificVideos.filter(v => v?.status === 'processing').length,
+      pendingVideos: brandSpecificVideos.filter(v => v?.status === 'pending').length,
+      failedVideos: brandSpecificVideos.filter(v => v?.status === 'failed').length,
       totalEdits: uniqueEdits.length,
     };
   };
@@ -303,21 +366,21 @@ const Analytics = () => {
     
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
-      const videoIds = brandSpecificVideos.map(v => v.id);
-      additionalEdits = editDetailsList?.filter(edit => 
-        edit.video_id && videoIds.includes(edit.video_id) && 
-        !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
+      const videoIds = brandSpecificVideos.map(v => v?.id).filter(Boolean);
+      additionalEdits = allEdits?.filter(edit => 
+        edit?.video_id && videoIds.includes(edit.video_id) && 
+        !brandSpecificEdits.some(e => e?.edit_id === edit?.edit_id || e?.id === edit?.id)
       ) || [];
     }
     
-    const allEdits = [...brandSpecificEdits, ...additionalEdits];
+    const allEditsForBrand = [...brandSpecificEdits, ...additionalEdits];
     
     const totalVideos = brandSpecificVideos.length;
     
     // Count unique videos with corrections
     const videosWithCorrections = new Set();
-    allEdits.forEach(edit => {
-      if (edit.video_id) videosWithCorrections.add(edit.video_id);
+    allEditsForBrand.forEach(edit => {
+      if (edit?.video_id) videosWithCorrections.add(edit.video_id);
     });
     
     const manualCorrections = videosWithCorrections.size;
@@ -329,13 +392,13 @@ const Analytics = () => {
       successCount,
       successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0,
       errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0,
-      completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
-      processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
-      pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
-      failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
+      completedVideos: brandSpecificVideos.filter(v => v?.status === 'completed').length,
+      processingVideos: brandSpecificVideos.filter(v => v?.status === 'processing').length,
+      pendingVideos: brandSpecificVideos.filter(v => v?.status === 'pending').length,
+      failedVideos: brandSpecificVideos.filter(v => v?.status === 'failed').length,
       brandVideos: brandSpecificVideos,
-      brandEdits: allEdits,
-      totalEdits: allEdits.length,
+      brandEdits: allEditsForBrand,
+      totalEdits: allEditsForBrand.length,
     };
   };
 
@@ -359,7 +422,7 @@ const Analytics = () => {
                 {totalAIVideoRequests}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                Total videos processed
+                Total videos processed across all companies
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -487,7 +550,6 @@ const Analytics = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
-                      
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
@@ -711,18 +773,18 @@ const Analytics = () => {
                           </div>
                           <div className="space-y-3">
                             {stats.brandEdits.slice(0, 5).map((edit, index) => {
-                              const hasFeedback = edit.feedback_reason;
+                              const hasFeedback = edit?.feedback_reason;
                               
                               return (
                                 <div 
-                                  key={edit.edit_id || edit.id || index} 
+                                  key={edit?.edit_id || edit?.id || index} 
                                   className={`border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors ${!hasFeedback ? 'opacity-60' : ''}`}
                                   onClick={() => handleViewFeedback(edit)}
                                 >
                                   <div className="flex justify-between items-start">
                                     <div className="flex-1">
-                                      <p className="text-xs text-gray-400 mb-1">Video ID: {edit.video_id?.substring(0, 8)}...</p>
-                                      {edit.feedback_reason ? (
+                                      <p className="text-xs text-gray-400 mb-1">Video ID: {edit?.video_id?.substring(0, 8)}...</p>
+                                      {edit?.feedback_reason ? (
                                         <div className="mt-2">
                                           <p className="text-sm text-gray-700 font-medium">Feedback:</p>
                                           <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded mt-1">
@@ -808,15 +870,15 @@ const Analytics = () => {
                 <div className="space-y-4">
                   {brandEdits[selectedBrandForFeedback].map((edit, index) => (
                     <div 
-                      key={edit.edit_id || edit.id || index} 
+                      key={edit?.edit_id || edit?.id || index} 
                       className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                       onClick={() => {
                         setSelectedFeedback(edit);
                         setShowFeedbackModal(true);
                       }}
                     >
-                      <p className="text-xs text-gray-400 mb-2">Video ID: {edit.video_id?.substring(0, 8)}...</p>
-                      {edit.feedback_reason ? (
+                      <p className="text-xs text-gray-400 mb-2">Video ID: {edit?.video_id?.substring(0, 8)}...</p>
+                      {edit?.feedback_reason ? (
                         <p className="text-gray-700">{edit.feedback_reason}</p>
                       ) : (
                         <p className="text-gray-400 italic">No feedback provided</p>
@@ -867,15 +929,15 @@ const Analytics = () => {
             <div className="p-6">
               <div className="mb-4">
                 <p className="text-sm text-gray-500">Video ID</p>
-                <p className="text-sm font-mono bg-gray-50 p-2 rounded">{selectedFeedback.video_id}</p>
+                <p className="text-sm font-mono bg-gray-50 p-2 rounded">{selectedFeedback?.video_id}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500 mb-1">Feedback</p>
                 <p className="text-gray-800 whitespace-pre-wrap">
-                  {selectedFeedback.feedback_reason || 'No feedback provided'}
+                  {selectedFeedback?.feedback_reason || 'No feedback provided'}
                 </p>
               </div>
-              {selectedFeedback.created_at && (
+              {selectedFeedback?.created_at && (
                 <p className="text-xs text-gray-400 mt-2">
                   Submitted on: {new Date(selectedFeedback.created_at).toLocaleString()}
                 </p>
