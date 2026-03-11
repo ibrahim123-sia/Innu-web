@@ -7,7 +7,7 @@ import {
   getOrdersByShop,
   selectOrdersByShop,
 } from "../../redux/slice/orderSlice";
-import { selectAllUsers, getBrandUsers } from "../../redux/slice/userSlice";
+import { selectAllUsers, getUsersByShopId } from "../../redux/slice/userSlice";
 import {
   getVideosByShop,
   getVideosByUser,
@@ -219,7 +219,7 @@ const Analytics = () => {
       await Promise.all([
         dispatch(getShopById(targetShopId)),
         dispatch(getOrdersByShop(targetShopId)),
-        dispatch(getBrandUsers(currentUser.brand_id)),
+        dispatch(getUsersByShopId(targetShopId)),
         dispatch(getVideosByShop(targetShopId)),
         dispatch(getEditDetailsByShop(targetShopId)),
       ]);
@@ -275,14 +275,14 @@ const Analytics = () => {
   }, [myShop?.id, fetchData]);
 
   useEffect(() => {
-    if (shopUsers?.length > 0) {
+    if (shopUsers?.length > 0 && targetShopId) {
       const filtered = shopUsers.filter(
         (user) =>
-          user.brand_id === currentUser.brand_id
+          user.shop_id === targetShopId && user.role !== "district_manager",
       );
       setFilteredShopUsers(filtered);
     }
-  }, [shopUsers, currentUser]);
+  }, [shopUsers, targetShopId]);
 
   useEffect(() => {
     if (filteredShopUsers.length > 0 && !dataFetchComplete) {
@@ -739,7 +739,7 @@ const Analytics = () => {
                               : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        {user?.role === 'technician' ? 'Service Advisor' : user?.role || 'User'}
+                        {user.role || "User"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
