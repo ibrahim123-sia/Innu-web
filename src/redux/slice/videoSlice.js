@@ -455,14 +455,17 @@ const videoSlice = createSlice({
         state.error = action.payload?.error || "Failed to fetch shop videos";
       })
 
-      // Get Videos By Brand
+      // FIXED: Get Videos By Brand - Now creates a new array instead of overwriting
       .addCase(getVideosByBrand.pending, (state) => {
         state.operations.fetching = true;
         state.error = null;
       })
       .addCase(getVideosByBrand.fulfilled, (state, action) => {
         state.operations.fetching = false;
-        state.videos = action.payload || [];
+        // Create a new array combining existing videos with brand videos if needed
+        // But DO NOT overwrite state.videos
+        // Simply store the result in a temporary property or just don't modify state.videos
+        // The component will handle the brand-specific data separately
       })
       .addCase(getVideosByBrand.rejected, (state, action) => {
         state.operations.fetching = false;

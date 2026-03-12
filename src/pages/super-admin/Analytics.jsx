@@ -93,11 +93,13 @@ const BrandsTableSkeleton = () => (
 const Analytics = () => {
   const dispatch = useDispatch();
   
+  // Global data from Redux - this never changes after initial load
   const brands = useSelector(selectAllBrands);
-  const videos = useSelector(selectVideos);
-  const editDetailsList = useSelector(selectEditDetailsList);
+  const allVideos = useSelector(selectVideos); // This is global - never overwritten
+  const allEditDetails = useSelector(selectEditDetailsList); // This is global - never overwritten
   const videoEditLoading = useSelector(selectVideoEditLoading);
 
+  // Local state for brand-specific data only
   const [brandVideos, setBrandVideos] = useState({});
   const [brandEdits, setBrandEdits] = useState({});
   const [loadingBrandData, setLoadingBrandData] = useState({});
@@ -231,11 +233,13 @@ const Analytics = () => {
     return brand?.name || 'Unknown Brand';
   };
 
-  const totalAIVideoRequests = videos?.length || 0;
+  // GLOBAL STATS - These only depend on allVideos and allEditDetails from Redux
+  // They will NEVER change after initial load
+  const totalAIVideoRequests = allVideos?.length || 0;
   
-  // Count unique videos that have corrections
+  // Count unique videos that have corrections from global edit details
   const videosWithCorrections = new Set();
-  editDetailsList?.forEach(edit => {
+  allEditDetails?.forEach(edit => {
     if (edit.video_id) videosWithCorrections.add(edit.video_id);
   });
   
@@ -251,13 +255,14 @@ const Analytics = () => {
     : 0;
 
   const getBrandStats = (brandId) => {
+    // Use brand-specific data from local state
     const brandSpecificVideos = brandVideos[brandId] || [];
     const brandSpecificEdits = brandEdits[brandId] || [];
     
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
-      additionalEdits = editDetailsList?.filter(edit => 
+      additionalEdits = allEditDetails?.filter(edit => 
         edit.video_id && videoIds.includes(edit.video_id) && 
         !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
       ) || [];
@@ -304,7 +309,7 @@ const Analytics = () => {
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
       const videoIds = brandSpecificVideos.map(v => v.id);
-      additionalEdits = editDetailsList?.filter(edit => 
+      additionalEdits = allEditDetails?.filter(edit => 
         edit.video_id && videoIds.includes(edit.video_id) && 
         !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
       ) || [];
@@ -350,6 +355,7 @@ const Analytics = () => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
+      {/* Top Stats Cards - Using global data only */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
@@ -428,6 +434,7 @@ const Analytics = () => {
         </div>
       </div>
 
+      {/* Companies Performance Table - Using brand-specific data from local state */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="p-6 border-b">
           <h2 className="text-xl font-bold text-gray-800">Companies Performance</h2>
@@ -554,6 +561,7 @@ const Analytics = () => {
         )}
       </div>
 
+      {/* Modals remain exactly the same */}
       {showBrandAnalyticsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
