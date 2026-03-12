@@ -213,7 +213,7 @@ const Users = () => {
     { value: "district_manager", label: "District Manager" },
     { value: "shop_manager", label: "Shop Manager" },
     { value: "technician", label: "Service Advisor" },
-    { value: "user", label: "User" },
+   
   ];
 
   useEffect(() => {
