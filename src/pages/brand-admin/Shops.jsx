@@ -161,7 +161,17 @@ const Shops = () => {
     is_active: true
   });
   
-  const [editFormData, setEditFormData] = useState({});
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    street_address: '',
+    city: '',
+    state: '',
+    timezone: '',
+    tekmetric_shop_id: '',
+    district_id: '',
+    is_active: true,
+    logo_url: ''
+  });
   const [editLogoPreview, setEditLogoPreview] = useState(null);
   const [editLogoFile, setEditLogoFile] = useState(null);
   
@@ -219,7 +229,7 @@ const Shops = () => {
   ];
 
   const getShopLogo = (shop) => {
-    return (shop.logo_url?.trim()) ? shop.logo_url : DEFAULT_SHOP_IMAGE;
+    return (shop?.logo_url?.trim()) ? shop.logo_url : DEFAULT_SHOP_IMAGE;
   };
 
   const validateFileType = (file, allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']) => {
@@ -298,24 +308,24 @@ const Shops = () => {
 
   const getDistrictName = (districtId) => {
     if (!districtId) return 'None';
-    const district = districts.find(d => d.id === districtId);
+    const district = districts.find(d => d?.id === districtId);
     return district ? district.name : 'Unknown District';
   };
 
   const checkShopNameExists = (name, currentShopId = null) => {
     if (!name || !shops) return false;
     return shops.some(shop => 
-      shop.name.toLowerCase() === name.toLowerCase() && 
-      (!currentShopId || shop.id !== currentShopId)
+      shop?.name?.toLowerCase() === name.toLowerCase() && 
+      (!currentShopId || shop?.id !== currentShopId)
     );
   };
 
   const checkTekmetricIdExists = (id, currentShopId = null) => {
     if (!id || !shops) return false;
     return shops.some(shop => 
-      shop.tekmetric_shop_id && 
+      shop?.tekmetric_shop_id && 
       shop.tekmetric_shop_id.toLowerCase() === id.toLowerCase() && 
-      (!currentShopId || shop.id !== currentShopId)
+      (!currentShopId || shop?.id !== currentShopId)
     );
   };
 
@@ -457,7 +467,7 @@ const Shops = () => {
       return false;
     }
 
-    const originalShop = shops.find(s => s.id === showEditModal);
+    const originalShop = shops.find(s => s?.id === showEditModal);
     
     if (editFormData.name !== originalShop?.name && checkShopNameExists(editFormData.name, showEditModal)) {
       setFormError('A shop with this name already exists');
@@ -506,13 +516,13 @@ const Shops = () => {
       shopFormData.append('city', formData.city.trim());
       shopFormData.append('state', formData.state.trim().toUpperCase());
       shopFormData.append('timezone', formData.timezone);
-      shopFormData.append('is_active', formData.is_active);
+      shopFormData.append('is_active', formData.is_active ? 'true' : 'false');
       
       if (logoFile) shopFormData.append('logo', logoFile);
 
       const shopResult = await dispatch(createShop(shopFormData)).unwrap();
       
-      if (shopResult.success) {
+      if (shopResult?.success) {
         Swal.fire({
           icon: 'success',
           title: 'Shop Created Successfully!',
@@ -535,6 +545,7 @@ const Shops = () => {
         setTimeout(() => setShowCreateForm(false), 100);
       }
     } catch (err) {
+      console.error('Create shop error:', err);
       setFormError(err?.error || 'Failed to create shop. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -563,18 +574,14 @@ const Shops = () => {
       shopFormData.append('city', editFormData.city.trim());
       shopFormData.append('state', editFormData.state.trim().toUpperCase());
       shopFormData.append('timezone', editFormData.timezone);
-      shopFormData.append('is_active', editFormData.is_active);
+      shopFormData.append('is_active', editFormData.is_active ? 'true' : 'false');
       
       if (editFormData.district_id && editFormData.district_id !== '') {
         shopFormData.append('district_id', editFormData.district_id);
-      } else {
-        shopFormData.append('district_id', '');
       }
 
       if (editLogoFile) {
         shopFormData.append('logo', editLogoFile);
-      } else if (editFormData.logo_url && editFormData.logo_url !== DEFAULT_SHOP_IMAGE) {
-        shopFormData.append('logo_url', editFormData.logo_url);
       }
 
       const result = await dispatch(updateShop({
@@ -582,7 +589,7 @@ const Shops = () => {
         data: shopFormData
       })).unwrap();
 
-      if (result.success) {
+      if (result?.success) {
         Swal.fire({
           icon: 'success',
           title: 'Success!',
@@ -598,6 +605,7 @@ const Shops = () => {
       }
       
     } catch (err) {
+      console.error('Update shop error:', err);
       setFormError(err?.error || 'Failed to update shop. Please try again.');
       Swal.fire({
         icon: 'error',
@@ -618,10 +626,9 @@ const Shops = () => {
       shopFormData.append('city', shop.city);
       shopFormData.append('state', shop.state);
       shopFormData.append('timezone', shop.timezone);
-      shopFormData.append('is_active', !shop.is_active);
+      shopFormData.append('is_active', (!shop.is_active).toString());
       
       if (shop.district_id) shopFormData.append('district_id', shop.district_id);
-      if (shop.logo_url) shopFormData.append('logo_url', shop.logo_url);
 
       await dispatch(updateShop({
         id: shop.id,
@@ -639,6 +646,7 @@ const Shops = () => {
         timer: 2000
       });
     } catch (err) {
+      console.error('Toggle status error:', err);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -667,7 +675,17 @@ const Shops = () => {
   };
 
   const resetEditForm = () => {
-    setEditFormData({});
+    setEditFormData({
+      name: '',
+      street_address: '',
+      city: '',
+      state: '',
+      timezone: '',
+      tekmetric_shop_id: '',
+      district_id: '',
+      is_active: true,
+      logo_url: ''
+    });
     setEditFormErrors({ name: false, street_address: false, city: false, state: false, timezone: false, tekmetric_shop_id: false });
     setEditValidationErrors({ name: '', street_address: '', city: '', state: '', timezone: '', tekmetric_shop_id: '' });
     setEditLogoFile(null);
@@ -723,18 +741,20 @@ const Shops = () => {
   };
 
   const handleEdit = (shop) => {
+    if (!shop) return;
+    
     const shopLogo = getShopLogo(shop);
     
     setShowEditModal(shop.id);
     setEditFormData({
-      name: shop.name,
+      name: shop.name || '',
       street_address: shop.street_address || '',
       city: shop.city || '',
       state: shop.state || '',
       timezone: shop.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       tekmetric_shop_id: shop.tekmetric_shop_id || '',
       district_id: shop.district_id || '',
-      is_active: shop.is_active,
+      is_active: shop.is_active === true ? true : false,
       logo_url: shopLogo
     });
     setEditLogoPreview(shopLogo);
@@ -745,17 +765,17 @@ const Shops = () => {
   };
 
   const hasEditChanges = () => {
-    const originalShop = shops.find(s => s.id === showEditModal);
-    if (!originalShop) return false;
+    const originalShop = shops.find(s => s?.id === showEditModal);
+    if (!originalShop || !editFormData) return false;
     
     return (
       editFormData.name !== originalShop.name ||
-      editFormData.street_address !== originalShop.street_address ||
-      editFormData.city !== originalShop.city ||
-      editFormData.state !== originalShop.state ||
-      editFormData.timezone !== originalShop.timezone ||
-      editFormData.tekmetric_shop_id !== originalShop.tekmetric_shop_id ||
-      editFormData.district_id !== originalShop.district_id ||
+      editFormData.street_address !== (originalShop.street_address || '') ||
+      editFormData.city !== (originalShop.city || '') ||
+      editFormData.state !== (originalShop.state || '') ||
+      editFormData.timezone !== (originalShop.timezone || '') ||
+      editFormData.tekmetric_shop_id !== (originalShop.tekmetric_shop_id || '') ||
+      editFormData.district_id !== (originalShop.district_id || '') ||
       editFormData.is_active !== originalShop.is_active ||
       !!editLogoFile
     );
@@ -1083,6 +1103,7 @@ const Shops = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {shops.map((shop) => {
+                  if (!shop) return null;
                   const shopLogo = getShopLogo(shop);
                   
                   return (
@@ -1092,23 +1113,23 @@ const Shops = () => {
                           <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
                             <img 
                               src={shopLogo}
-                              alt={shop.name}
+                              alt={shop.name || 'Shop'}
                               className="w-full h-full object-cover"
                               onError={(e) => { e.target.src = DEFAULT_SHOP_IMAGE; }}
                             />
                           </div>
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{shop.name}</div>
+                            <div className="text-sm font-medium text-gray-900">{shop.name || 'Unnamed Shop'}</div>
                             <div className="text-xs font-medium text-blue-600">
                               Tekmetric ID: {shop.tekmetric_shop_id || 'Not Set'}
                             </div>
-                            <div className="text-xs text-gray-400">{shop.timezone}</div>
+                            <div className="text-xs text-gray-400">{shop.timezone || 'No Timezone'}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{shop.street_address}</div>
-                        <div className="text-sm text-gray-500">{shop.city}, {shop.state}</div>
+                        <div className="text-sm text-gray-900">{shop.street_address || 'No Address'}</div>
+                        <div className="text-sm text-gray-500">{shop.city || 'No City'}, {shop.state || 'No State'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {getDistrictName(shop.district_id)}

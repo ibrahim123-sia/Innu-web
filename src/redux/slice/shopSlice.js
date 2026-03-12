@@ -188,17 +188,20 @@ const shopSlice = createSlice({
         state.success = true;
         const updatedShop = action.payload?.data;
         
-        if (updatedShop) {
-          const index = state.shops.findIndex(shop => shop.id === updatedShop.id);
+        if (updatedShop && updatedShop.id) {
+          // Update in main shops array
+          const index = state.shops.findIndex(shop => shop?.id === updatedShop.id);
           if (index !== -1) state.shops[index] = updatedShop;
           
+          // Update in shopsByBrand
           Object.keys(state.shopsByBrand).forEach(brandId => {
             if (state.shopsByBrand[brandId]) {
-              const brandIndex = state.shopsByBrand[brandId].findIndex(shop => shop.id === updatedShop.id);
+              const brandIndex = state.shopsByBrand[brandId].findIndex(shop => shop?.id === updatedShop.id);
               if (brandIndex !== -1) state.shopsByBrand[brandId][brandIndex] = updatedShop;
             }
           });
           
+          // Update currentShop if it's the one being edited
           if (state.currentShop?.id === updatedShop.id) state.currentShop = updatedShop;
         }
         
@@ -220,11 +223,11 @@ const shopSlice = createSlice({
         const deletedShopId = action.payload?.data?.id;
         
         if (deletedShopId) {
-          state.shops = state.shops.filter(shop => shop.id !== deletedShopId);
+          state.shops = state.shops.filter(shop => shop?.id !== deletedShopId);
           
           Object.keys(state.shopsByBrand).forEach(brandId => {
             if (state.shopsByBrand[brandId]) {
-              state.shopsByBrand[brandId] = state.shopsByBrand[brandId].filter(shop => shop.id !== deletedShopId);
+              state.shopsByBrand[brandId] = state.shopsByBrand[brandId].filter(shop => shop?.id !== deletedShopId);
             }
           });
           
@@ -250,8 +253,10 @@ const shopSlice = createSlice({
         state.shopsByBrand[brandId] = shops;
         
         shops.forEach(shop => {
-          const exists = state.shops.some(s => s.id === shop.id);
-          if (!exists) state.shops.push(shop);
+          if (shop && shop.id) {
+            const exists = state.shops.some(s => s?.id === shop.id);
+            if (!exists) state.shops.push(shop);
+          }
         });
       })
       .addCase(getShopsByBrand.rejected, (state, action) => {
