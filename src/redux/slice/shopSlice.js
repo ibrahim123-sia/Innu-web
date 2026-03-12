@@ -16,7 +16,14 @@ export const createShop = createAsyncThunk(
   'shop/createShop',
   async (shopData, { rejectWithValue }) => {
     try {
-      const response = await API.post('/shops/createshop', shopData);
+      let response;
+      if (shopData instanceof FormData) {
+        response = await API.post('/shops/createshop', shopData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } else {
+        response = await API.post('/shops/createshop', shopData);
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -40,7 +47,14 @@ export const updateShop = createAsyncThunk(
   'shop/updateShop',
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await API.put(`/shops/updateshop/${id}`, data);
+      let response;
+      if (data instanceof FormData) {
+        response = await API.put(`/shops/updateshop/${id}`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } else {
+        response = await API.put(`/shops/updateshop/${id}`, data);
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -132,7 +146,18 @@ const shopSlice = createSlice({
       .addCase(createShop.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        if (action.payload?.data) state.shops.unshift(action.payload.data);
+        if (action.payload?.data) {
+          state.shops.unshift(action.payload.data);
+          
+          // Also update shopsByBrand for the brand
+          const brandId = action.payload.data.brand_id;
+          if (brandId) {
+            if (!state.shopsByBrand[brandId]) {
+              state.shopsByBrand[brandId] = [];
+            }
+            state.shopsByBrand[brandId].unshift(action.payload.data);
+          }
+        }
         state.message = action.payload?.message || 'Shop created successfully';
       })
       .addCase(createShop.rejected, (state, action) => {
