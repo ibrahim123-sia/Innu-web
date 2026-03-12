@@ -1,38 +1,38 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axios from "axios";
 
 const API = axios.create({
-  baseURL: 'https://innu-api-112488489004.us-central1.run.app/api',
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: "https://innu-api-112488489004.us-central1.run.app/api",
+  headers: { "Content-Type": "application/json" },
 });
 
 API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
 export const createShop = createAsyncThunk(
-  'shop/createShop',
+  "shop/createShop",
   async (shopData, { rejectWithValue }) => {
     try {
       let response;
       if (shopData instanceof FormData) {
-        response = await API.post('/shops/createshop', shopData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+        response = await API.post("/shops/createshop", shopData, {
+          headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        response = await API.post('/shops/createshop', shopData);
+        response = await API.post("/shops/createshop", shopData);
       }
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 export const getShopById = createAsyncThunk(
-  'shop/getShopById',
+  "shop/getShopById",
   async (shopId, { rejectWithValue }) => {
     try {
       const response = await API.get(`/shops/getshops/${shopId}`);
@@ -40,17 +40,17 @@ export const getShopById = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 export const updateShop = createAsyncThunk(
-  'shop/updateShop',
+  "shop/updateShop",
   async ({ id, data }, { rejectWithValue }) => {
     try {
       let response;
       if (data instanceof FormData) {
         response = await API.put(`/shops/updateshop/${id}`, data, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+          headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
         response = await API.put(`/shops/updateshop/${id}`, data);
@@ -59,11 +59,11 @@ export const updateShop = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 export const deleteShop = createAsyncThunk(
-  'shop/deleteShop',
+  "shop/deleteShop",
   async (shopId, { rejectWithValue }) => {
     try {
       const response = await API.delete(`/shops/deleteshop/${shopId}`);
@@ -71,11 +71,11 @@ export const deleteShop = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 export const getShopsByBrand = createAsyncThunk(
-  'shop/getShopsByBrand',
+  "shop/getShopsByBrand",
   async (brandId, { rejectWithValue }) => {
     try {
       const response = await API.get(`/shops/brand/${brandId}/shops`);
@@ -83,11 +83,11 @@ export const getShopsByBrand = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 export const getShopsByDistrict = createAsyncThunk(
-  'shop/getShopsByDistrict',
+  "shop/getShopsByDistrict",
   async (districtId, { rejectWithValue }) => {
     try {
       const response = await API.get(`/shops/district/${districtId}/shops`);
@@ -95,7 +95,7 @@ export const getShopsByDistrict = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 const initialState = {
@@ -106,18 +106,18 @@ const initialState = {
   loading: false,
   error: null,
   success: false,
-  message: '',
+  message: "",
 };
 
 const shopSlice = createSlice({
-  name: 'shop',
+  name: "shop",
   initialState,
   reducers: {
     resetShopState: (state) => {
       state.loading = false;
       state.error = null;
       state.success = false;
-      state.message = '';
+      state.message = "";
     },
     clearCurrentShop: (state) => {
       state.currentShop = null;
@@ -148,8 +148,7 @@ const shopSlice = createSlice({
         state.success = true;
         if (action.payload?.data) {
           state.shops.unshift(action.payload.data);
-          
-          // Also update shopsByBrand for the brand
+
           const brandId = action.payload.data.brand_id;
           if (brandId) {
             if (!state.shopsByBrand[brandId]) {
@@ -158,13 +157,13 @@ const shopSlice = createSlice({
             state.shopsByBrand[brandId].unshift(action.payload.data);
           }
         }
-        state.message = action.payload?.message || 'Shop created successfully';
+        state.message = action.payload?.message || "Shop created successfully";
       })
       .addCase(createShop.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to create shop';
+        state.error = action.payload?.error || "Failed to create shop";
       })
-      
+
       .addCase(getShopById.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -175,9 +174,9 @@ const shopSlice = createSlice({
       })
       .addCase(getShopById.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch shop';
+        state.error = action.payload?.error || "Failed to fetch shop";
       })
-      
+
       .addCase(updateShop.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -187,31 +186,34 @@ const shopSlice = createSlice({
         state.loading = false;
         state.success = true;
         const updatedShop = action.payload?.data;
-        
+
         if (updatedShop && updatedShop.id) {
-          // Update in main shops array
-          const index = state.shops.findIndex(shop => shop?.id === updatedShop.id);
+          const index = state.shops.findIndex(
+            (shop) => shop?.id === updatedShop.id,
+          );
           if (index !== -1) state.shops[index] = updatedShop;
-          
-          // Update in shopsByBrand
-          Object.keys(state.shopsByBrand).forEach(brandId => {
+
+          Object.keys(state.shopsByBrand).forEach((brandId) => {
             if (state.shopsByBrand[brandId]) {
-              const brandIndex = state.shopsByBrand[brandId].findIndex(shop => shop?.id === updatedShop.id);
-              if (brandIndex !== -1) state.shopsByBrand[brandId][brandIndex] = updatedShop;
+              const brandIndex = state.shopsByBrand[brandId].findIndex(
+                (shop) => shop?.id === updatedShop.id,
+              );
+              if (brandIndex !== -1)
+                state.shopsByBrand[brandId][brandIndex] = updatedShop;
             }
           });
-          
-          // Update currentShop if it's the one being edited
-          if (state.currentShop?.id === updatedShop.id) state.currentShop = updatedShop;
+
+          if (state.currentShop?.id === updatedShop.id)
+            state.currentShop = updatedShop;
         }
-        
-        state.message = action.payload?.message || 'Shop updated successfully';
+
+        state.message = action.payload?.message || "Shop updated successfully";
       })
       .addCase(updateShop.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to update shop';
+        state.error = action.payload?.error || "Failed to update shop";
       })
-      
+
       .addCase(deleteShop.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -221,26 +223,30 @@ const shopSlice = createSlice({
         state.loading = false;
         state.success = true;
         const deletedShopId = action.payload?.data?.id;
-        
+
         if (deletedShopId) {
-          state.shops = state.shops.filter(shop => shop?.id !== deletedShopId);
-          
-          Object.keys(state.shopsByBrand).forEach(brandId => {
+          state.shops = state.shops.filter(
+            (shop) => shop?.id !== deletedShopId,
+          );
+
+          Object.keys(state.shopsByBrand).forEach((brandId) => {
             if (state.shopsByBrand[brandId]) {
-              state.shopsByBrand[brandId] = state.shopsByBrand[brandId].filter(shop => shop?.id !== deletedShopId);
+              state.shopsByBrand[brandId] = state.shopsByBrand[brandId].filter(
+                (shop) => shop?.id !== deletedShopId,
+              );
             }
           });
-          
+
           if (state.currentShop?.id === deletedShopId) state.currentShop = null;
         }
-        
-        state.message = action.payload?.message || 'Shop deleted successfully';
+
+        state.message = action.payload?.message || "Shop deleted successfully";
       })
       .addCase(deleteShop.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to delete shop';
+        state.error = action.payload?.error || "Failed to delete shop";
       })
-      
+
       .addCase(getShopsByBrand.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -249,21 +255,21 @@ const shopSlice = createSlice({
         state.loading = false;
         const { brandId, data } = action.payload;
         const shops = data?.data || [];
-        
+
         state.shopsByBrand[brandId] = shops;
-        
-        shops.forEach(shop => {
+
+        shops.forEach((shop) => {
           if (shop && shop.id) {
-            const exists = state.shops.some(s => s?.id === shop.id);
+            const exists = state.shops.some((s) => s?.id === shop.id);
             if (!exists) state.shops.push(shop);
           }
         });
       })
       .addCase(getShopsByBrand.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch shops by brand';
+        state.error = action.payload?.error || "Failed to fetch shops by brand";
       })
-      
+
       .addCase(getShopsByDistrict.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -274,7 +280,8 @@ const shopSlice = createSlice({
       })
       .addCase(getShopsByDistrict.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch shops by district';
+        state.error =
+          action.payload?.error || "Failed to fetch shops by district";
       });
   },
 });
@@ -297,12 +304,12 @@ export const selectShopError = (state) => state.shop.error;
 export const selectShopSuccess = (state) => state.shop.success;
 export const selectShopMessage = (state) => state.shop.message;
 
-export const selectShopsForBrand = (brandId) => (state) => 
+export const selectShopsForBrand = (brandId) => (state) =>
   state.shop.shopsByBrand[brandId] || [];
 
 export const selectShopCountsByBrand = (state) => {
   const counts = {};
-  Object.keys(state.shop.shopsByBrand).forEach(brandId => {
+  Object.keys(state.shop.shopsByBrand).forEach((brandId) => {
     counts[brandId] = state.shop.shopsByBrand[brandId]?.length || 0;
   });
   return counts;
