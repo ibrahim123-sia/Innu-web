@@ -147,6 +147,9 @@ const Shops = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  
   const [formData, setFormData] = useState({
     name: '',
     street_address: '',
@@ -159,6 +162,9 @@ const Shops = () => {
   });
   
   const [editFormData, setEditFormData] = useState({});
+  const [editLogoPreview, setEditLogoPreview] = useState(null);
+  const [editLogoFile, setEditLogoFile] = useState(null);
+  
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
@@ -211,6 +217,17 @@ const Shops = () => {
     'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT',
     'VA', 'WA', 'WV', 'WI', 'WY', 'DC', 'PR', 'VI', 'GU', 'MP', 'AS'
   ];
+
+  const getShopLogo = (shop) => {
+    return (shop.logo_url?.trim()) ? shop.logo_url : DEFAULT_SHOP_IMAGE;
+  };
+
+  const validateFileType = (file, allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']) => {
+    if (!file) return '';
+    if (!allowedTypes.includes(file.type)) return 'Please upload a valid image file (JPEG, PNG, GIF, or WEBP)';
+    if (file.size > 5 * 1024 * 1024) return 'File size must not exceed 5MB';
+    return '';
+  };
 
   const validateShopName = (name) => {
     if (!name?.trim()) return 'Shop name is required';
@@ -300,6 +317,35 @@ const Shops = () => {
       shop.tekmetric_shop_id.toLowerCase() === id.toLowerCase() && 
       (!currentShopId || shop.id !== currentShopId)
     );
+  };
+
+  const handleFileChange = (e, isEdit = false) => {
+    const file = e.target.files[0];
+    const fileError = validateFileType(file);
+    
+    if (fileError) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid File',
+        text: fileError,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#d33'
+      });
+      e.target.value = '';
+      return;
+    }
+
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      
+      if (isEdit) {
+        setEditLogoFile(file);
+        setEditLogoPreview(previewUrl);
+      } else {
+        setLogoFile(file);
+        setLogoPreview(previewUrl);
+      }
+    }
   };
 
   const validateCreateForm = () => {
@@ -451,19 +497,20 @@ const Shops = () => {
     setIsSubmitting(true);
 
     try {
-      const shopData = {
-        name: formData.name.trim(),
-        brand_id: user.brand_id,
-        district_id: formData.district_id || null,
-        tekmetric_shop_id: formData.tekmetric_shop_id.trim(),
-        street_address: formData.street_address.trim(),
-        city: formData.city.trim(),
-        state: formData.state.trim().toUpperCase(),
-        timezone: formData.timezone,
-        is_active: formData.is_active
-      };
+      const shopFormData = new FormData();
+      shopFormData.append('name', formData.name.trim());
+      shopFormData.append('brand_id', user.brand_id);
+      shopFormData.append('district_id', formData.district_id || '');
+      shopFormData.append('tekmetric_shop_id', formData.tekmetric_shop_id.trim());
+      shopFormData.append('street_address', formData.street_address.trim());
+      shopFormData.append('city', formData.city.trim());
+      shopFormData.append('state', formData.state.trim().toUpperCase());
+      shopFormData.append('timezone', formData.timezone);
+      shopFormData.append('is_active', formData.is_active);
+      
+      if (logoFile) shopFormData.append('logo', logoFile);
 
-      const shopResult = await dispatch(createShop(shopData)).unwrap();
+      const shopResult = await dispatch(createShop(shopFormData)).unwrap();
       
       if (shopResult.success) {
         Swal.fire({
@@ -509,25 +556,30 @@ const Shops = () => {
     if (!validateEditForm()) return;
 
     try {
-      const updateData = {
-        name: editFormData.name.trim(),
-        tekmetric_shop_id: editFormData.tekmetric_shop_id.trim(),
-        street_address: editFormData.street_address.trim(),
-        city: editFormData.city.trim(),
-        state: editFormData.state.trim().toUpperCase(),
-        timezone: editFormData.timezone,
-        is_active: editFormData.is_active
-      };
-
+      const shopFormData = new FormData();
+      shopFormData.append('name', editFormData.name.trim());
+      shopFormData.append('tekmetric_shop_id', editFormData.tekmetric_shop_id.trim());
+      shopFormData.append('street_address', editFormData.street_address.trim());
+      shopFormData.append('city', editFormData.city.trim());
+      shopFormData.append('state', editFormData.state.trim().toUpperCase());
+      shopFormData.append('timezone', editFormData.timezone);
+      shopFormData.append('is_active', editFormData.is_active);
+      
       if (editFormData.district_id && editFormData.district_id !== '') {
-        updateData.district_id = editFormData.district_id;
+        shopFormData.append('district_id', editFormData.district_id);
       } else {
-        updateData.district_id = null;
+        shopFormData.append('district_id', '');
+      }
+
+      if (editLogoFile) {
+        shopFormData.append('logo', editLogoFile);
+      } else if (editFormData.logo_url && editFormData.logo_url !== DEFAULT_SHOP_IMAGE) {
+        shopFormData.append('logo_url', editFormData.logo_url);
       }
 
       const result = await dispatch(updateShop({
         id: showEditModal,
-        data: updateData
+        data: shopFormData
       })).unwrap();
 
       if (result.success) {
@@ -559,20 +611,21 @@ const Shops = () => {
 
   const handleToggleStatus = async (shop) => {
     try {
-      const updateData = {
-        name: shop.name,
-        district_id: shop.district_id,
-        tekmetric_shop_id: shop.tekmetric_shop_id,
-        street_address: shop.street_address,
-        city: shop.city,
-        state: shop.state,
-        timezone: shop.timezone,
-        is_active: !shop.is_active
-      };
+      const shopFormData = new FormData();
+      shopFormData.append('name', shop.name);
+      shopFormData.append('tekmetric_shop_id', shop.tekmetric_shop_id);
+      shopFormData.append('street_address', shop.street_address);
+      shopFormData.append('city', shop.city);
+      shopFormData.append('state', shop.state);
+      shopFormData.append('timezone', shop.timezone);
+      shopFormData.append('is_active', !shop.is_active);
+      
+      if (shop.district_id) shopFormData.append('district_id', shop.district_id);
+      if (shop.logo_url) shopFormData.append('logo_url', shop.logo_url);
 
       await dispatch(updateShop({
         id: shop.id,
-        data: updateData
+        data: shopFormData
       })).unwrap();
 
       dispatch(getShopsByBrand(user.brand_id));
@@ -609,12 +662,16 @@ const Shops = () => {
     });
     setFormErrors({ name: false, street_address: false, city: false, state: false, timezone: false, tekmetric_shop_id: false });
     setValidationErrors({ name: '', street_address: '', city: '', state: '', timezone: '', tekmetric_shop_id: '' });
+    setLogoFile(null);
+    setLogoPreview(null);
   };
 
   const resetEditForm = () => {
     setEditFormData({});
     setEditFormErrors({ name: false, street_address: false, city: false, state: false, timezone: false, tekmetric_shop_id: false });
     setEditValidationErrors({ name: '', street_address: '', city: '', state: '', timezone: '', tekmetric_shop_id: '' });
+    setEditLogoFile(null);
+    setEditLogoPreview(null);
   };
 
   const handleInputChange = (e) => {
@@ -666,6 +723,8 @@ const Shops = () => {
   };
 
   const handleEdit = (shop) => {
+    const shopLogo = getShopLogo(shop);
+    
     setShowEditModal(shop.id);
     setEditFormData({
       name: shop.name,
@@ -675,8 +734,11 @@ const Shops = () => {
       timezone: shop.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       tekmetric_shop_id: shop.tekmetric_shop_id || '',
       district_id: shop.district_id || '',
-      is_active: shop.is_active
+      is_active: shop.is_active,
+      logo_url: shopLogo
     });
+    setEditLogoPreview(shopLogo);
+    setEditLogoFile(null);
     setEditFormErrors({ name: false, street_address: false, city: false, state: false, timezone: false, tekmetric_shop_id: false });
     setEditValidationErrors({ name: '', street_address: '', city: '', state: '', timezone: '', tekmetric_shop_id: '' });
     setFormError('');
@@ -694,7 +756,8 @@ const Shops = () => {
       editFormData.timezone !== originalShop.timezone ||
       editFormData.tekmetric_shop_id !== originalShop.tekmetric_shop_id ||
       editFormData.district_id !== originalShop.district_id ||
-      editFormData.is_active !== originalShop.is_active
+      editFormData.is_active !== originalShop.is_active ||
+      !!editLogoFile
     );
   };
 
@@ -743,179 +806,229 @@ const Shops = () => {
           )}
           
           <form onSubmit={handleSubmit} noValidate>
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-700">Shop Information</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="space-y-8">
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-700">Shop Logo</h3>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    {logoPreview ? (
+                      <div className="space-y-2">
+                        <img 
+                          src={logoPreview} 
+                          alt="Shop logo preview" 
+                          className="max-h-48 mx-auto rounded-lg object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLogoFile(null);
+                            setLogoPreview(null);
+                          }}
+                          className="text-sm text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <img 
+                          src={DEFAULT_SHOP_IMAGE}
+                          alt="Default Shop logo" 
+                          className="max-h-48 mx-auto rounded-lg object-contain opacity-50"
+                        />
+                        <p className="text-sm text-gray-500">Optional - Default logo will be used if not uploaded (Max 5MB, JPEG/PNG/GIF/WEBP)</p>
+                      </div>
+                    )}
+                    <label className="block mt-4">
+                      <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                        Choose Logo
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        onChange={(e) => handleFileChange(e, false)}
+                        className="hidden"
+                        name="logo"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-700">Shop Information</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Shop Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
+                        placeholder="Enter shop name"
+                        maxLength={100}
+                        required
+                      />
+                      {formErrors.name && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.name}</p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-500">
+                        {formData.name.length}/100 characters
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tekmetric Shop ID <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="tekmetric_shop_id"
+                        value={formData.tekmetric_shop_id}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.tekmetric_shop_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
+                        placeholder="Enter Tekmetric Shop ID"
+                        maxLength={50}
+                        required
+                      />
+                      {formErrors.tekmetric_shop_id && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.tekmetric_shop_id}</p>
+                      )}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Shop Name <span className="text-red-500">*</span>
+                      Street Address <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      name="name"
-                      value={formData.name}
+                      name="street_address"
+                      value={formData.street_address}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        formErrors.street_address ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
-                      placeholder="Enter shop name"
-                      maxLength={100}
+                      placeholder="Street address"
+                      maxLength={200}
                       required
                     />
-                    {formErrors.name && (
-                      <p className="mt-1 text-xs text-red-600">{validationErrors.name}</p>
+                    {formErrors.street_address && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.street_address}</p>
                     )}
-                    <p className="mt-1 text-xs text-gray-500">
-                      {formData.name.length}/100 characters
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        City <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="city"
+                        value={formData.city}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
+                        placeholder="City"
+                        maxLength={100}
+                        required
+                      />
+                      {formErrors.city && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.city}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        State <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="state"
+                        value={formData.state}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.state ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
+                        placeholder="State (e.g., CA, NY)"
+                        maxLength={2}
+                        required
+                      />
+                      {formErrors.state && (
+                        <p className="mt-1 text-xs text-red-600">{validationErrors.state}</p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-500">
+                        Enter 2-letter state code
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Timezone <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="timezone"
+                      value={formData.timezone}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.timezone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
+                      required
+                    >
+                      {timezones.map(tz => (
+                        <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
+                      ))}
+                    </select>
+                    {formErrors.timezone && (
+                      <p className="mt-1 text-xs text-red-600">{validationErrors.timezone}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      District
+                    </label>
+                    <select
+                      name="district_id"
+                      value={formData.district_id}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">None (Shop without district)</option>
+                      {districts.map(district => (
+                        <option key={district.id} value={district.id}>
+                          {district.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      District is optional for shops
                     </p>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tekmetric Shop ID <span className="text-red-500">*</span>
-                    </label>
+                  <label className="flex items-center space-x-2">
                     <input
-                      type="text"
-                      name="tekmetric_shop_id"
-                      value={formData.tekmetric_shop_id}
+                      type="checkbox"
+                      name="is_active"
+                      checked={formData.is_active}
                       onChange={handleInputChange}
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.tekmetric_shop_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                      }`}
-                      placeholder="Enter Tekmetric Shop ID"
-                      maxLength={50}
-                      required
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    {formErrors.tekmetric_shop_id && (
-                      <p className="mt-1 text-xs text-red-600">{validationErrors.tekmetric_shop_id}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Street Address <span className="text-red-500">*</span>
+                    <span className="text-sm font-medium text-gray-700">Active</span>
                   </label>
-                  <input
-                    type="text"
-                    name="street_address"
-                    value={formData.street_address}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.street_address ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                    }`}
-                    placeholder="Street address"
-                    maxLength={200}
-                    required
-                  />
-                  {formErrors.street_address && (
-                    <p className="mt-1 text-xs text-red-600">{validationErrors.street_address}</p>
-                  )}
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      City <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleInputChange}
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                      }`}
-                      placeholder="City"
-                      maxLength={100}
-                      required
-                    />
-                    {formErrors.city && (
-                      <p className="mt-1 text-xs text-red-600">{validationErrors.city}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      State <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="state"
-                      value={formData.state}
-                      onChange={handleInputChange}
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.state ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                      }`}
-                      placeholder="State (e.g., CA, NY)"
-                      maxLength={2}
-                      required
-                    />
-                    {formErrors.state && (
-                      <p className="mt-1 text-xs text-red-600">{validationErrors.state}</p>
-                    )}
-                    <p className="mt-1 text-xs text-gray-500">
-                      Enter 2-letter state code
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Timezone <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="timezone"
-                    value={formData.timezone}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.timezone ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                    }`}
-                    required
-                  >
-                    {timezones.map(tz => (
-                      <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
-                    ))}
-                  </select>
-                  {formErrors.timezone && (
-                    <p className="mt-1 text-xs text-red-600">{validationErrors.timezone}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    District
-                  </label>
-                  <select
-                    name="district_id"
-                    value={formData.district_id}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">None (Shop without district)</option>
-                    {districts.map(district => (
-                      <option key={district.id} value={district.id}>
-                        {district.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    District is optional for shops
-                  </p>
-                </div>
-
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={formData.is_active}
-                    onChange={handleInputChange}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Active</span>
-                </label>
               </div>
             </div>
 
@@ -969,62 +1082,67 @@ const Shops = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {shops.map((shop) => (
-                  <tr key={shop.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
-                          <img 
-                            src={DEFAULT_SHOP_IMAGE}
-                            alt={shop.name}
-                            className="w-8 h-8 opacity-50"
-                          />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{shop.name}</div>
-                          <div className="text-xs font-medium text-blue-600">
-                            Tekmetric ID: {shop.tekmetric_shop_id || 'Not Set'}
+                {shops.map((shop) => {
+                  const shopLogo = getShopLogo(shop);
+                  
+                  return (
+                    <tr key={shop.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center mr-4 border bg-gray-100">
+                            <img 
+                              src={shopLogo}
+                              alt={shop.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { e.target.src = DEFAULT_SHOP_IMAGE; }}
+                            />
                           </div>
-                          <div className="text-xs text-gray-400">{shop.timezone}</div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{shop.name}</div>
+                            <div className="text-xs font-medium text-blue-600">
+                              Tekmetric ID: {shop.tekmetric_shop_id || 'Not Set'}
+                            </div>
+                            <div className="text-xs text-gray-400">{shop.timezone}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{shop.street_address}</div>
-                      <div className="text-sm text-gray-500">{shop.city}, {shop.state}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {getDistrictName(shop.district_id)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {shop.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(shop)}
-                          className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(shop)}
-                          className={`px-3 py-1 rounded text-sm ${
-                            shop.is_active 
-                              ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                              : 'bg-green-100 text-green-700 hover:bg-green-200'
-                          }`}
-                        >
-                          {shop.is_active ? 'Deactivate' : 'Activate'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{shop.street_address}</div>
+                        <div className="text-sm text-gray-500">{shop.city}, {shop.state}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {getDistrictName(shop.district_id)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          shop.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {shop.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEdit(shop)}
+                            className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(shop)}
+                            className={`px-3 py-1 rounded text-sm ${
+                              shop.is_active 
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            }`}
+                          >
+                            {shop.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1060,170 +1178,220 @@ const Shops = () => {
               )}
               
               <form onSubmit={handleEditSubmit} noValidate>
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-700">Shop Information</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Shop Name <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="name"
-                          value={editFormData.name || ''}
-                          onChange={handleEditInputChange}
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            editFormErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter shop name"
-                          maxLength={100}
-                          required
-                        />
-                        {editFormErrors.name && (
-                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.name}</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-8">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-700">Shop Logo</h3>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        {editLogoPreview ? (
+                          <div className="space-y-2">
+                            <img 
+                              src={editLogoPreview} 
+                              alt="Shop logo preview" 
+                              className="max-h-48 mx-auto rounded-lg object-contain"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditLogoFile(null);
+                                setEditLogoPreview(editFormData.logo_url);
+                              }}
+                              className="text-sm text-red-600 hover:text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <img 
+                              src={editFormData.logo_url || DEFAULT_SHOP_IMAGE}
+                              alt="Shop logo" 
+                              className="max-h-48 mx-auto rounded-lg object-contain"
+                            />
+                            <p className="text-sm text-gray-500">Current shop logo</p>
+                          </div>
                         )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Tekmetric Shop ID <span className="text-red-500">*</span>
+                        <label className="block mt-4">
+                          <span className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block">
+                            Change Logo
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            onChange={(e) => handleFileChange(e, true)}
+                            className="hidden"
+                            name="logo"
+                          />
                         </label>
-                        <input
-                          type="text"
-                          name="tekmetric_shop_id"
-                          value={editFormData.tekmetric_shop_id || ''}
-                          onChange={handleEditInputChange}
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            editFormErrors.tekmetric_shop_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter Tekmetric Shop ID"
-                          maxLength={50}
-                          required
-                        />
-                        {editFormErrors.tekmetric_shop_id && (
-                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.tekmetric_shop_id}</p>
-                        )}
                       </div>
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Street Address <span className="text-red-500">*</span>
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-700">Shop Information</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Shop Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="name"
+                            value={editFormData.name || ''}
+                            onChange={handleEditInputChange}
+                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              editFormErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                            }`}
+                            placeholder="Enter shop name"
+                            maxLength={100}
+                            required
+                          />
+                          {editFormErrors.name && (
+                            <p className="mt-1 text-xs text-red-600">{editValidationErrors.name}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Tekmetric Shop ID <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="tekmetric_shop_id"
+                            value={editFormData.tekmetric_shop_id || ''}
+                            onChange={handleEditInputChange}
+                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              editFormErrors.tekmetric_shop_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                            }`}
+                            placeholder="Enter Tekmetric Shop ID"
+                            maxLength={50}
+                            required
+                          />
+                          {editFormErrors.tekmetric_shop_id && (
+                            <p className="mt-1 text-xs text-red-600">{editValidationErrors.tekmetric_shop_id}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Street Address <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="street_address"
+                          value={editFormData.street_address || ''}
+                          onChange={handleEditInputChange}
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            editFormErrors.street_address ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
+                          placeholder="Street address"
+                          maxLength={200}
+                          required
+                        />
+                        {editFormErrors.street_address && (
+                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.street_address}</p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            City <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="city"
+                            value={editFormData.city || ''}
+                            onChange={handleEditInputChange}
+                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              editFormErrors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                            }`}
+                            placeholder="City"
+                            maxLength={100}
+                            required
+                          />
+                          {editFormErrors.city && (
+                            <p className="mt-1 text-xs text-red-600">{editValidationErrors.city}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            State <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="state"
+                            value={editFormData.state || ''}
+                            onChange={handleEditInputChange}
+                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              editFormErrors.state ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                            }`}
+                            placeholder="State (e.g., CA, NY)"
+                            maxLength={2}
+                            required
+                          />
+                          {editFormErrors.state && (
+                            <p className="mt-1 text-xs text-red-600">{editValidationErrors.state}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Timezone <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="timezone"
+                          value={editFormData.timezone || ''}
+                          onChange={handleEditInputChange}
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            editFormErrors.timezone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
+                          required
+                        >
+                          {timezones.map(tz => (
+                            <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
+                          ))}
+                        </select>
+                        {editFormErrors.timezone && (
+                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.timezone}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          District
+                        </label>
+                        <select
+                          name="district_id"
+                          value={editFormData.district_id || ''}
+                          onChange={handleEditInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">None (Shop without district)</option>
+                          {districts.map(district => (
+                            <option key={district.id} value={district.id}>
+                              {district.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          name="is_active"
+                          checked={editFormData.is_active || false}
+                          onChange={handleEditInputChange}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Active</span>
                       </label>
-                      <input
-                        type="text"
-                        name="street_address"
-                        value={editFormData.street_address || ''}
-                        onChange={handleEditInputChange}
-                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          editFormErrors.street_address ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
-                        placeholder="Street address"
-                        maxLength={200}
-                        required
-                      />
-                      {editFormErrors.street_address && (
-                        <p className="mt-1 text-xs text-red-600">{editValidationErrors.street_address}</p>
-                      )}
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          City <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="city"
-                          value={editFormData.city || ''}
-                          onChange={handleEditInputChange}
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            editFormErrors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                          }`}
-                          placeholder="City"
-                          maxLength={100}
-                          required
-                        />
-                        {editFormErrors.city && (
-                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.city}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          State <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="state"
-                          value={editFormData.state || ''}
-                          onChange={handleEditInputChange}
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            editFormErrors.state ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                          }`}
-                          placeholder="State (e.g., CA, NY)"
-                          maxLength={2}
-                          required
-                        />
-                        {editFormErrors.state && (
-                          <p className="mt-1 text-xs text-red-600">{editValidationErrors.state}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Timezone <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        name="timezone"
-                        value={editFormData.timezone || ''}
-                        onChange={handleEditInputChange}
-                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          editFormErrors.timezone ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
-                        required
-                      >
-                        {timezones.map(tz => (
-                          <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
-                        ))}
-                      </select>
-                      {editFormErrors.timezone && (
-                        <p className="mt-1 text-xs text-red-600">{editValidationErrors.timezone}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        District
-                      </label>
-                      <select
-                        name="district_id"
-                        value={editFormData.district_id || ''}
-                        onChange={handleEditInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">None (Shop without district)</option>
-                        {districts.map(district => (
-                          <option key={district.id} value={district.id}>
-                            {district.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        name="is_active"
-                        checked={editFormData.is_active || false}
-                        onChange={handleEditInputChange}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">Active</span>
-                    </label>
                   </div>
                 </div>
 
