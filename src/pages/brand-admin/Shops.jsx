@@ -16,7 +16,7 @@ import {
 
 import Swal from 'sweetalert2';
 
-const DEFAULT_SHOP_IMAGE = 'https://cdn-icons-png.flaticon.com/512/3047/3047928.png';
+const DEFAULT_SHOP_IMAGE = 'https://storage.googleapis.com/innu-video-app/brand_logo/logo.png';
 
 const TableRowSkeleton = () => (
   <tr className="hover:bg-gray-50">

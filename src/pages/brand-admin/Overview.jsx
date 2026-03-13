@@ -38,6 +38,8 @@ import {
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
+const DEFAULT_SHOP_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/logo.png';
+
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -498,6 +500,14 @@ const Overview = () => {
     return DEFAULT_PROFILE_PIC;
   };
 
+  // Function to get shop image URL
+  const getShopImageUrl = (shop) => {
+    if (shop.logo_url) {
+      return shop.logo_url;
+    }
+    return DEFAULT_SHOP_LOGO;
+  };
+
   const openShopPage = (shop) => {
     localStorage.setItem("selectedShop", JSON.stringify(shop));
     navigate(`/brand-admin/shops/${shop.id}`);
@@ -688,60 +698,93 @@ const Overview = () => {
                     </div>
                   </div>
 
-                  {/* Shops List */}
+                  {/* Shops List - Updated with shop images and district design */}
                   <div className="p-4">
                     {districtShops.length ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {districtShops.map((shop) => (
-                          <div
-                            key={shop.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
-                          >
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
-                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                                {shop.name?.charAt(0).toUpperCase() || "S"}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">
-                                  {shop.name}
-                                </p>
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-xs text-gray-500 truncate">
-                                    {shop.city || "No city"}
-                                  </span>
-                                  <span
-                                    className={`inline-block w-2 h-2 rounded-full ${
-                                      shop.is_active
-                                        ? "bg-green-500"
-                                        : "bg-gray-400"
-                                    }`}
-                                  />
-                                </div>
-                              </div>
-                            </div>
+                        {districtShops.map((shop) => {
+                          const shopVideos = shopVideosMap[shop.id] || [];
+                          const aiRequests = shopVideos.filter(v => 
+                            ["completed", "processing"].includes(v?.status)
+                          ).length;
 
-                            <button
-                              onClick={() => openShopPage(shop)}
-                              className="ml-2 bg-white hover:bg-blue-600 text-gray-700 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 hover:border-blue-600 transition-all flex items-center shadow-sm"
-                              title="Open Shop Overview"
+                          return (
+                            <div
+                              key={shop.id}
+                              className="border rounded-lg p-3 hover:shadow-md transition-shadow bg-white"
                             >
-                              <svg
-                                className="w-3 h-3 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                  {/* Shop Image - Using logo_url or default */}
+                                  <img
+                                    src={getShopImageUrl(shop)}
+                                    alt={shop.name}
+                                    className="w-10 h-10 rounded-lg object-cover border border-gray-200"
+                                    onError={(e) => {
+                                      e.target.onerror = null;
+                                      e.target.src = DEFAULT_SHOP_LOGO;
+                                    }}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-gray-800 text-sm truncate">
+                                      {shop.name}
+                                    </h4>
+                                    <p className="text-xs text-gray-500 truncate">
+                                      {shop.city || "No city"}
+                                      {shop.state ? `, ${shop.state}` : ""}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {/* Status Badge */}
+                                <span
+                                  className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                    shop.is_active
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-gray-100 text-gray-800"
+                                  }`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full mr-1 ${
+                                    shop.is_active ? "bg-green-500" : "bg-gray-400"
+                                  }`} />
+                                  {shop.is_active ? "Active" : "Inactive"}
+                                </span>
+                              </div>
+
+                              {/* AI Requests Count */}
+                              {aiRequests > 0 && (
+                                <div className="mt-2 mb-2 flex items-center text-xs text-red-600 bg-red-50 rounded-md px-2 py-1">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                  {aiRequests} AI Request{aiRequests !== 1 ? 's' : ''}
+                                </div>
+                              )}
+
+                              {/* Open Shop Button */}
+                              <button
+                                onClick={() => openShopPage(shop)}
+                                className="mt-2 w-full bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white px-3 py-2 rounded-lg text-xs font-medium border border-blue-200 hover:border-blue-600 transition-all flex items-center justify-center"
+                                title="Open Shop Overview"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                />
-                              </svg>
-                              Open
-                            </button>
-                          </div>
-                        ))}
+                                <svg
+                                  className="w-3 h-3 mr-1"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                  />
+                                </svg>
+                                Open Shop Overview
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">

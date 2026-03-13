@@ -15,6 +15,8 @@ import {
 
 import Swal from 'sweetalert2';
 
+const DEFAULT_SHOP_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/logo.png';
+
 const TableRowSkeleton = () => (
   <tr className="hover:bg-gray-50">
     <td className="px-6 py-4 whitespace-nowrap">
@@ -191,6 +193,14 @@ const Districts = () => {
       district.name.toLowerCase() === name.toLowerCase().trim() && 
       (!currentDistrictId || district.id !== currentDistrictId)
     );
+  };
+
+  // Function to get shop image URL
+  const getShopImageUrl = (shop) => {
+    if (shop.logo_url) {
+      return shop.logo_url;
+    }
+    return DEFAULT_SHOP_LOGO;
   };
 
   useEffect(() => {
@@ -708,13 +718,18 @@ const Districts = () => {
                                     {districtShops.map((shop) => (
                                       <div key={shop.id} className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
                                         <div className="flex justify-between items-start">
-                                          <div className="flex items-start">
-                                            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center mr-3 border bg-gray-100">
-                                              <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
-                                              </svg>
-                                            </div>
-                                            <div>
+                                          <div className="flex items-start flex-1">
+                                            {/* Shop Image - Using logo_url or default */}
+                                            <img
+                                              src={getShopImageUrl(shop)}
+                                              alt={shop.name}
+                                              className="w-10 h-10 rounded-lg object-cover mr-3 border border-gray-200"
+                                              onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = DEFAULT_SHOP_LOGO;
+                                              }}
+                                            />
+                                            <div className="flex-1">
                                               <h5 className="font-medium text-gray-800">{shop.name}</h5>
                                               <p className="text-sm text-gray-600 mt-1">
                                                 {shop.street_address || 'No address provided'}

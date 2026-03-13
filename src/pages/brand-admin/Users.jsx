@@ -16,8 +16,8 @@ import {
 
 import Swal from "sweetalert2";
 
-const DEFAULT_PROFILE_PIC =
-  "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+const DEFAULT_PROFILE_PIC ='https://storage.googleapis.com/innu-video-app/profile_pictures/default%20profile.jpg';
+
 
 const validateEmail = (email) => {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
