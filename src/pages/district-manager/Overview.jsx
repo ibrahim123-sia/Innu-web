@@ -10,6 +10,8 @@ import {
 import { getUsersByDistrict } from "../../redux/slice/userSlice";
 import axios from "axios";
 
+const DEFAULT_SHOP_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/logo.png';
+
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     {[1, 2, 3, 4].map((i) => (
@@ -162,6 +164,14 @@ const Overview = () => {
   const [loadingUser, setLoadingUser] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Function to get shop image URL
+  const getShopImageUrl = (shop) => {
+    if (shop.logo_url) {
+      return shop.logo_url;
+    }
+    return DEFAULT_SHOP_LOGO;
+  };
 
   useEffect(() => {
     if (districtId && !userId) {
@@ -534,13 +544,21 @@ const Overview = () => {
                 <div key={shop.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
-                    
+                      {/* Shop Image - Added here */}
+                      <img
+                        src={getShopImageUrl(shop)}
+                        alt={shop.name}
+                        className="w-10 h-10 rounded-lg object-cover border border-gray-200"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = DEFAULT_SHOP_LOGO;
+                        }}
+                      />
                       <div>
                         <h3 className="font-medium text-gray-800">{shop.name}</h3>
                         <p className="text-xs text-gray-500">
                           {shop.city}{shop.state ? `, ${shop.state}` : ''}
                         </p>
-                       
                       </div>
                     </div>
                     
@@ -565,9 +583,14 @@ const Overview = () => {
                     </span>
                   </div>
 
-                 
-
-                
+                  {aiRequests > 0 && (
+                    <div className="mt-2 flex items-center text-xs text-red-600 bg-red-50 rounded-md px-2 py-1">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      {aiRequests} AI Request{aiRequests !== 1 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
               );
             })}

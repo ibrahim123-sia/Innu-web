@@ -29,7 +29,7 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-const DEFAULT_SHOP_IMAGE = 'https://storage.googleapis.com/innu-video-app/shop_logo/6e6f98df-dbfc-4d67-bf80-0817391bc9ce1.png';
+const DEFAULT_SHOP_IMAGE = 'https://storage.googleapis.com/innu-video-app/brand_logo/logo.png';
 
 const validateShopName = (name) => {
   if (!name?.trim()) return 'Shop name is required';

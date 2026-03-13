@@ -20,7 +20,7 @@ import {
   selectDistrictLoading
 } from '../../redux/slice/districtSlice';
 
-const DEFAULT_SHOP_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+const DEFAULT_SHOP_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/logo.png';
 
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
