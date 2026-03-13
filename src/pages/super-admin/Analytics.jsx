@@ -14,6 +14,7 @@ import {
   selectVideoEditLoading,
   getAllEditDetails,
   getEditDetailsByBrand,
+  selectEditDetailsByBrandId,
 } from '../../redux/slice/videoEditSlice';
 
 const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
@@ -93,7 +94,7 @@ const BrandsTableSkeleton = () => (
 const Analytics = () => {
   const dispatch = useDispatch();
   
-  // Global data from Redux - this never changes after initial load
+  // Global data from Redux
   const brands = useSelector(selectAllBrands);
   const allVideos = useSelector(selectVideos);
   const allEditDetails = useSelector(selectEditDetailsList);
@@ -101,7 +102,6 @@ const Analytics = () => {
 
   // Local state for brand-specific data only
   const [brandVideos, setBrandVideos] = useState({});
-  const [brandEdits, setBrandEdits] = useState({});
   const [loadingBrandData, setLoadingBrandData] = useState({});
   
   const [localLoading, setLocalLoading] = useState(true);
@@ -113,6 +113,11 @@ const Analytics = () => {
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
   const [selectedBrandForFeedback, setSelectedBrandForFeedback] = useState(null);
   const [loadingAllFeedback, setLoadingAllFeedback] = useState(false);
+
+  // Get brand edits from Redux using the selector
+  const getBrandEditsFromRedux = (brandId) => {
+    return useSelector(state => selectEditDetailsByBrandId(brandId)(state));
+  };
 
   useEffect(() => {
     fetchData();
@@ -136,7 +141,8 @@ const Analytics = () => {
         setIsInitialLoad(false);
         setIsDataReady(true);
       }, 300);
-    } catch {
+    } catch (error) {
+      console.error('Error fetching data:', error);
       setIsInitialLoad(false);
     } finally {
       setLocalLoading(false);
@@ -151,7 +157,7 @@ const Analytics = () => {
         dispatch(getVideosByBrand(brand.id))
           .unwrap()
           .then(result => {
-            const videosData = Array.isArray(result) ? result : [];
+            const videosData = Array.isArray(result) ? result : (result?.data || []);
             setBrandVideos(prev => ({ ...prev, [brand.id]: videosData }));
           })
           .catch(() => {
@@ -162,12 +168,8 @@ const Analytics = () => {
       promises.push(
         dispatch(getEditDetailsByBrand(brand.id))
           .unwrap()
-          .then(result => {
-            const editsData = Array.isArray(result) ? result : [];
-            setBrandEdits(prev => ({ ...prev, [brand.id]: editsData }));
-          })
           .catch(() => {
-            setBrandEdits(prev => ({ ...prev, [brand.id]: [] }));
+            // Error handled silently
           })
       );
     });
@@ -179,10 +181,11 @@ const Analytics = () => {
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
       const result = await dispatch(getVideosByBrand(brandId)).unwrap();
-      const videosData = Array.isArray(result) ? result : [];
+      const videosData = Array.isArray(result) ? result : (result?.data || []);
       setBrandVideos(prev => ({ ...prev, [brandId]: videosData }));
       return videosData;
-    } catch {
+    } catch (error) {
+      console.error('Error fetching brand videos:', error);
       setBrandVideos(prev => ({ ...prev, [brandId]: [] }));
       return [];
     } finally {
@@ -194,11 +197,9 @@ const Analytics = () => {
     setLoadingBrandData(prev => ({ ...prev, [brandId]: true }));
     try {
       const result = await dispatch(getEditDetailsByBrand(brandId)).unwrap();
-      const editsData = Array.isArray(result) ? result : [];
-      setBrandEdits(prev => ({ ...prev, [brandId]: editsData }));
-      return editsData;
-    } catch {
-      setBrandEdits(prev => ({ ...prev, [brandId]: [] }));
+      return result;
+    } catch (error) {
+      console.error('Error fetching brand edits:', error);
       return [];
     } finally {
       setLoadingBrandData(prev => ({ ...prev, [brandId]: false }));
@@ -208,8 +209,12 @@ const Analytics = () => {
   const handleViewBrandAnalytics = async (brandId) => {
     setShowBrandAnalyticsModal(brandId);
     
-    if (!brandVideos[brandId]?.length) await fetchBrandVideos(brandId);
-    if (!brandEdits[brandId]?.length) await fetchBrandEdits(brandId);
+    if (!brandVideos[brandId]?.length) {
+      await fetchBrandVideos(brandId);
+    }
+    if (!getBrandEditsFromRedux(brandId)?.length) {
+      await fetchBrandEdits(brandId);
+    }
   };
 
   const handleViewAllFeedback = async (brandId) => {
@@ -218,7 +223,7 @@ const Analytics = () => {
     setLoadingAllFeedback(true);
     
     // Fetch the data if not available
-    if (!brandEdits[brandId]?.length) {
+    if (!getBrandEditsFromRedux(brandId)?.length) {
       await fetchBrandEdits(brandId);
     }
     
@@ -263,7 +268,7 @@ const Analytics = () => {
 
   const getBrandStats = (brandId) => {
     const brandSpecificVideos = brandVideos[brandId] || [];
-    const brandSpecificEdits = brandEdits[brandId] || [];
+    const brandSpecificEdits = getBrandEditsFromRedux(brandId) || [];
     
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
@@ -309,7 +314,7 @@ const Analytics = () => {
 
   const getBrandDetailedStats = (brandId) => {
     const brandSpecificVideos = brandVideos[brandId] || [];
-    const brandSpecificEdits = brandEdits[brandId] || [];
+    const brandSpecificEdits = getBrandEditsFromRedux(brandId) || [];
     
     let additionalEdits = [];
     if (brandSpecificVideos.length) {
@@ -794,7 +799,7 @@ const Analytics = () => {
                   Feedback - {getBrandName(selectedBrandForFeedback)}
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Total {brandEdits[selectedBrandForFeedback]?.length || 0} feedback items
+                  Total {getBrandEditsFromRedux(selectedBrandForFeedback)?.length || 0} feedback items
                 </p>
               </div>
               <button
@@ -815,9 +820,9 @@ const Analytics = () => {
                 <div className="flex justify-center items-center h-40">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#002868]"></div>
                 </div>
-              ) : brandEdits[selectedBrandForFeedback]?.length > 0 ? (
+              ) : getBrandEditsFromRedux(selectedBrandForFeedback)?.length > 0 ? (
                 <div className="space-y-4">
-                  {brandEdits[selectedBrandForFeedback].map((edit, index) => (
+                  {getBrandEditsFromRedux(selectedBrandForFeedback).map((edit, index) => (
                     <div 
                       key={edit.edit_id || edit.id || index} 
                       className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"

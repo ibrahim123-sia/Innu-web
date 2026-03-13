@@ -66,7 +66,7 @@ export const getEditDetailsByBrand = createAsyncThunk(
       const response = await API.get(
         `/video-edit-detail/stats/edit-video-by-brand/${brand_id}`,
       );
-      return response.data;
+      return { brand_id, data: response.data };
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
@@ -80,7 +80,7 @@ export const getEditDetailsByShop = createAsyncThunk(
       const response = await API.get(
         `/video-edit-detail/stats/edit-video-by-shop/${shop_id}`,
       );
-      return { shop_id, ...response.data };
+      return { shop_id, data: response.data };
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
@@ -94,7 +94,7 @@ export const getEditDetailsByDistrict = createAsyncThunk(
       const response = await API.get(
         `/video-edit-detail/stats/edit-video-by-district/${district_id}`,
       );
-      return { district_id, ...response.data };
+      return { district_id, data: response.data };
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
@@ -108,7 +108,7 @@ export const getEditDetailsByUser = createAsyncThunk(
       const response = await API.get(
         `/video-edit-detail/stats/edit-video-by-user/${user_id}`,
       );
-      return { user_id, ...response.data };
+      return { user_id, data: response.data };
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
@@ -118,7 +118,7 @@ export const getEditDetailsByUser = createAsyncThunk(
 const initialState = {
   editDetails: {},
   editDetailsList: [],
-  brandEditDetails: [],
+  brandEditDetails: {}, // Changed from array to object
   shopEditDetails: [],
   districtEditDetails: [],
   userEditDetails: [],
@@ -142,7 +142,7 @@ const videoEditSlice = createSlice({
     clearEditDetails: (state) => {
       state.editDetails = {};
       state.editDetailsList = [];
-      state.brandEditDetails = [];
+      state.brandEditDetails = {}; // Changed from array to object
       state.shopEditDetails = [];
       state.districtEditDetails = [];
       state.userEditDetails = [];
@@ -151,6 +151,14 @@ const videoEditSlice = createSlice({
     clearUserEditDetails: (state) => {
       state.userEditDetails = [];
       state.lastFetched = {};
+    },
+    clearBrandEditDetails: (state, action) => {
+      const brandId = action.payload;
+      if (brandId) {
+        delete state.brandEditDetails[brandId];
+      } else {
+        state.brandEditDetails = {};
+      }
     },
   },
   extraReducers: (builder) => {
@@ -208,18 +216,25 @@ const videoEditSlice = createSlice({
       })
       .addCase(getEditDetailsByBrand.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload?.data && Array.isArray(action.payload.data)) {
-          state.brandEditDetails = action.payload.data;
-        } else if (Array.isArray(action.payload)) {
-          state.brandEditDetails = action.payload;
-        } else {
-          state.brandEditDetails = [];
+        const { brand_id, data } = action.payload;
+        
+        let edits = [];
+        if (data?.data && Array.isArray(data.data)) {
+          edits = data.data;
+        } else if (Array.isArray(data)) {
+          edits = data;
         }
+        
+        state.brandEditDetails[brand_id] = edits;
+        state.lastFetched[`brand_${brand_id}`] = Date.now();
       })
       .addCase(getEditDetailsByBrand.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.error || "Failed to fetch brand edit details";
-        state.brandEditDetails = [];
+        const brandId = action.meta.arg;
+        if (brandId) {
+          state.brandEditDetails[brandId] = [];
+        }
       })
 
       .addCase(getEditDetailsByShop.pending, (state) => {
@@ -291,7 +306,7 @@ const videoEditSlice = createSlice({
   },
 });
 
-export const { resetVideoEditState, clearEditDetails, clearUserEditDetails } = videoEditSlice.actions;
+export const { resetVideoEditState, clearEditDetails, clearUserEditDetails, clearBrandEditDetails } = videoEditSlice.actions;
 
 export const selectVideoEditState = (state) => state.videoEdit;
 export const selectEditDetails = (state) => state.videoEdit.editDetails;
@@ -309,6 +324,11 @@ export const selectVideoEditMessage = (state) => state.videoEdit.message;
 export const selectEditDetailsByVideoId = (videoId) => (state) =>
   state.videoEdit.editDetails[videoId] || [];
 
+export const selectEditDetailsByBrandId = (brandId) => (state) => {
+  if (!brandId) return [];
+  return state.videoEdit.brandEditDetails[brandId] || [];
+};
+
 export const selectEditDetailsByUserId = (userId) => (state) => {
   if (!userId) return [];
   const allEdits = state.videoEdit.userEditDetails || [];
@@ -321,10 +341,10 @@ export const selectAllUserEdits = (userId) => (state) => {
   return allEdits.filter(edit => edit.selected_by === userId || edit.created_by === userId);
 };
 
-export const selectEditCountByBrand = createSelector(
-  [selectBrandEditDetails],
-  (brandDetails) => brandDetails?.length || 0,
-);
+export const selectEditCountByBrand = (brandId) => (state) => {
+  if (!brandId) return 0;
+  return state.videoEdit.brandEditDetails[brandId]?.length || 0;
+};
 
 export const selectEditCountByShop = createSelector(
   [selectShopEditDetails],
