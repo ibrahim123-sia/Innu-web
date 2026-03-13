@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { selectShopsByBrand } from '../../redux/slice/shopSlice';
+import { 
+  getShopsByBrand,
+  selectShopsByBrand 
+} from '../../redux/slice/shopSlice';
 import { 
   getOrdersByBrand,
   selectOrdersByBrand 
@@ -14,41 +17,60 @@ const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.p
 const BrandDetailModal = ({ brandId, onClose }) => {
   const dispatch = useDispatch();
   const brands = useSelector(state => state.brand.brands);
-  const shops = useSelector(selectShopsByBrand(brandId));
   const users = useSelector(selectAllUsers);
-  const districts = useSelector(selectDistrictsByBrand(brandId));
+  const districts = useSelector(selectDistrictsByBrand);
+  
+  // Use selectShopsByBrand to get the shopsByBrand object
+  const shopsByBrand = useSelector(selectShopsByBrand);
+  // Get shops for this specific brand from the shopsByBrand object
+  const brandShops = shopsByBrand[brandId] || [];
 
   const [loading, setLoading] = useState(true);
   const [brandOrders, setBrandOrders] = useState([]);
 
   const brand = brands?.find(b => b.id === brandId);
-  const brandShops = shops?.filter(shop => shop.brand_id === brandId) || [];
   const brandUsers = users?.filter(user => user.brand_id === brandId) || [];
   const brandDistricts = districts?.filter(district => district.brand_id === brandId) || [];
   
   const brandAdmin = brandUsers.find(user => user.role === 'brand_admin') || {};
 
   useEffect(() => {
-    fetchBrandOrders();
-    fetchBrandDistricts();
+    fetchBrandData();
   }, [brandId]);
 
-  useEffect(() => {
-    if (brand) setLoading(false);
-  }, [brand]);
+  const fetchBrandData = async () => {
+    setLoading(true);
+    
+    try {
+      // Fetch shops by brand specifically
+      await dispatch(getShopsByBrand(brandId));
+      
+      // Fetch orders and districts
+      await Promise.all([
+        fetchBrandOrders(),
+        fetchBrandDistricts()
+      ]);
+    } catch (error) {
+      console.error('Error fetching brand data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchBrandOrders = async () => {
     try {
       const result = await dispatch(getOrdersByBrand(brandId));
       if (result.payload?.data) setBrandOrders(result.payload.data);
-    } catch {
+    } catch (error) {
+      console.error('Error fetching orders:', error);
     }
   };
 
   const fetchBrandDistricts = async () => {
     try {
       await dispatch(getDistrictsByBrand(brandId));
-    } catch {
+    } catch (error) {
+      console.error('Error fetching districts:', error);
     }
   };
 

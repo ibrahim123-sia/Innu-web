@@ -95,8 +95,8 @@ const Analytics = () => {
   
   // Global data from Redux - this never changes after initial load
   const brands = useSelector(selectAllBrands);
-  const allVideos = useSelector(selectVideos); // This is global - never overwritten
-  const allEditDetails = useSelector(selectEditDetailsList); // This is global - never overwritten
+  const allVideos = useSelector(selectVideos);
+  const allEditDetails = useSelector(selectEditDetailsList);
   const videoEditLoading = useSelector(selectVideoEditLoading);
 
   // Local state for brand-specific data only
@@ -112,6 +112,7 @@ const Analytics = () => {
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showAllFeedbackModal, setShowAllFeedbackModal] = useState(false);
   const [selectedBrandForFeedback, setSelectedBrandForFeedback] = useState(null);
+  const [loadingAllFeedback, setLoadingAllFeedback] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -211,14 +212,17 @@ const Analytics = () => {
     if (!brandEdits[brandId]?.length) await fetchBrandEdits(brandId);
   };
 
-  const handleViewAllFeedback = (brandId) => {
+  const handleViewAllFeedback = async (brandId) => {
     setSelectedBrandForFeedback(brandId);
     setShowAllFeedbackModal(true);
+    setLoadingAllFeedback(true);
     
-    // Make sure we have the data for this brand
+    // Fetch the data if not available
     if (!brandEdits[brandId]?.length) {
-      fetchBrandEdits(brandId);
+      await fetchBrandEdits(brandId);
     }
+    
+    setLoadingAllFeedback(false);
   };
 
   const handleViewFeedback = (edit) => {
@@ -238,11 +242,9 @@ const Analytics = () => {
     return brand?.name || 'Unknown Brand';
   };
 
-  // GLOBAL STATS - These only depend on allVideos and allEditDetails from Redux
-  // They will NEVER change after initial load
+  // GLOBAL STATS
   const totalAIVideoRequests = allVideos?.length || 0;
   
-  // Count unique videos that have corrections from global edit details
   const videosWithCorrections = new Set();
   allEditDetails?.forEach(edit => {
     if (edit.video_id) videosWithCorrections.add(edit.video_id);
@@ -260,7 +262,6 @@ const Analytics = () => {
     : 0;
 
   const getBrandStats = (brandId) => {
-    // Use brand-specific data from local state
     const brandSpecificVideos = brandVideos[brandId] || [];
     const brandSpecificEdits = brandEdits[brandId] || [];
     
@@ -284,7 +285,6 @@ const Analytics = () => {
     
     const brandVideoCount = brandSpecificVideos.length;
     
-    // Count unique videos with corrections for this brand
     const brandVideosWithCorrections = new Set();
     uniqueEdits.forEach(edit => {
       if (edit.video_id) brandVideosWithCorrections.add(edit.video_id);
@@ -304,7 +304,6 @@ const Analytics = () => {
       pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
       failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
       totalEdits: uniqueEdits.length,
-      brandEdits: uniqueEdits, // Add this to safely access edits
     };
   };
 
@@ -325,7 +324,6 @@ const Analytics = () => {
     
     const totalVideos = brandSpecificVideos.length;
     
-    // Count unique videos with corrections
     const videosWithCorrections = new Set();
     allEdits.forEach(edit => {
       if (edit.video_id) videosWithCorrections.add(edit.video_id);
@@ -361,7 +359,7 @@ const Analytics = () => {
 
   return (
     <div className="p-6 transition-opacity duration-300 ease-in-out">
-      {/* Top Stats Cards - Using global data only */}
+      {/* Top Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between">
@@ -440,7 +438,7 @@ const Analytics = () => {
         </div>
       </div>
 
-      {/* Companies Performance Table - Using brand-specific data from local state */}
+      {/* Companies Performance Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 hover:shadow-lg transition-shadow duration-200">
         <div className="p-6 border-b">
           <h2 className="text-xl font-bold text-gray-800">Companies Performance</h2>
@@ -487,11 +485,6 @@ const Analytics = () => {
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{brand.name}</div>
-                            {stats.totalEdits > stats.manualCorrections && (
-                              <div className="text-xs text-gray-500">
-                                {/* {stats.totalEdits} total edits on {stats.manualCorrections} videos */}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </td>
@@ -500,7 +493,6 @@ const Analytics = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-lg font-bold text-purple-600">{stats.manualCorrections}</div>
-                      
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
@@ -567,7 +559,7 @@ const Analytics = () => {
         )}
       </div>
 
-      {/* Modals */}
+      {/* Brand Analytics Modal */}
       {showBrandAnalyticsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -792,6 +784,7 @@ const Analytics = () => {
         </div>
       )}
 
+      {/* All Feedback Modal */}
       {showAllFeedbackModal && selectedBrandForFeedback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
@@ -818,7 +811,11 @@ const Analytics = () => {
             </div>
             
             <div className="p-6">
-              {brandEdits[selectedBrandForFeedback]?.length > 0 ? (
+              {loadingAllFeedback ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#002868]"></div>
+                </div>
+              ) : brandEdits[selectedBrandForFeedback]?.length > 0 ? (
                 <div className="space-y-4">
                   {brandEdits[selectedBrandForFeedback].map((edit, index) => (
                     <div 
@@ -834,6 +831,11 @@ const Analytics = () => {
                         <p className="text-gray-700">{edit.feedback_reason}</p>
                       ) : (
                         <p className="text-gray-400 italic">No feedback provided</p>
+                      )}
+                      {edit.created_at && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          {new Date(edit.created_at).toLocaleString()}
+                        </p>
                       )}
                     </div>
                   ))}
@@ -860,6 +862,7 @@ const Analytics = () => {
         </div>
       )}
 
+      {/* Individual Feedback Modal */}
       {showFeedbackModal && selectedFeedback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
