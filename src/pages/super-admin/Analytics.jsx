@@ -214,6 +214,11 @@ const Analytics = () => {
   const handleViewAllFeedback = (brandId) => {
     setSelectedBrandForFeedback(brandId);
     setShowAllFeedbackModal(true);
+    
+    // Make sure we have the data for this brand
+    if (!brandEdits[brandId]?.length) {
+      fetchBrandEdits(brandId);
+    }
   };
 
   const handleViewFeedback = (edit) => {
@@ -299,6 +304,7 @@ const Analytics = () => {
       pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
       failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
       totalEdits: uniqueEdits.length,
+      brandEdits: uniqueEdits, // Add this to safely access edits
     };
   };
 
@@ -483,7 +489,7 @@ const Analytics = () => {
                             <div className="font-medium text-gray-900">{brand.name}</div>
                             {stats.totalEdits > stats.manualCorrections && (
                               <div className="text-xs text-gray-500">
-                                {stats.totalEdits} total edits on {stats.manualCorrections} videos
+                                {/* {stats.totalEdits} total edits on {stats.manualCorrections} videos */}
                               </div>
                             )}
                           </div>
@@ -561,7 +567,7 @@ const Analytics = () => {
         )}
       </div>
 
-      {/* Modals remain exactly the same */}
+      {/* Modals */}
       {showBrandAnalyticsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -711,7 +717,7 @@ const Analytics = () => {
                               onClick={() => handleViewAllFeedback(showBrandAnalyticsModal)}
                               className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
                             >
-                              View All ({stats.brandEdits.length})
+                              View All ({stats.brandEdits?.length || 0})
                               <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
