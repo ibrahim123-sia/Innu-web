@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { selectAllShops } from '../../redux/slice/shopSlice';
+import { selectShopsByBrand } from '../../redux/slice/shopSlice';
 import { 
   getOrdersByBrand,
   selectOrdersByBrand 
@@ -14,9 +14,9 @@ const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.p
 const BrandDetailModal = ({ brandId, onClose }) => {
   const dispatch = useDispatch();
   const brands = useSelector(state => state.brand.brands);
-  const shops = useSelector(selectAllShops);
+  const shops = useSelector(selectShopsByBrand(brandId));
   const users = useSelector(selectAllUsers);
-  const districts = useSelector(selectDistrictsByBrand);
+  const districts = useSelector(selectDistrictsByBrand(brandId));
 
   const [loading, setLoading] = useState(true);
   const [brandOrders, setBrandOrders] = useState([]);
