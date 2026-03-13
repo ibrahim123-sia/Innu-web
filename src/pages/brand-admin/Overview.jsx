@@ -698,10 +698,10 @@ const Overview = () => {
                     </div>
                   </div>
 
-                  {/* Shops List - Updated with shop images and district design */}
+                  {/* Shops List - Updated with exact reference design and shop images */}
                   <div className="p-4">
                     {districtShops.length ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {districtShops.map((shop) => {
                           const shopVideos = shopVideosMap[shop.id] || [];
                           const aiRequests = shopVideos.filter(v => 
@@ -709,12 +709,12 @@ const Overview = () => {
                           ).length;
 
                           return (
-                            <div
-                              key={shop.id}
-                              className="border rounded-lg p-3 hover:shadow-md transition-shadow bg-white"
+                            <div 
+                              key={shop.id} 
+                              className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white"
                             >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center space-x-3">
                                   {/* Shop Image - Using logo_url or default */}
                                   <img
                                     src={getShopImageUrl(shop)}
@@ -725,63 +725,43 @@ const Overview = () => {
                                       e.target.src = DEFAULT_SHOP_LOGO;
                                     }}
                                   />
-                                  <div className="flex-1 min-w-0">
-                                    <h4 className="font-medium text-gray-800 text-sm truncate">
-                                      {shop.name}
-                                    </h4>
-                                    <p className="text-xs text-gray-500 truncate">
-                                      {shop.city || "No city"}
-                                      {shop.state ? `, ${shop.state}` : ""}
+                                  <div>
+                                    <h3 className="font-medium text-gray-800">{shop.name}</h3>
+                                    <p className="text-xs text-gray-500">
+                                      {shop.city}{shop.state ? `, ${shop.state}` : ''}
                                     </p>
                                   </div>
                                 </div>
                                 
-                                {/* Status Badge */}
-                                <span
-                                  className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                    shop.is_active
-                                      ? "bg-green-100 text-green-800"
-                                      : "bg-gray-100 text-gray-800"
-                                  }`}
+                                <button
+                                  onClick={() => openShopPage(shop)}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center transition-colors"
+                                  title="Open Shop Overview"
                                 >
-                                  <span className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                                    shop.is_active ? "bg-green-500" : "bg-gray-400"
-                                  }`} />
+                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                  Open
+                                </button>
+                              </div>
+
+                              <div className="flex justify-between items-center mt-2 text-sm">
+                                <span className="text-gray-600">Status:</span>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  shop.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                }`}>
                                   {shop.is_active ? "Active" : "Inactive"}
                                 </span>
                               </div>
 
-                              {/* AI Requests Count */}
                               {aiRequests > 0 && (
-                                <div className="mt-2 mb-2 flex items-center text-xs text-red-600 bg-red-50 rounded-md px-2 py-1">
+                                <div className="mt-2 flex items-center text-xs text-red-600 bg-red-50 rounded-md px-2 py-1">
                                   <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                   </svg>
                                   {aiRequests} AI Request{aiRequests !== 1 ? 's' : ''}
                                 </div>
                               )}
-
-                              {/* Open Shop Button */}
-                              <button
-                                onClick={() => openShopPage(shop)}
-                                className="mt-2 w-full bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white px-3 py-2 rounded-lg text-xs font-medium border border-blue-200 hover:border-blue-600 transition-all flex items-center justify-center"
-                                title="Open Shop Overview"
-                              >
-                                <svg
-                                  className="w-3 h-3 mr-1"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                  />
-                                </svg>
-                                Open Shop Overview
-                              </button>
                             </div>
                           );
                         })}
