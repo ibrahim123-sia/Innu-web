@@ -11,7 +11,7 @@ import {
 import { selectAllUsers } from '../../redux/slice/userSlice';
 import { getDistrictsByBrand, selectDistrictsByBrand } from '../../redux/slice/districtSlice';
 
-const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+const DEFAULT_BRAND_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/logo.png';
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 const BrandDetailModal = ({ brandId, onClose }) => {
@@ -19,10 +19,8 @@ const BrandDetailModal = ({ brandId, onClose }) => {
   const brands = useSelector(state => state.brand.brands);
   const users = useSelector(selectAllUsers);
   const districts = useSelector(selectDistrictsByBrand);
-  
-  // Use selectShopsByBrand to get the shopsByBrand object
+
   const shopsByBrand = useSelector(selectShopsByBrand);
-  // Get shops for this specific brand from the shopsByBrand object
   const brandShops = shopsByBrand[brandId] || [];
 
   const [loading, setLoading] = useState(true);
