@@ -16,7 +16,7 @@ import {
   getEditDetailsByBrand,
 } from '../../redux/slice/videoEditSlice';
 
-const DEFAULT_BRAND_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/6e6f98df-dbfc-4d67-bf80-0817391bc9ce1.png';
+const DEFAULT_BRAND_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/logo.png';
 
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
