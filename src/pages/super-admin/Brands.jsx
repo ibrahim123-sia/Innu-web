@@ -18,7 +18,7 @@ import BrandDetailModal from '../../components/super-admin/BrandDetailModal';
 import Swal from 'sweetalert2';
 
 const DEFAULT_BRAND_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/logo.png';
-const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const DEFAULT_PROFILE_PIC = 'https://storage.googleapis.com/innu-video-app/profile_pictures/default%20profile.jpg';
 
 const TableRowSkeleton = () => (
   <tr className="hover:bg-gray-50">
