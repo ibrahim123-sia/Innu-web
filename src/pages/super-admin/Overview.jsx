@@ -1,4 +1,4 @@
-const DEFAULT_SHOP_IMAGE = 'https://storage.googleapis.com/innu-video-app/shop_logo/6e6f98df-dbfc-4d67-bf80-0817391bc9ce1.png';
+const DEFAULT_BRAND_IMAGE = 'https://storage.googleapis.com/innu-video-app/brand_logo/6e6f98df-dbfc-4d67-bf80-0817391bc9ce1.png';
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
@@ -434,12 +434,12 @@ const Overview = () => {
                         alt={brand.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          e.target.src = DEFAULT_SHOP_IMAGE;
+                          e.target.src = DEFAULT_BRAND_IMAGE;
                         }}
                       />
                     ) : (
                       <img
-                        src={DEFAULT_SHOP_IMAGE}
+                        src={DEFAULT_BRAND_IMAGE}
                         alt={brand.name}
                         className="w-full h-full object-cover"
                       />

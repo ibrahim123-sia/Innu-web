@@ -17,7 +17,7 @@ import {
 import BrandDetailModal from '../../components/super-admin/BrandDetailModal';
 import Swal from 'sweetalert2';
 
-const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+const DEFAULT_BRAND_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/6e6f98df-dbfc-4d67-bf80-0817391bc9ce1.png';
 const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 const TableRowSkeleton = () => (

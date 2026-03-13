@@ -16,7 +16,7 @@ import {
   getEditDetailsByBrand,
 } from '../../redux/slice/videoEditSlice';
 
-const DEFAULT_BRAND_LOGO = 'https://cdn-icons-png.flaticon.com/512/891/891419.png';
+const DEFAULT_BRAND_LOGO = 'https://storage.googleapis.com/innu-video-app/brand_logo/6e6f98df-dbfc-4d67-bf80-0817391bc9ce1.png';
 
 const StatsSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -496,11 +496,11 @@ const Analytics = () => {
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{brand.name}</div>
-                            {stats.totalEdits > stats.manualCorrections && (
+                            {/* {stats.totalEdits > stats.manualCorrections && (
                               <div className="text-xs text-gray-500">
                                 {stats.totalEdits} total edits on {stats.manualCorrections} videos
                               </div>
-                            )}
+                            )} */}
                           </div>
                         </div>
                       </td>
