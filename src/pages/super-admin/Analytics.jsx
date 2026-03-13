@@ -212,9 +212,19 @@ const Analytics = () => {
   };
 
   const handleViewAllFeedback = (brandId) => {
-    setSelectedBrandForFeedback(brandId);
-    setShowAllFeedbackModal(true);
-  };
+  setSelectedBrandForFeedback(brandId);
+  setShowAllFeedbackModal(true);
+  
+  // Refresh the data if needed
+  if (!brandEdits[brandId]?.length) {
+    fetchBrandEdits(brandId);
+  }
+  
+  // Also fetch videos to get any additional edits
+  if (!brandVideos[brandId]?.length) {
+    fetchBrandVideos(brandId);
+  }
+};;
 
   const handleViewFeedback = (edit) => {
     setSelectedFeedback(edit);
@@ -303,46 +313,51 @@ const Analytics = () => {
   };
 
   const getBrandDetailedStats = (brandId) => {
-    const brandSpecificVideos = brandVideos[brandId] || [];
-    const brandSpecificEdits = brandEdits[brandId] || [];
-    
-    let additionalEdits = [];
-    if (brandSpecificVideos.length) {
-      const videoIds = brandSpecificVideos.map(v => v.id);
-      additionalEdits = allEditDetails?.filter(edit => 
-        edit.video_id && videoIds.includes(edit.video_id) && 
-        !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
-      ) || [];
-    }
-    
-    const allEdits = [...brandSpecificEdits, ...additionalEdits];
-    
-    const totalVideos = brandSpecificVideos.length;
-    
-    // Count unique videos with corrections
-    const videosWithCorrections = new Set();
-    allEdits.forEach(edit => {
-      if (edit.video_id) videosWithCorrections.add(edit.video_id);
-    });
-    
-    const manualCorrections = videosWithCorrections.size;
-    const successCount = Math.max(0, totalVideos - manualCorrections);
-    
-    return {
-      totalVideos,
-      manualCorrections,
-      successCount,
-      successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0,
-      errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0,
-      completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
-      processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
-      pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
-      failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
-      brandVideos: brandSpecificVideos,
-      brandEdits: allEdits,
-      totalEdits: allEdits.length,
-    };
+  const brandSpecificVideos = brandVideos[brandId] || [];
+  const brandSpecificEdits = brandEdits[brandId] || [];
+  
+  let additionalEdits = [];
+  if (brandSpecificVideos.length) {
+    const videoIds = brandSpecificVideos.map(v => v.id);
+    additionalEdits = allEditDetails?.filter(edit => 
+      edit.video_id && videoIds.includes(edit.video_id) && 
+      !brandSpecificEdits.some(e => e.edit_id === edit.edit_id || e.id === edit.id)
+    ) || [];
+  }
+  
+  const allEdits = [...brandSpecificEdits, ...additionalEdits];
+  
+  // Store the combined edits back in brandEdits state
+  if (allEdits.length > (brandEdits[brandId]?.length || 0)) {
+    setBrandEdits(prev => ({ ...prev, [brandId]: allEdits }));
+  }
+  
+  const totalVideos = brandSpecificVideos.length;
+  
+  // Count unique videos with corrections
+  const videosWithCorrections = new Set();
+  allEdits.forEach(edit => {
+    if (edit.video_id) videosWithCorrections.add(edit.video_id);
+  });
+  
+  const manualCorrections = videosWithCorrections.size;
+  const successCount = Math.max(0, totalVideos - manualCorrections);
+  
+  return {
+    totalVideos,
+    manualCorrections,
+    successCount,
+    successRate: totalVideos > 0 ? ((successCount / totalVideos) * 100).toFixed(2) : 0,
+    errorRate: totalVideos > 0 ? ((manualCorrections / totalVideos) * 100).toFixed(2) : 0,
+    completedVideos: brandSpecificVideos.filter(v => v.status === 'completed').length,
+    processingVideos: brandSpecificVideos.filter(v => v.status === 'processing').length,
+    pendingVideos: brandSpecificVideos.filter(v => v.status === 'pending').length,
+    failedVideos: brandSpecificVideos.filter(v => v.status === 'failed').length,
+    brandVideos: brandSpecificVideos,
+    brandEdits: allEdits,
+    totalEdits: allEdits.length,
   };
+};
 
   if (isInitialLoad || (localLoading && !isDataReady)) {
     return (
