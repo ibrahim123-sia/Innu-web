@@ -1,3 +1,5 @@
+const DEFAULT_SHOP_IMAGE = 'https://storage.googleapis.com/innu-video-app/shop_logo/6e6f98df-dbfc-4d67-bf80-0817391bc9ce1.png';
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { selectAllBrands, getAllBrands } from "../../redux/slice/brandSlice";
@@ -432,24 +434,15 @@ const Overview = () => {
                         alt={brand.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          e.target.src =
-                            "https://cdn-icons-png.flaticon.com/512/891/891419.png";
+                          e.target.src = DEFAULT_SHOP_IMAGE;
                         }}
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-blue-50">
-                        <svg
-                          className="w-5 h-5 text-blue-300"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
+                      <img
+                        src={DEFAULT_SHOP_IMAGE}
+                        alt={brand.name}
+                        className="w-full h-full object-cover"
+                      />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
