@@ -778,7 +778,7 @@ const Overview = () => {
                           No shops in this district
                         </p>
                         <Link
-                          to="/brand-admin/shops/add"
+                          to="/brand-admin/shops"
                           className="mt-2 inline-flex items-center text-xs text-blue-600 hover:text-blue-800"
                         >
                           <svg
