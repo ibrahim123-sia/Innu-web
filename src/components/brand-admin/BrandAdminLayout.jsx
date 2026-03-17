@@ -103,10 +103,10 @@ const BrandAdminLayout = ({ children }) => {
           <div className="flex items-center space-x-4">
             <div className="bg-primary-red px-3 py-1 rounded-full text-sm">
               {accessMode === 'district' 
-                ? "Brand Admin • District View" 
+                ? "Company Admin • District View" 
                 : accessMode === 'shop'
-                  ? "Brand Admin • Shop View"
-                  : "Brand Admin"}
+                  ? "Company Admin • Shop View"
+                  : "Company Admin"}
             </div>
             <span className="hidden md:inline text-white">{user?.email}</span>
             <LogoutButton />
