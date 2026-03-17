@@ -230,7 +230,7 @@ const BrandDetailModal = ({ brandId, onClose }) => {
                         {brandAdmin.is_active ? 'Active' : 'Inactive'}
                       </span>
                       <span className="text-xs text-gray-500">
-                        Role: {brandAdmin.role?.replace('_', ' ') || 'Brand Admin'}
+                        Role: {'Company Admin'}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
